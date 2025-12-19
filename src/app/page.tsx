@@ -149,8 +149,9 @@ export default function Home() {
             group,
             timestamp: new Date().toISOString(),
             deliveryFee,
-            individualPrices: individualPrices.length > 0 ? individualPrices : undefined,
+            ...(individualPrices.length > 0 ? { individualPrices } : {}),
         };
+
 
         if (currentItem?.id) {
             const docRef = doc(firestore, "order_items", currentItem.id);
