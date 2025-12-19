@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,7 +74,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
     
     if (id && name && !isNaN(price)) {
       if(isAdding) {
-         setBomboniereItems(prev => [...prev, { id, name, price, imageUrl: `https://picsum.photos/seed/${id}/200/200`, aiHint: 'new item' }]);
+         setBomboniereItems(prev => [...prev, { id, name, price }]);
       } else {
          setBomboniereItems(prev => prev.map(item => item.id === id ? { ...item, name, price } : item));
       }
@@ -113,7 +112,6 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
             </form>
             ) : (
             <Card key={item.id} className="flex items-center p-2">
-                <Image src={item.imageUrl} alt={item.name} width={40} height={40} className="rounded-md mr-4" data-ai-hint={item.aiHint} />
                 <div className="flex-grow">
                     <p className="font-semibold">{item.name}</p>
                     <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
@@ -157,32 +155,27 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
         <ScrollArea className="h-96 -mx-6">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 px-6">
             {bomboniereItems.map((item) => (
-                <Card key={item.id} className="flex flex-col items-center justify-center text-center p-2 relative">
-                <Image 
-                    src={item.imageUrl} 
-                    alt={item.name} 
-                    width={80} height={80} 
-                    className="rounded-md mb-2"
-                    data-ai-hint={item.aiHint}
-                />
-                <p className="text-sm font-semibold leading-tight">{item.name}</p>
-                <p className="text-xs text-muted-foreground">{formatCurrency(item.price)}</p>
-                
-                {selectedItems[item.id] > 0 ? (
-                    <div className="flex items-center justify-center gap-2 mt-2 bg-background absolute bottom-1 right-1 rounded-full p-0.5 border">
-                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => handleQuantityChange(item.id, -1)}>
-                            <MinusCircle className="h-5 w-5 text-destructive" />
-                        </Button>
-                        <span className="text-sm font-bold w-4 text-center">{selectedItems[item.id]}</span>
-                         <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => handleQuantityChange(item.id, 1)}>
-                            <PlusCircle className="h-5 w-5 text-primary" />
-                        </Button>
+                <Card key={item.id} className="flex flex-col items-center justify-center text-center p-4 relative aspect-square">
+                    <div className="flex-grow flex items-center justify-center">
+                        <p className="text-base font-bold leading-tight">{item.name}</p>
                     </div>
-                ) : (
-                    <Button variant="ghost" size="icon" className="absolute bottom-1 right-1 h-8 w-8 rounded-full" onClick={() => handleQuantityChange(item.id, 1)}>
-                        <PlusCircle className="h-6 w-6 text-primary" />
-                    </Button>
-                )}
+                    <p className="text-sm text-muted-foreground font-semibold">{formatCurrency(item.price)}</p>
+                    
+                    {selectedItems[item.id] > 0 ? (
+                        <div className="flex items-center justify-center gap-2 mt-2 bg-background absolute bottom-1 right-1 rounded-full p-0.5 border">
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => handleQuantityChange(item.id, -1)}>
+                                <MinusCircle className="h-5 w-5 text-destructive" />
+                            </Button>
+                            <span className="text-sm font-bold w-4 text-center">{selectedItems[item.id]}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => handleQuantityChange(item.id, 1)}>
+                                <PlusCircle className="h-5 w-5 text-primary" />
+                            </Button>
+                        </div>
+                    ) : (
+                        <Button variant="ghost" size="icon" className="absolute bottom-1 right-1 h-8 w-8 rounded-full" onClick={() => handleQuantityChange(item.id, 1)}>
+                            <PlusCircle className="h-6 w-6 text-primary" />
+                        </Button>
+                    )}
                 </Card>
             ))}
             </div>

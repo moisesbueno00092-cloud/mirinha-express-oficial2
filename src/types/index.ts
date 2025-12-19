@@ -9,8 +9,6 @@ export interface BomboniereItem {
     id: string;
     name: string;
     price: number;
-    imageUrl: string;
-    aiHint: string;
 }
 
 export interface SelectedBomboniereItem {
