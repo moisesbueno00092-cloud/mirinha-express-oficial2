@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from "react";
@@ -62,33 +63,37 @@ export default function Home() {
   const handleUpsertItem = async (rawInput: string, currentItem?: Item | null) => {
     setIsProcessing(true);
     try {
-        let input = rawInput.trim();
-        let quantity = 1;
-        const quantityMatch = input.match(/^(\d+)\s*x?\s*(.*)/i);
-        if (quantityMatch) {
-            quantity = parseInt(quantityMatch[1], 10);
-            input = quantityMatch[2].trim();
-        }
+      let mainInput = rawInput.trim();
+      let quantity = 1;
+      const quantityMatch = mainInput.match(/^(\d+)\s*x?\s*(.*)/i);
+      if (quantityMatch) {
+          quantity = parseInt(quantityMatch[1], 10);
+          mainInput = quantityMatch[2].trim();
+      }
 
-        let group: Group = 'Vendas salão';
-        let deliveryFee = 0;
-        const upperCaseInput = input.toUpperCase();
+      let group: Group = 'Vendas salão';
+      let deliveryFee = 0;
+      const upperCaseInput = mainInput.toUpperCase();
 
-        if (upperCaseInput.startsWith("R ")) {
-            group = 'Vendas rua';
-            deliveryFee = DELIVERY_FEE;
-            input = input.substring(2).trim();
-        } else if (upperCaseInput.startsWith("FR ")) {
-            group = 'Fiados rua';
-            deliveryFee = DELIVERY_FEE;
-            input = input.substring(3).trim();
-        } else if (upperCaseInput.startsWith("F ")) {
-            group = 'Fiados salão';
-            input = input.substring(2).trim();
-        } else {
-            group = 'Vendas salão';
-        }
-        
+      if (upperCaseInput.startsWith("R ")) {
+          group = 'Vendas rua';
+          deliveryFee = DELIVERY_FEE;
+          mainInput = mainInput.substring(2).trim();
+      } else if (upperCaseInput.startsWith("FR ")) {
+          group = 'Fiados rua';
+          deliveryFee = DELIVERY_FEE;
+          mainInput = mainInput.substring(3).trim();
+      } else if (upperCaseInput.startsWith("F ")) {
+          group = 'Fiados salão';
+          mainInput = mainInput.substring(2).trim();
+      } else {
+          group = 'Vendas salão';
+      }
+
+      // Split input into multiple items
+      const itemInputs = mainInput.split(' ').filter(input => input.trim() !== '');
+
+      for (const input of itemInputs) {
         let price = 0;
         let finalName = "";
 
@@ -119,13 +124,8 @@ export default function Home() {
         }
         
         if (!finalName) {
-            toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "O nome do item não pode ser vazio.",
-            });
-            setIsProcessing(false);
-            return;
+            // This case might be skipped for multi-input if one is empty
+            continue;
         }
 
         const total = (price * quantity) + (deliveryFee > 0 ? deliveryFee : 0);
@@ -144,10 +144,13 @@ export default function Home() {
             setDocumentNonBlocking(docRef, itemData, { merge: true });
             toast({ title: "Sucesso", description: "Item atualizado." });
             setEditingItem(null);
+            // In edit mode, we only process one item.
+            break; 
         } else {
             const newItem = { ...itemData, timestamp: new Date().toISOString() };
             addDocumentNonBlocking(orderItemsRef, newItem);
         }
+      } // end for loop
 
     } catch (error) {
         console.error("Error upserting item:", error);
