@@ -101,32 +101,29 @@ export default function Home() {
         const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
         const numericValue = parseFloat(input.replace(',', '.'));
 
-        // Check if it's a predefined key
         if (Object.prototype.hasOwnProperty.call(PREDEFINED_PRICES, predefinedKey)) {
           finalName = predefinedKey;
-          // Check if next part is a price override
+          
           if (i + 1 < itemInputs.length) {
             const nextPart = itemInputs[i + 1];
             const overridePrice = parseFloat(nextPart.replace(',', '.'));
             if (!isNaN(overridePrice) && /^[0-9,.]+$/.test(nextPart)) {
               price = overridePrice;
-              i += 2; // Consume both item key and price
+              i += 2; 
             } else {
               price = PREDEFINED_PRICES[predefinedKey];
-              i++; // Consume just item key
+              i++;
             }
           } else {
             price = PREDEFINED_PRICES[predefinedKey];
-            i++; // Consume just item key
+            i++;
           }
         } else if (!isNaN(numericValue) && /^[0-9,.]+$/.test(input)) {
-            // It's a number, so it's a KG item
             price = numericValue;
             finalName = "KG";
-            quantity = 1; // KG items always have quantity 1
-            i++; // Move to next input part
+            quantity = 1;
+            i++;
         } else {
-          // Not a predefined key, not a standalone number, treat as a custom item with AI parsing
             const aiResult = await parseCustomItemPrice({
               itemName: input.replace(",", "."),
             });
@@ -136,7 +133,7 @@ export default function Home() {
                 finalName = aiResult.itemName;
             } else {
                 finalName = input;
-                price = 0; // Or handle as an error
+                price = 0;
             }
             i++;
         }
@@ -161,13 +158,12 @@ export default function Home() {
             setDocumentNonBlocking(docRef, itemData, { merge: true });
             toast({ title: "Sucesso", description: "Item atualizado." });
             setEditingItem(null);
-            // In edit mode, we only process one item.
             break; 
         } else {
             const newItem = { ...itemData, timestamp: new Date().toISOString() };
             addDocumentNonBlocking(orderItemsRef, newItem);
         }
-      } // end while loop
+      }
 
     } catch (error) {
         console.error("Error upserting item:", error);
@@ -382,3 +378,5 @@ export default function Home() {
     </>
   );
 }
+
+    
