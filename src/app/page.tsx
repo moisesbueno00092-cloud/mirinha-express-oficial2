@@ -64,10 +64,10 @@ export default function Home() {
     setIsProcessing(true);
     try {
       let mainInput = rawInput.trim();
-      let quantity = 1;
+      let baseQuantity = 1;
       const quantityMatch = mainInput.match(/^(\d+)\s*x?\s*(.*)/i);
       if (quantityMatch) {
-          quantity = parseInt(quantityMatch[1], 10);
+          baseQuantity = parseInt(quantityMatch[1], 10);
           mainInput = quantityMatch[2].trim();
       }
 
@@ -96,6 +96,7 @@ export default function Home() {
         const input = itemInputs[i];
         let price = 0;
         let finalName = "";
+        let quantity = baseQuantity;
 
         const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
 
@@ -122,6 +123,7 @@ export default function Home() {
           if (!isNaN(numericValue) && /^[0-9,.]+$/.test(input)) {
             price = numericValue;
             finalName = "KG";
+            quantity = 1; // KG items always have quantity 1
             i++; // Move to next input part
           } else {
             // Not a predefined key, not a number, treat as a custom item with AI parsing
@@ -381,3 +383,5 @@ export default function Home() {
     </>
   );
 }
+
+    
