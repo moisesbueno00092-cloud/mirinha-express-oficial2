@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { Share, FileText, BrainCircuit } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 
 interface FinalReportProps {
