@@ -28,50 +28,62 @@ export default function Home() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleUpsertItem = async (rawItemName: string, quantity: number) => {
+  const handleUpsertItem = async (rawInput: string) => {
     setIsProcessing(true);
     try {
-      let nameForProcessing = rawItemName.trim();
-      let price = 0;
-      let finalName = nameForProcessing;
       let group: Group = "Vendas salão";
+      let quantity = 1;
+      let nameForProcessing = rawInput.trim();
 
+      // 1. Extract quantity from the start of the string
+      const quantityMatch = nameForProcessing.match(/^(\d+)\s*(.*)/);
+      if (quantityMatch) {
+        quantity = parseInt(quantityMatch[1], 10);
+        nameForProcessing = quantityMatch[2].trim();
+      }
+
+      // 2. Determine group and clean name
       const upperCaseName = nameForProcessing.toUpperCase();
+      let nameWithoutGroupPrefix = nameForProcessing;
 
-      const predefinedPriceKey = Object.keys(PREDEFINED_PRICES).find(key => upperCaseName === key);
-
-      if (predefinedPriceKey) {
-          price = PREDEFINED_PRICES[predefinedPriceKey];
-          finalName = predefinedPriceKey;
-      } else {
-        let nameWithoutGroupPrefix = nameForProcessing;
-        if (upperCaseName.startsWith("FR ")) {
-          group = "Fiados rua";
-          nameWithoutGroupPrefix = nameForProcessing.substring(3).trim();
-        } else if (upperCaseName.startsWith("F ")) {
-          group = "Fiados salão";
-          nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
-        } else if (upperCaseName.startsWith("R ")) {
-          group = "Vendas rua";
-          nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
+      if (upperCaseName.startsWith("FR ")) {
+        group = "Fiados rua";
+        nameWithoutGroupPrefix = nameForProcessing.substring(3).trim();
+      } else if (upperCaseName.startsWith("F ")) {
+        group = "Fiados salão";
+        nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
+      } else if (upperCaseName.startsWith("R ")) {
+        group = "Vendas rua";
+        nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
+      } else if (upperCaseName.startsWith("M ")) {
+        // This could be a price or a group prefix. Let's see.
+        const potentialPriceMatch = nameForProcessing.match(/^M\s+([0-9,.]+)/);
+        if(!potentialPriceMatch) {
+            // If it's not `M <number>`, we assume it's Vendas Salão (M de Mesa)
+             group = "Vendas salão";
+             nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
         }
+      }
+      
+      const itemLookupKey = nameWithoutGroupPrefix.toUpperCase();
+      let price = 0;
+      let finalName = nameWithoutGroupPrefix;
 
-        const itemLookupKey = nameWithoutGroupPrefix.toUpperCase();
-
-        if (PREDEFINED_PRICES[itemLookupKey]) {
+      // 3. Find price
+      if (PREDEFINED_PRICES[itemLookupKey]) {
           price = PREDEFINED_PRICES[itemLookupKey];
           finalName = itemLookupKey;
-        } else {
-          const aiResult = await parseCustomItemPrice({
-            itemName: nameWithoutGroupPrefix.replace(",", "."),
-          });
+      } else {
+        // 4. If not a predefined price, use AI for custom prices
+        const aiResult = await parseCustomItemPrice({
+          itemName: nameWithoutGroupPrefix.replace(",", "."),
+        });
 
-          if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
-            price = aiResult.customPrice;
-            finalName = aiResult.itemName;
-          } else {
-            finalName = nameWithoutGroupPrefix;
-          }
+        if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
+          price = aiResult.customPrice;
+          finalName = aiResult.itemName;
+        } else {
+          finalName = nameWithoutGroupPrefix;
         }
       }
       
@@ -85,6 +97,7 @@ export default function Home() {
         return;
       }
 
+      // 5. Upsert item
       if (editingItemId) {
         const docRef = doc(firestore, "order_items", editingItemId);
         const updatedItem: Partial<Item> = {
@@ -109,7 +122,7 @@ export default function Home() {
           group,
           timestamp: new Date().toISOString(),
         };
-        setDocumentNonBlocking(docRef, newItem, { merge: false });
+        addDocumentNonBlocking(docRef, newItem);
       }
 
     } catch (error) {

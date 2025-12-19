@@ -8,79 +8,62 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 
 interface ItemFormProps {
-  onItemSubmit: (itemName: string, quantity: number) => void;
+  onItemSubmit: (rawInput: string) => void;
   isProcessing: boolean;
   editingItem: Item | null;
   onCancelEdit: () => void;
 }
 
 export default function ItemForm({ onItemSubmit, isProcessing, editingItem, onCancelEdit }: ItemFormProps) {
-  const [itemName, setItemName] = useState("");
-  const [quantity, setQuantity] = useState("1");
+  const [rawInput, setRawInput] = useState("");
   
   const isEditing = !!editingItem;
 
   useEffect(() => {
     if (editingItem) {
-      // Logic to reconstruct the original input string is tricky.
-      // For simplicity, we just fill the name and quantity.
-      // A more complex approach would be needed to rebuild prefixes.
-      setItemName(editingItem.name);
-      setQuantity(editingItem.quantity.toString());
+      // When editing, reconstruct a string that includes quantity and name
+      setRawInput(`${editingItem.quantity}${editingItem.name}`);
     } else {
-      setItemName("");
-      setQuantity("1");
+      setRawInput("");
     }
   }, [editingItem]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const numQuantity = parseInt(quantity, 10);
-    if (!itemName.trim() || isNaN(numQuantity) || numQuantity <= 0) {
+    if (!rawInput.trim()) {
       return;
     }
-    onItemSubmit(itemName, numQuantity);
+    onItemSubmit(rawInput);
     if (!isEditing) {
-      setItemName("");
-      setQuantity("1");
+      setRawInput("");
     }
   };
   
   const handleCancel = () => {
     onCancelEdit();
-    setItemName("");
-    setQuantity("1");
+    setRawInput("");
   }
 
   return (
     <Card className={isEditing ? "border-primary ring-2 ring-primary" : ""}>
       <CardHeader className="p-4 sm:p-6">
         <CardTitle className="text-xl sm:text-2xl">{isEditing ? 'Editar Item' : 'Adicionar Novo Item'}</CardTitle>
-        {isEditing && <CardDescription>Você está editando o item: <span className="font-bold text-foreground">{editingItem.name}</span></CardDescription>}
+        {isEditing && <CardDescription>Você está editando o item: <span className="font-bold text-foreground">{`${editingItem.quantity}x ${editingItem.name}`}</span></CardDescription>}
       </CardHeader>
       <CardContent className="p-4 sm:p-6 pt-0">
-        <form onSubmit={handleSubmit} className="grid sm:grid-cols-12 gap-2">
-          <div className="sm:col-span-8">
+        <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-2">
+          <div className="col-span-10">
             <Input
               type="text"
-              placeholder="Ex: M 12,50 Coca ou P"
-              value={itemName}
-              onChange={(e) => setItemName(e.target.value)}
+              placeholder="Ex: 2p ou M 12,50 Coca"
+              value={rawInput}
+              onChange={(e) => setRawInput(e.target.value)}
               required
               className="h-10 sm:h-12 text-base"
+              autoFocus
             />
           </div>
-          <div className="sm:col-span-2">
-            <Input
-              type="number"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              min="1"
-              required
-              className="h-10 sm:h-12 text-base text-center"
-            />
-          </div>
-          <div className="sm:col-span-2 flex gap-2">
+          <div className="col-span-2 flex gap-2">
             {isEditing && (
                <Button type="button" variant="outline" className="w-full h-10 sm:h-12" onClick={handleCancel}>
                 <XCircle />
@@ -92,7 +75,7 @@ export default function ItemForm({ onItemSubmit, isProcessing, editingItem, onCa
               ) : (
                 isEditing ? <Save /> : <PlusCircle /> 
               )}
-              <span className="hidden sm:inline">{isEditing ? 'Salvar' : 'Adicionar'}</span>
+              <span className="sr-only sm:not-sr-only">{isEditing ? 'Salvar' : 'Adicionar'}</span>
             </Button>
           </div>
         </form>
