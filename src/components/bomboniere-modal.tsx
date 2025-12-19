@@ -178,6 +178,15 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
       return 'text-muted-foreground';
   };
   
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        if (Object.keys(selectedItems).length > 0) {
+            handleAddClick();
+        }
+    }
+  }
+
   const renderHeader = () => (
     <DialogHeader>
         <div className="flex justify-between items-center relative">
@@ -329,7 +338,9 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
             placeholder="Buscar item..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={handleKeyDown}
             className="h-9"
+            autoFocus
         />
       </div>
 
@@ -413,6 +424,8 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
     </Dialog>
   );
 }
+    
+
     
 
     
