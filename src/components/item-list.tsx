@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PREDEFINED_PRICES } from "@/lib/constants";
 
 interface ItemListProps {
   items: Item[];
@@ -50,6 +51,28 @@ const groupBadgeStyles: Record<Group, string> = {
   "Fiados rua": "bg-orange-500 hover:bg-orange-600 border-transparent text-white",
 };
 
+const itemBadgeStyles: { [key: string]: string } = {
+  PP: "bg-pink-500",
+  P: "bg-indigo-500",
+  M: "bg-green-600",
+  G: "bg-yellow-500 text-black",
+  GG: "bg-teal-500",
+  KITM: "bg-cyan-500",
+  KITG: "bg-sky-500",
+  PF: "bg-lime-500 text-black",
+  SL: "bg-emerald-500",
+  SLKIT: "bg-fuchsia-500",
+};
+
+const getItemBadgeStyle = (itemName: string) => {
+  const style = itemBadgeStyles[itemName.toUpperCase()];
+  if (style) {
+    return `text-white border-transparent ${style}`;
+  }
+  return "bg-gray-400 text-white border-transparent";
+}
+
+
 export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemListProps) {
   if (isLoading) {
     return (
@@ -84,7 +107,11 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
         <TableBody>
           {[...items].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((item) => (
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive")}>
-              <TableCell className="font-medium px-2 sm:px-4">{item.name}</TableCell>
+              <TableCell className="font-medium px-2 sm:px-4">
+                <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>
+                  {item.name}
+                </Badge>
+              </TableCell>
               <TableCell className="px-2 sm:px-4">
                 <Badge className={cn("whitespace-nowrap", groupBadgeStyles[item.group] || "bg-gray-500")}>
                   {item.group}
