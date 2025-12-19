@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { Share, FileText, BrainCircuit } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 
 interface FinalReportProps {
   items: Item[];
@@ -103,18 +102,21 @@ export default function FinalReport({ items }: FinalReportProps) {
     });
     
     const totalFaturamento = Object.values(totalsByGroup).reduce((acc, val) => acc + val, 0);
-    const totalMealValue = totalFaturamento - totalBomboniereValue;
+    // Subtrai o valor das entregas do total de refeições, já que o faturamento do grupo já inclui a taxa.
+    const totalMealValue = totalFaturamento - totalBomboniereValue - totalDeliveryFee;
     const totalAVista = totalsByGroup['Vendas salão'] + totalsByGroup['Vendas rua'];
     const totalFiado = totalsByGroup['Fiados salão'] + totalsByGroup['Fiados rua'];
 
     const pieData = [
       { name: 'Refeições', value: totalMealValue, percent: totalFaturamento > 0 ? ((totalMealValue / totalFaturamento) * 100).toFixed(0) : 0 },
       { name: 'Bomboniere', value: totalBomboniereValue, percent: totalFaturamento > 0 ? ((totalBomboniereValue / totalFaturamento) * 100).toFixed(0) : 0 },
+      { name: 'Entregas', value: totalDeliveryFee, percent: totalFaturamento > 0 ? ((totalDeliveryFee / totalFaturamento) * 100).toFixed(0) : 0 },
     ].filter(d => d.value > 0);
         
     const COLORS = {
         'Refeições': '#d92550',
         'Bomboniere': '#3498db',
+        'Entregas': '#f1c40f',
     };
 
     const sortedItemCounts = Object.entries(itemCounts).sort(([, a], [, b]) => b.total - a.total);
@@ -172,16 +174,24 @@ export default function FinalReport({ items }: FinalReportProps) {
                     <h3 className="font-semibold text-base sm:text-lg">Resumo Financeiro</h3>
                     <div className="space-y-2 text-xs sm:text-sm">
                         <div className="flex justify-between">
-                            <span>À Vista:</span>
-                            <span className="font-mono font-medium">{formatCurrency(reportData.totalAVista)}</span>
+                            <span>À Vista (Salão):</span>
+                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Vendas salão'])}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>À Vista (Rua):</span>
+                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Vendas rua'])}</span>
                         </div>
                         <div className="flex justify-between text-destructive">
-                            <span>Fiado:</span>
-                            <span className="font-mono font-medium">{formatCurrency(reportData.totalFiado)}</span>
+                            <span>Fiado (Salão):</span>
+                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Fiados salão'])}</span>
+                        </div>
+                         <div className="flex justify-between text-destructive">
+                            <span>Fiado (Rua):</span>
+                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Fiados rua'])}</span>
                         </div>
                         <div className="flex justify-between text-destructive">
                            <span>Entregas ({reportData.deliveryCount}):</span>
-                           <span className="font-mono font-medium">{formatCurrency(reportData.totalDeliveryFee)}</span>
+                           <span className="font-mono font-medium">-{formatCurrency(reportData.totalDeliveryFee)}</span>
                         </div>
                     </div>
                      <Separator />
@@ -224,7 +234,7 @@ export default function FinalReport({ items }: FinalReportProps) {
                                         fill="#8884d8"
                                         dataKey="value"
                                         nameKey="name"
-                                        label={({ percent }) => `${percent}%`}
+                                        label={({ percent, name }) => name === 'Entregas' ? '' : `${percent}%`}
                                         className="text-xs"
                                     >
                                         {reportData.pieData.map((entry, index) => (
@@ -310,3 +320,5 @@ export default function FinalReport({ items }: FinalReportProps) {
     </div>
   );
 }
+
+    
