@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, Plus } from "lucide-react";
+import { Trash2, Save } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -281,6 +281,9 @@ export default function Home() {
           setEditingItem(null);
         } else {
           setRawInput("");
+          if (inputRef.current) {
+            inputRef.current.focus();
+          }
         }
     }
   };
@@ -399,7 +402,6 @@ export default function Home() {
     e.preventDefault();
     if (!rawInput.trim()) return;
     await handleUpsertItem(rawInput);
-    inputRef.current?.focus();
   };
 
 
@@ -454,7 +456,7 @@ export default function Home() {
             <Input
               value={editInputValue}
               onChange={(e) => setEditInputValue(e.target.value)}
-              placeholder="Ex: F m p"
+              placeholder=""
               className="h-10 flex-1 sm:h-12 text-base"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {

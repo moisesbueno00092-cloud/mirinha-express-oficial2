@@ -38,6 +38,7 @@ export default function ItemForm({
               value={rawInput}
               onChange={(e) => setRawInput(e.target.value)}
               className="h-10 flex-1 sm:h-12 text-base"
+              disabled={isProcessing}
             />
             <Button 
                 type="button" 
@@ -46,12 +47,17 @@ export default function ItemForm({
                 onClick={onOpenBomboniere}
                 disabled={isProcessing}
             >
+              <span className="sm:hidden"><Plus /></span>
+              <span className="hidden sm:inline">Outros</span>
+            </Button>
+            <Button 
+                type="submit" 
+                className="h-10 w-24 sm:h-12"
+                disabled={isProcessing || !rawInput.trim()}
+            >
               {isProcessing ? (
                 <Loader2 className="animate-spin" />
-              ) : (
-                <Plus /> 
-              )}
-              <span className="hidden sm:inline ml-2">Outros</span>
+              ) : "Adicionar"}
             </Button>
         </form>
       </CardContent>
