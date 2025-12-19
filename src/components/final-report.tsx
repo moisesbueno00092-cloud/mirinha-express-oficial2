@@ -43,6 +43,7 @@ export default function FinalReport({ items }: FinalReportProps) {
     
     const itemCounts: { [key: string]: { total: number; rua: number } } = {};
     let totalRuaItems = 0;
+    let totalGeralItems = 0;
 
     const deliveryItems = items.filter(item => item.deliveryFee > 0);
     const deliveryCount = deliveryItems.reduce((acc, item) => acc + item.quantity, 0);
@@ -56,31 +57,19 @@ export default function FinalReport({ items }: FinalReportProps) {
         itemCounts[itemName] = { total: 0, rua: 0 };
       }
 
-      if (itemName === 'KG') {
-        // For KG items, we count occurrences, not quantity.
-        itemCounts[itemName].total += 1;
-      } else {
-        itemCounts[itemName].total += item.quantity;
-      }
+      const isKgItem = itemName === 'KG';
+      const count = isKgItem ? 1 : item.quantity;
       
+      itemCounts[itemName].total += count;
+      totalGeralItems += count;
 
       if (item.group.includes('rua')) {
-        if (itemName === 'KG') {
-           itemCounts[itemName].rua += 1;
-        } else {
-           itemCounts[itemName].rua += item.quantity;
-        }
-        totalRuaItems += item.quantity;
+        itemCounts[itemName].rua += count;
+        totalRuaItems += count;
       }
     });
     
     const totalFaturamento = Object.values(totals).reduce((acc, val) => acc + val, 0);
-    const totalGeralItems = items.reduce((acc, item) => {
-        if (item.name.toUpperCase() === 'KG') {
-            return acc + 1;
-        }
-        return acc + item.quantity;
-    }, 0);
     
     const pieData = Object.entries(totals)
         .filter(([, value]) => value > 0)
@@ -184,6 +173,7 @@ export default function FinalReport({ items }: FinalReportProps) {
                                             <span>{name}:</span>
                                             <span className="font-mono">{count.total}</span>
                                         </li>
+
                                     ))}
                                 </ul>
                             </div>
