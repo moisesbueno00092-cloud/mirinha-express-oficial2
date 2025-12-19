@@ -164,7 +164,7 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
         </TableHeader>
         <TableBody>
           {[...items].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((item) => (
-            <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive")}>
+            <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive", "border-b-0")}>
               <TableCell className="font-medium px-2 sm:px-4 align-top">
                 {renderItemName(item)}
               </TableCell>
