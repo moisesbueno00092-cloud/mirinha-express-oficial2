@@ -51,7 +51,7 @@ export default function ItemForm({
               ) : (
                 <Plus /> 
               )}
-              <span className="hidden sm:inline ml-2">Doces</span>
+              <span className="hidden sm:inline ml-2">Outros</span>
             </Button>
         </form>
       </CardContent>
