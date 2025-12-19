@@ -78,6 +78,7 @@ export default function Home() {
         let group: Group = 'Vendas salão';
         let deliveryFeeApplicable = false;
         let isTaxExempt = false;
+        let originalGroup: Group | null = null;
         
         const partsWithExemption = mainInput.split(' ').filter(part => part.trim() !== '');
         if (partsWithExemption.map(p => p.toUpperCase()).includes('E')) {
@@ -89,14 +90,17 @@ export default function Home() {
 
         if (upperCaseProcessedInput.startsWith("R ")) {
             group = 'Vendas rua';
+            originalGroup = group;
             deliveryFeeApplicable = true;
             mainInput = mainInput.substring(2).trim();
         } else if (upperCaseProcessedInput.startsWith("FR ")) {
             group = 'Fiados rua';
+            originalGroup = group;
             deliveryFeeApplicable = true;
             mainInput = mainInput.substring(3).trim();
         } else if (upperCaseProcessedInput.startsWith("F ")) {
             group = 'Fiados salão';
+            originalGroup = group;
             mainInput = mainInput.substring(2).trim();
         }
 
@@ -200,6 +204,12 @@ export default function Home() {
             return;
         };
 
+        // If only bomboniere items are present and no group was explicitly set, it's 'Vendas salão'.
+        if (originalGroup === null && predefinedItems.length === 0 && individualPrices.length === 0 && processedBomboniereItems.length > 0) {
+            group = 'Vendas salão';
+            deliveryFeeApplicable = false;
+        }
+
         // Decrement stock for bomboniere items
         if (!currentItem) { // Only decrement stock for new items, not for edits
           setBomboniereItems(prevBomboniereItems => {
@@ -255,6 +265,7 @@ export default function Home() {
             toast({ title: "Sucesso", description: "Lançamento adicionado." });
         }
         
+        setRawInput("");
 
 
     } catch (error) {
