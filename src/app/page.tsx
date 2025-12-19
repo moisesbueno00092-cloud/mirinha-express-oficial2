@@ -90,10 +90,11 @@ export default function Home() {
           group = 'Vendas salão';
       }
 
-      // Split input into multiple items
+      // Process items with potential price overrides
       const itemInputs = mainInput.split(' ').filter(input => input.trim() !== '');
-
-      for (const input of itemInputs) {
+      let i = 0;
+      while (i < itemInputs.length) {
+        const input = itemInputs[i];
         let price = 0;
         let finalName = "";
 
@@ -103,11 +104,26 @@ export default function Home() {
         if (isNumericOnly) {
             price = numericValue;
             finalName = "KG";
+            i++; // Move to next input part
         } else {
             const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
             if (Object.prototype.hasOwnProperty.call(PREDEFINED_PRICES, predefinedKey)) {
-                price = PREDEFINED_PRICES[predefinedKey];
                 finalName = predefinedKey;
+                // Check if next part is a price override
+                if (i + 1 < itemInputs.length) {
+                    const nextPart = itemInputs[i + 1];
+                    const overridePrice = parseFloat(nextPart.replace(',', '.'));
+                    if (!isNaN(overridePrice) && /^[0-9,.]+$/.test(nextPart)) {
+                        price = overridePrice;
+                        i += 2; // Consume both item key and price
+                    } else {
+                        price = PREDEFINED_PRICES[predefinedKey];
+                        i++; // Consume just item key
+                    }
+                } else {
+                    price = PREDEFINED_PRICES[predefinedKey];
+                    i++; // Consume just item key
+                }
             } else {
                  const aiResult = await parseCustomItemPrice({
                     itemName: input.replace(",", "."),
@@ -120,11 +136,11 @@ export default function Home() {
                     finalName = input;
                     price = 0;
                 }
+                i++;
             }
         }
         
         if (!finalName) {
-            // This case might be skipped for multi-input if one is empty
             continue;
         }
 
@@ -150,7 +166,7 @@ export default function Home() {
             const newItem = { ...itemData, timestamp: new Date().toISOString() };
             addDocumentNonBlocking(orderItemsRef, newItem);
         }
-      } // end for loop
+      } // end while loop
 
     } catch (error) {
         console.error("Error upserting item:", error);
@@ -200,7 +216,13 @@ export default function Home() {
 
     if (item.name === 'KG') {
         reconstructedInput = item.price.toString().replace('.', ',');
+    } else {
+        const predefinedPrice = PREDEFINED_PRICES[item.name.toUpperCase()];
+        if (predefinedPrice !== item.price) {
+            reconstructedInput += ` ${item.price.toString().replace('.', ',')}`;
+        }
     }
+
 
     reconstructedInput = prefix + reconstructedInput;
     
