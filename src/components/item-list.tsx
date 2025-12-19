@@ -107,7 +107,7 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive")}>
               <TableCell className="font-medium px-2 sm:px-4">
                 <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>
-                  {item.name === 'KG' ? formatCurrency(item.price) : item.name}
+                  {item.name === 'KG' ? formatCurrency(item.total) : item.name}
                   {item.name !== 'KG' && item.quantity > 1 && ` (x${item.quantity})`}
                 </Badge>
               </TableCell>
