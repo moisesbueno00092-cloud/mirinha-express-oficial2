@@ -170,12 +170,12 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
   const renderSelectionView = () => (
     <>
       <DialogHeader>
-        <div className="flex justify-between items-center">
-          <DialogTitle>Bomboniere</DialogTitle>
-          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-        </div>
+          <div className="flex justify-between items-center relative">
+            <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} className="h-8 w-8 absolute left-0 text-muted-foreground hover:text-foreground">
+                <Pencil className="h-4 w-4" />
+            </Button>
+            <DialogTitle className="flex-grow text-center">Bomboniere</DialogTitle>
+          </div>
       </DialogHeader>
       <ScrollArea className="h-96 -mx-6">
         <div className="divide-y divide-border">
