@@ -5,6 +5,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  collection,
   CollectionReference,
   DocumentReference,
   SetOptions,
@@ -34,10 +35,10 @@ export function setDocumentNonBlocking(docRef: DocumentReference, data: any, opt
 /**
  * Initiates an addDoc operation for a collection reference.
  * Does NOT await the write operation internally.
- * Returns the Promise for the new doc ref, but typically not awaited by caller.
+ * The Firestore SDK will generate the ID automatically.
  */
 export function addDocumentNonBlocking(colRef: CollectionReference, data: any) {
-  const promise = addDoc(colRef, data)
+  addDoc(colRef, data)
     .catch(error => {
       errorEmitter.emit(
         'permission-error',
@@ -48,7 +49,6 @@ export function addDocumentNonBlocking(colRef: CollectionReference, data: any) {
         })
       )
     });
-  return promise;
 }
 
 

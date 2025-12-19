@@ -5,7 +5,7 @@ import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import type { Item, Group } from "@/types";
 import { PREDEFINED_PRICES } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, doc, deleteDoc, setDoc } from "firebase/firestore";
+import { collection, doc, deleteDoc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,8 +42,33 @@ export default function Home() {
         nameForProcessing = quantityMatch[2].trim();
       }
 
-      // 2. Determine group and clean name
+      // 2. Check for predefined price keys first
       const upperCaseName = nameForProcessing.toUpperCase();
+      if (PREDEFINED_PRICES[upperCaseName]) {
+          const price = PREDEFINED_PRICES[upperCaseName];
+          const finalName = upperCaseName;
+          
+          if (editingItemId) {
+              const docRef = doc(firestore, "order_items", editingItemId);
+              const updatedItem: Partial<Item> = { name: finalName, quantity, price, total: price * quantity };
+              setDocumentNonBlocking(docRef, updatedItem, { merge: true });
+              setEditingItemId(null);
+          } else {
+              const newItem: Omit<Item, 'id'> = {
+                  name: finalName,
+                  quantity,
+                  price,
+                  total: price * quantity,
+                  group: 'Vendas salão',
+                  timestamp: new Date().toISOString(),
+              };
+              addDocumentNonBlocking(orderItemsRef, newItem);
+          }
+          setIsProcessing(false);
+          return;
+      }
+      
+      // 3. Determine group and clean name (if not a predefined price key)
       let nameWithoutGroupPrefix = nameForProcessing;
 
       if (upperCaseName.startsWith("FR ")) {
@@ -56,35 +81,26 @@ export default function Home() {
         group = "Vendas rua";
         nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
       } else if (upperCaseName.startsWith("M ")) {
-        // This could be a price or a group prefix. Let's see.
         const potentialPriceMatch = nameForProcessing.match(/^M\s+([0-9,.]+)/);
         if(!potentialPriceMatch) {
-            // If it's not `M <number>`, we assume it's Vendas Salão (M de Mesa)
              group = "Vendas salão";
              nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
         }
       }
       
-      const itemLookupKey = nameWithoutGroupPrefix.toUpperCase();
       let price = 0;
       let finalName = nameWithoutGroupPrefix;
 
-      // 3. Find price in predefined list first
-      if (PREDEFINED_PRICES[itemLookupKey]) {
-          price = PREDEFINED_PRICES[itemLookupKey];
-          finalName = itemLookupKey;
-      } else {
-        // 4. If not a predefined price, use AI for custom prices
-        const aiResult = await parseCustomItemPrice({
-          itemName: nameWithoutGroupPrefix.replace(",", "."),
-        });
+      // 4. If not a predefined price, use AI for custom prices
+      const aiResult = await parseCustomItemPrice({
+        itemName: nameWithoutGroupPrefix.replace(",", "."),
+      });
 
-        if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
-          price = aiResult.customPrice;
-          finalName = aiResult.itemName;
-        } else {
-          finalName = nameWithoutGroupPrefix;
-        }
+      if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
+        price = aiResult.customPrice;
+        finalName = aiResult.itemName;
+      } else {
+        finalName = nameWithoutGroupPrefix;
       }
       
       if (!finalName) {
@@ -111,10 +127,7 @@ export default function Home() {
         toast({ title: "Sucesso", description: "Item atualizado." });
         setEditingItemId(null);
       } else {
-        const id = crypto.randomUUID();
-        const docRef = doc(firestore, "order_items", id);
-        const newItem: Item = {
-          id,
+        const newItem: Omit<Item, 'id'> = {
           name: finalName,
           quantity,
           price,
@@ -122,7 +135,7 @@ export default function Home() {
           group,
           timestamp: new Date().toISOString(),
         };
-        addDocumentNonBlocking(docRef, newItem);
+        addDocumentNonBlocking(orderItemsRef, newItem);
       }
 
     } catch (error) {
@@ -140,7 +153,6 @@ export default function Home() {
   const handleClearData = async () => {
     if (!items) return;
     try {
-      // Not a non-blocking update.
       await Promise.all(items.map(item => deleteDoc(doc(firestore, "order_items", item.id))));
       toast({
         title: "Sucesso",
