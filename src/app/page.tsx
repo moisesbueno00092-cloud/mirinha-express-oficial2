@@ -2,7 +2,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import type { Item, Group } from "@/types";
 import { PREDEFINED_PRICES } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
@@ -64,116 +63,111 @@ export default function Home() {
     setIsProcessing(true);
     try {
       let mainInput = rawInput.trim();
+  
+      // 1. Extrair quantidade base (ex: "2x ...")
       let baseQuantity = 1;
-      const quantityMatch = mainInput.match(/^(\d+)\s*x?\s*(.*)/i);
+      const quantityMatch = mainInput.match(/^(\d+)\s*x\s*/i);
       if (quantityMatch) {
-          baseQuantity = parseInt(quantityMatch[1], 10);
-          mainInput = quantityMatch[2].trim();
+        baseQuantity = parseInt(quantityMatch[1], 10);
+        mainInput = mainInput.substring(quantityMatch[0].length).trim();
       }
-
+  
+      // 2. Extrair grupo (F, R, FR)
       let group: Group = 'Vendas salão';
       let deliveryFee = 0;
       const upperCaseInput = mainInput.toUpperCase();
-
+  
       if (upperCaseInput.startsWith("R ")) {
-          group = 'Vendas rua';
-          deliveryFee = DELIVERY_FEE;
-          mainInput = mainInput.substring(2).trim();
+        group = 'Vendas rua';
+        deliveryFee = DELIVERY_FEE;
+        mainInput = mainInput.substring(2).trim();
       } else if (upperCaseInput.startsWith("FR ")) {
-          group = 'Fiados rua';
-          deliveryFee = DELIVERY_FEE;
-          mainInput = mainInput.substring(3).trim();
+        group = 'Fiados rua';
+        deliveryFee = DELIVERY_FEE;
+        mainInput = mainInput.substring(3).trim();
       } else if (upperCaseInput.startsWith("F ")) {
-          group = 'Fiados salão';
-          mainInput = mainInput.substring(2).trim();
-      } else {
-          group = 'Vendas salão';
+        group = 'Fiados salão';
+        mainInput = mainInput.substring(2).trim();
       }
-
-      const itemInputs = mainInput.split(' ').filter(input => input.trim() !== '');
+  
+      // 3. Processar itens
+      const itemParts = mainInput.split(' ').filter(part => part.trim() !== '');
       let i = 0;
-      while (i < itemInputs.length) {
-        const input = itemInputs[i];
-        let price = 0;
-        let finalName = "";
-        let quantity = baseQuantity;
-
-        const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
-        const numericValue = parseFloat(input.replace(',', '.'));
-
-        if (Object.prototype.hasOwnProperty.call(PREDEFINED_PRICES, predefinedKey)) {
-          finalName = predefinedKey;
-          
-          if (i + 1 < itemInputs.length) {
-            const nextPart = itemInputs[i + 1];
-            const overridePrice = parseFloat(nextPart.replace(',', '.'));
-            if (!isNaN(overridePrice) && /^[0-9,.]+$/.test(nextPart)) {
-              price = overridePrice;
-              i += 2; 
-            } else {
-              price = PREDEFINED_PRICES[predefinedKey];
-              i++;
-            }
-          } else {
-            price = PREDEFINED_PRICES[predefinedKey];
-            i++;
-          }
-        } else if (!isNaN(numericValue) && /^[0-9,.]+$/.test(input)) {
-            price = numericValue;
-            finalName = "KG";
-            quantity = 1;
-            i++;
-        } else {
-            const aiResult = await parseCustomItemPrice({
-              itemName: input.replace(",", "."),
-            });
-
-            if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
-                price = aiResult.customPrice;
-                finalName = aiResult.itemName;
-            } else {
-                finalName = input;
-                price = 0;
-            }
-            i++;
-        }
+  
+      while (i < itemParts.length) {
+        const part = itemParts[i].toUpperCase();
+        const nextPart = itemParts[i + 1];
         
-        if (!finalName) {
-            continue;
-        }
-
-        const total = (price * quantity) + (deliveryFee > 0 ? deliveryFee : 0);
-
-        const itemData = {
-            name: finalName,
-            quantity,
-            price: price,
-            deliveryFee: deliveryFee > 0 ? deliveryFee : 0, 
-            total,
-            group,
-        };
-
-        if (currentItem?.id) {
-            const docRef = doc(firestore, "order_items", currentItem.id);
-            setDocumentNonBlocking(docRef, itemData, { merge: true });
-            toast({ title: "Sucesso", description: "Item atualizado." });
-            setEditingItem(null);
-            break; 
+        let itemName = '';
+        let itemPrice = 0;
+        let itemQuantity = baseQuantity;
+        
+        const isPredefined = Object.keys(PREDEFINED_PRICES).includes(part);
+        const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
+  
+        if (isPredefined) {
+          itemName = part;
+          // Verifica se o próximo item é um número para sobrescrever o preço
+          if (nextPart && isNumeric(nextPart)) {
+            itemPrice = parseFloat(nextPart.replace(',', '.'));
+            i += 2; // Avança duas posições (item + preço)
+          } else {
+            itemPrice = PREDEFINED_PRICES[part];
+            i += 1; // Avança uma posição (só o item)
+          }
+        } else if (isNumeric(part)) {
+          itemName = 'KG';
+          itemPrice = parseFloat(part.replace(',', '.'));
+          itemQuantity = 1; // Quantidade para KG é sempre 1
+          i += 1; // Avança uma posição
         } else {
-            const newItem = { ...itemData, timestamp: new Date().toISOString() };
-            addDocumentNonBlocking(orderItemsRef, newItem);
+          // Se não for pré-definido nem numérico, ignora e avança
+          i += 1;
+          continue;
         }
+  
+        // Se um item foi identificado, cria o documento
+        if (itemName) {
+          // Loop para criar a quantidade de itens, se for maior que 1
+          for (let q = 0; q < itemQuantity; q++) {
+            const total = itemPrice + (deliveryFee > 0 ? DELIVERY_FEE : 0);
+  
+            const itemData: Omit<Item, 'id' | 'timestamp'> = {
+              name: itemName,
+              quantity: 1, // Sempre 1 por documento
+              price: itemPrice,
+              deliveryFee: deliveryFee > 0 ? DELIVERY_FEE : 0,
+              total,
+              group,
+            };
+  
+            if (currentItem?.id) {
+              // No modo de edição, substitui o item existente e sai
+              const docRef = doc(firestore, "order_items", currentItem.id);
+              setDocumentNonBlocking(docRef, itemData, { merge: true });
+              setEditingItem(null);
+              q = itemQuantity; // para o loop de quantidade
+              i = itemParts.length; // para o loop de partes
+            } else {
+              addDocumentNonBlocking(orderItemsRef, { ...itemData, timestamp: new Date().toISOString() });
+            }
+          }
+        }
+      }
+      
+      if(currentItem) {
+        toast({ title: "Sucesso", description: "Item atualizado." });
       }
 
     } catch (error) {
-        console.error("Error upserting item:", error);
-        toast({
-            variant: "destructive",
-            title: "Erro ao processar item",
-            description: "Ocorreu um problema ao processar o item.",
-        });
+      console.error("Error upserting item:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao processar item",
+        description: "Ocorreu um problema ao processar o item.",
+      });
     } finally {
-        setIsProcessing(false);
+      setIsProcessing(false);
     }
   };
 
