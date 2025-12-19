@@ -31,8 +31,9 @@ export default function Home() {
       let group: Group = "Vendas salão";
 
       const upperCaseName = nameForProcessing.toUpperCase();
-      let nameWithoutGroupPrefix = nameForProcessing;
 
+      // 1. Check for group prefixes and strip them
+      let nameWithoutGroupPrefix = nameForProcessing;
       if (upperCaseName.startsWith("FR ")) {
         group = "Fiados rua";
         nameWithoutGroupPrefix = nameForProcessing.substring(3).trim();
@@ -43,20 +44,24 @@ export default function Home() {
         group = "Vendas rua";
         nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
       }
-      
-      const aiResult = await parseCustomItemPrice({
-        itemName: nameForProcessing.replace(",", "."),
-      });
 
-      if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
-        price = aiResult.customPrice;
-        finalName = aiResult.itemName;
+      const itemLookupKey = nameWithoutGroupPrefix.toUpperCase();
+
+      // 2. Check for predefined prices first
+      if (PREDEFINED_PRICES[itemLookupKey]) {
+        price = PREDEFINED_PRICES[itemLookupKey];
+        finalName = itemLookupKey;
       } else {
-        const key = nameWithoutGroupPrefix.toUpperCase();
-        if (PREDEFINED_PRICES[key]) {
-          price = PREDEFINED_PRICES[key];
-          finalName = key;
+        // 3. If not predefined, try parsing with AI for custom prices like "M 12.50 Item"
+        const aiResult = await parseCustomItemPrice({
+          itemName: nameWithoutGroupPrefix.replace(",", "."),
+        });
+
+        if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
+          price = aiResult.customPrice;
+          finalName = aiResult.itemName;
         } else {
+          // 4. If AI doesn't find a custom price, use the name as is (price will be 0)
           finalName = nameWithoutGroupPrefix;
         }
       }
@@ -67,6 +72,7 @@ export default function Home() {
           title: "Erro",
           description: "O nome do item não pode ser vazio.",
         });
+        setIsProcessing(false);
         return;
       }
 
