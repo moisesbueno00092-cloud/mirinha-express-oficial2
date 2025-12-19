@@ -4,6 +4,10 @@ import { useMemo } from "react";
 import type { Item, Group } from "@/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { Share, FileText, BrainCircuit } from "lucide-react";
+
 
 interface FinalReportProps {
   items: Item[];
@@ -16,24 +20,81 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+// Custom Tooltip for the Pie Chart
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-background border border-border p-2 rounded-lg shadow-lg">
+        <p className="label">{`${payload[0].name} : ${formatCurrency(payload[0].value)} (${payload[0].payload.percent}%)`}</p>
+      </div>
+    );
+  }
+  return null;
+};
+
+
 export default function FinalReport({ items }: FinalReportProps) {
   const reportData = useMemo(() => {
-    const data: Record<Group, { items: number; total: number }> = {
-      'Vendas salão': { items: 0, total: 0 },
-      'Fiados salão': { items: 0, total: 0 },
-      'Vendas rua': { items: 0, total: 0 },
-      'Fiados rua': { items: 0, total: 0 },
+    const totals: Record<Group, number> = {
+      'Vendas salão': 0,
+      'Fiados salão': 0,
+      'Vendas rua': 0,
+      'Fiados rua': 0,
+    };
+    
+    const itemCounts: { [key: string]: { total: number; rua: number } } = {};
+    let totalRuaItems = 0;
+    
+    items.forEach((item) => {
+      // Sum group totals
+      totals[item.group] += item.total;
+
+      // Count items
+      const itemName = item.name.toUpperCase();
+      if (!itemCounts[itemName]) {
+        itemCounts[itemName] = { total: 0, rua: 0 };
+      }
+      itemCounts[itemName].total += item.quantity;
+
+      if(item.group.includes('rua')) {
+        itemCounts[itemName].rua += item.quantity;
+        totalRuaItems += item.quantity;
+      }
+    });
+    
+    const totalFaturamento = Object.values(totals).reduce((acc, val) => acc + val, 0);
+    const totalGeralItems = items.reduce((acc, item) => acc + item.quantity, 0);
+    
+    const pieData = Object.entries(totals)
+        .filter(([, value]) => value > 0) // Filter out groups with zero value
+        .map(([name, value]) => ({
+            name,
+            value,
+            percent: totalFaturamento > 0 ? ((value / totalFaturamento) * 100).toFixed(0) : 0,
+        }));
+        
+    const COLORS = {
+        'Vendas salão': '#d92550', // Red
+        'Vendas rua': '#3498db',   // Blue
+        'Fiados salão': '#f1c40f', // Yellow
+        'Fiados rua': '#2ecc71',   // Green
     };
 
-    items.forEach((item) => {
-      data[item.group].items += item.quantity;
-      data[item.group].total += item.total;
-    });
+    const sortedItemCounts = Object.entries(itemCounts)
+                                .sort(([, a], [, b]) => b.total - a.total);
 
-    const grandTotal = Object.values(data).reduce((acc, group) => acc + group.total, 0);
-
-    return { data, grandTotal };
+    return { 
+        totals,
+        totalFaturamento,
+        totalGeralItems,
+        totalRuaItems,
+        itemCounts: sortedItemCounts,
+        pieData,
+        COLORS
+    };
   }, [items]);
+  
+  const currentDate = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
   if (items.length === 0) {
     return (
@@ -44,33 +105,125 @@ export default function FinalReport({ items }: FinalReportProps) {
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Relatório por Grupo</CardTitle>
-        <CardDescription>Resumo financeiro e de itens para cada categoria.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {Object.entries(reportData.data).map(([group, stats]) => (
-          <div key={group}>
-            <h3 className="text-lg font-semibold mb-2">{group}</h3>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Total de Itens:</span>
-              <span className="font-mono font-medium">{stats.items}</span>
+    <div className="bg-card text-card-foreground rounded-lg p-4 sm:p-6 space-y-6">
+        <div className="flex justify-between items-center">
+            <div>
+                <h2 className="text-2xl font-bold">Relatório do Dia</h2>
+                <p className="text-sm text-muted-foreground">{currentDate}</p>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Valor Total:</span>
-              <span className="font-mono font-bold text-lg">{formatCurrency(stats.total)}</span>
+            <Button variant="destructive">
+                Salvar Relatório Final
+            </Button>
+        </div>
+
+        <Card className="bg-background/50">
+            <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-xl">Resumo do Dia - FATURAMENTO</CardTitle>
+                <CardDescription className="text-2xl font-bold text-primary">
+                    {formatCurrency(reportData.totalFaturamento)}
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left Column */}
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-lg">Resumo Financeiro</h3>
+                    <div className="space-y-2 text-sm">
+                        {Object.entries(reportData.totals).map(([group, total]) => (
+                             <div key={group} className="flex justify-between">
+                                <span className={group.includes('Fiado') ? 'text-destructive' : ''}>{group}:</span>
+                                <span className="font-mono font-medium">{formatCurrency(total)}</span>
+                            </div>
+                        ))}
+                    </div>
+                     <Separator />
+                     <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                            <span>Total Geral (Itens):</span>
+                            <span className="font-mono font-medium">{reportData.totalGeralItems}</span>
+                        </div>
+                         <div className="flex justify-between">
+                            <span>Total Itens (Rua):</span>
+                            <span className="font-mono font-medium">{reportData.totalRuaItems}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-6">
+                    <div>
+                        <h3 className="font-semibold text-lg mb-2">Contagem de Itens</h3>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                             <div>
+                                <h4 className="font-medium mb-1">Total</h4>
+                                <ul className="space-y-1">
+                                    {reportData.itemCounts.map(([name, count]) => (
+                                        <li key={name} className="flex justify-between">
+                                            <span>{name}:</span>
+                                            <span className="font-mono">{count.total}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                             <div>
+                                <h4 className="font-medium mb-1">Rua</h4>
+                                 <ul className="space-y-1">
+                                    {reportData.itemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
+                                        <li key={name} className="flex justify-between">
+                                            <span>{name}:</span>
+                                            <span className="font-mono">{count.rua}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-lg mb-2">Proporção de Vendas</h3>
+                        <div style={{ width: '100%', height: 200 }}>
+                            <ResponsiveContainer>
+                                <PieChart>
+                                    <Pie
+                                        data={reportData.pieData}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        outerRadius={80}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                        nameKey="name"
+                                        label={({ percent }) => `${percent}%`}
+                                    >
+                                        {reportData.pieData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={reportData.COLORS[entry.name as keyof typeof reportData.COLORS]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip content={<CustomTooltip />} />
+                                    <Legend iconSize={10} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+        
+        <div>
+            <h3 className="font-semibold text-lg mb-2">Ações</h3>
+            <div className="flex flex-col sm:flex-row gap-2">
+                 <Button variant="destructive" className="flex-1">
+                    <Share className="mr-2 h-4 w-4" />
+                    Enviar via WhatsApp
+                 </Button>
+                 <Button variant="secondary" className="flex-1">
+                    <FileText className="mr-2 h-4 w-4" />
+                     Exportar para WPS
+                 </Button>
+                 <Button variant="secondary" className="flex-1">
+                    <BrainCircuit className="mr-2 h-4 w-4" />
+                    Analisar com IA
+                 </Button>
             </div>
-            <Separator className="my-4" />
-          </div>
-        ))}
-      </CardContent>
-      <CardFooter className="bg-muted/50 p-6 rounded-b-lg">
-          <div className="w-full flex justify-between items-center">
-              <span className="text-lg font-bold">Total Geral de Vendas</span>
-              <span className="text-2xl font-bold text-primary">{formatCurrency(reportData.grandTotal)}</span>
-          </div>
-      </CardFooter>
-    </Card>
+        </div>
+    </div>
   );
 }
