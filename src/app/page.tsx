@@ -19,6 +19,8 @@ import ItemList from "@/components/item-list";
 import SummaryReport from "@/components/summary-report";
 import FinalReport from "@/components/final-report";
 
+const DELIVERY_FEE = 6.00;
+
 export default function Home() {
   const firestore = useFirestore();
   const orderItemsRef = useMemoFirebase(() => collection(firestore, "order_items"), [firestore]);
@@ -31,128 +33,105 @@ export default function Home() {
   const handleUpsertItem = async (rawInput: string) => {
     setIsProcessing(true);
     try {
-      let quantity = 1;
-      let nameForProcessing = rawInput.trim();
+        let input = rawInput.trim();
 
-      // 1. Extract quantity from the start of the string (e.g., "2x", "2 ", "2")
-      const quantityMatch = nameForProcessing.match(/^(\d+)\s*x?\s*(.*)/i);
-      if (quantityMatch) {
-        quantity = parseInt(quantityMatch[1], 10);
-        nameForProcessing = quantityMatch[2].trim();
-      }
+        // 1. Extract quantity (e.g., "2x", "2 ")
+        let quantity = 1;
+        const quantityMatch = input.match(/^(\d+)\s*x?\s*(.*)/i);
+        if (quantityMatch) {
+            quantity = parseInt(quantityMatch[1], 10);
+            input = quantityMatch[2].trim();
+        }
 
-      // 2. Check for predefined price keys first
-      const upperCaseName = nameForProcessing.toUpperCase();
-      if (PREDEFINED_PRICES[upperCaseName]) {
-        const price = PREDEFINED_PRICES[upperCaseName];
-        const finalName = upperCaseName;
-        const group: Group = 'Vendas salão';
+        // 2. Determine group and clean item code based on prefixes
+        let group: Group = 'Vendas salão';
+        let deliveryFee = 0;
+        const upperCaseInput = input.toUpperCase();
 
-        if (editingItemId) {
-          const docRef = doc(firestore, "order_items", editingItemId);
-          const updatedItem: Partial<Item> = { name: finalName, quantity, price, total: price * quantity, group };
-          setDocumentNonBlocking(docRef, updatedItem, { merge: true });
-          setEditingItemId(null);
+        if (upperCaseInput.startsWith("FR ")) {
+            group = 'Fiados rua';
+            deliveryFee = DELIVERY_FEE;
+            input = input.substring(3).trim();
+        } else if (upperCaseInput.startsWith("R ")) {
+            group = 'Vendas rua';
+            deliveryFee = DELIVERY_FEE;
+            input = input.substring(2).trim();
+        } else if (upperCaseInput.startsWith("F ")) {
+            group = 'Fiados salão';
+            input = input.substring(2).trim();
+        }
+        
+        let price = 0;
+        let finalName = "";
+        
+        // 3. Check for predefined price keys
+        const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
+        if (PREDEFINED_PRICES[predefinedKey]) {
+            price = PREDEFINED_PRICES[predefinedKey];
+            finalName = predefinedKey;
         } else {
-          const newItem: Omit<Item, 'id'> = {
+            // 4. If not predefined, use AI to parse custom price and name
+            const aiResult = await parseCustomItemPrice({
+                itemName: input.replace(",", "."),
+            });
+
+            if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
+                price = aiResult.customPrice;
+                finalName = aiResult.itemName;
+            } else {
+                finalName = input; // If AI finds no price, the whole string is the name
+            }
+        }
+        
+        if (!finalName) {
+            toast({
+                variant: "destructive",
+                title: "Erro",
+                description: "O nome do item não pode ser vazio.",
+            });
+            setIsProcessing(false);
+            return;
+        }
+
+        const total = (price + deliveryFee) * quantity;
+
+        // 5. Upsert item
+        const itemData = {
             name: finalName,
             quantity,
-            price,
-            total: price * quantity,
-            group: group,
-            timestamp: new Date().toISOString(),
-          };
-          addDocumentNonBlocking(orderItemsRef, newItem);
+            price: price + deliveryFee,
+            total,
+            group,
+        };
+
+        if (editingItemId) {
+            const docRef = doc(firestore, "order_items", editingItemId);
+            setDocumentNonBlocking(docRef, itemData, { merge: true });
+            toast({ title: "Sucesso", description: "Item atualizado." });
+            setEditingItemId(null);
+        } else {
+            const newItem = { ...itemData, timestamp: new Date().toISOString() };
+            addDocumentNonBlocking(orderItemsRef, newItem);
         }
-        setIsProcessing(false);
-        return;
-      }
-      
-      // 3. If not a predefined price, determine group and the string to be processed by AI
-      let group: Group = "Vendas salão";
-      let nameForAi = nameForProcessing;
-
-      if (upperCaseName.startsWith("FR ")) {
-        group = "Fiados rua";
-        nameForAi = nameForProcessing.substring(3).trim();
-      } else if (upperCaseName.startsWith("F ")) {
-        group = "Fiados salão";
-        nameForAi = nameForProcessing.substring(2).trim();
-      } else if (upperCaseName.startsWith("R ")) {
-        group = "Vendas rua";
-        nameForAi = nameForProcessing.substring(2).trim();
-      } else if (upperCaseName.startsWith("M ")) {
-        group = "Vendas salão";
-        nameForAi = nameForProcessing.substring(2).trim();
-      }
-      
-      // 4. Use AI to parse custom price and name
-      let price = 0;
-      let finalName = "";
-
-      const aiResult = await parseCustomItemPrice({
-        itemName: nameForAi.replace(",", "."),
-      });
-
-      if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
-        price = aiResult.customPrice;
-        finalName = aiResult.itemName;
-      } else {
-        // If AI doesn't find a price, the whole string is the name and price is 0
-        finalName = nameForAi;
-      }
-      
-      if (!finalName) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "O nome do item não pode ser vazio.",
-        });
-        setIsProcessing(false);
-        return;
-      }
-
-      // 5. Upsert item
-      if (editingItemId) {
-        const docRef = doc(firestore, "order_items", editingItemId);
-        const updatedItem: Partial<Item> = {
-          name: finalName,
-          quantity,
-          price,
-          total: price * quantity,
-          group,
-        };
-        setDocumentNonBlocking(docRef, updatedItem, { merge: true });
-        toast({ title: "Sucesso", description: "Item atualizado." });
-        setEditingItemId(null);
-      } else {
-        const newItem: Omit<Item, 'id'> = {
-          name: finalName,
-          quantity,
-          price,
-          total: price * quantity,
-          group,
-          timestamp: new Date().toISOString(),
-        };
-        addDocumentNonBlocking(orderItemsRef, newItem);
-      }
 
     } catch (error) {
-      console.error("Error upserting item:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao processar item",
-        description: "Ocorreu um problema ao processar o item.",
-      });
+        console.error("Error upserting item:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro ao processar item",
+            description: "Ocorreu um problema ao processar o item.",
+        });
     } finally {
-      setIsProcessing(false);
+        setIsProcessing(false);
     }
   };
+
 
   const handleClearData = async () => {
     if (!items) return;
     try {
-      await Promise.all(items.map(item => deleteDoc(doc(firestore, "order_items", item.id))));
+      const promises = items.map(item => deleteDoc(doc(firestore, "order_items", item.id)));
+      await Promise.all(promises);
       toast({
         title: "Sucesso",
         description: "Todos os dados foram apagados.",

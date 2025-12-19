@@ -7,4 +7,6 @@ export const PREDEFINED_PRICES: { [key: string]: number } = {
   KITM: 50.00,
   KITG: 60.00,
   PF: 28.00,
+  SL: 5.00,
+  SLKIT: 15.00,
 };
