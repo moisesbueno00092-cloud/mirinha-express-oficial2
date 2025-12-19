@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,8 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
   const [isEditing, setIsEditing] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<BomboniereItem | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
 
   useEffect(() => {
     if (isOpen) {
@@ -67,7 +69,10 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
     onAddItems(itemsToAdd);
   };
   
-  const handleSaveItem = (formData: FormData) => {
+  const handleSaveItem = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+
     if(isAdding) {
         const newItemInput = formData.get('newItemInput') as string;
         if(!newItemInput) {
@@ -88,6 +93,10 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
             };
             setBomboniereItems(prev => [...prev, newItem]);
         }
+        // Reset the form to clear the input
+        if (formRef.current) {
+          formRef.current.reset();
+        }
     } else if (itemToEdit) {
         const id = formData.get('id') as string;
         const name = formData.get('name') as string;
@@ -95,11 +104,11 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
         if (id && name && !isNaN(price)) {
             setBomboniereItems(prev => prev.map(item => item.id === id ? { ...item, name, price } : item));
         }
+        setItemToEdit(null);
+    } else {
+        setItemToEdit(null);
+        setIsAdding(false);
     }
-    
-    setItemToEdit(null);
-    setIsAdding(false);
-    setIsEditing(true);
   }
 
   const handleDeleteItem = (id: string) => {
@@ -118,7 +127,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
         <div className="space-y-2 pr-4">
         {bomboniereItems.map(item => (
             itemToEdit?.id === item.id ? (
-             <form action={handleSaveItem} key={item.id} className="bg-muted/50 p-2 rounded-lg">
+             <form onSubmit={handleSaveItem} key={item.id} className="bg-muted/50 p-2 rounded-lg">
                 <input type="hidden" name="id" value={item.id} />
                 <div className="flex gap-2">
                     <Input name="name" defaultValue={item.name} className="h-8" />
@@ -140,7 +149,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
             )
         ))}
         {isAdding && (
-            <form action={handleSaveItem} className="bg-muted/50 p-2 rounded-lg">
+            <form onSubmit={handleSaveItem} ref={formRef} className="bg-muted/50 p-2 rounded-lg">
                 <div className="flex gap-2">
                     <Input name="newItemInput" placeholder="Nome do item e preço (Ex: Trident 2.50)" autoFocus className="h-8" />
                     <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
@@ -169,9 +178,9 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
         </div>
       </DialogHeader>
       <ScrollArea className="h-96 -mx-6">
-        <div className="divide-y divide-border px-6">
+        <div className="divide-y divide-border">
           {bomboniereItems.map((item) => (
-            <div key={item.id} className="flex items-center py-3">
+            <div key={item.id} className="flex items-center py-3 px-6">
               <div className="flex-grow pr-4">
                 <p className="font-semibold text-base">{item.name}</p>
                 <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
