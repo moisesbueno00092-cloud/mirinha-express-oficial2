@@ -232,7 +232,7 @@ export default function Home() {
         if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
 
 
-        const finalItem: Omit<Item, 'id' | 'total'> = {
+        const finalItem: Omit<Item, 'id' | 'total',> = {
             name: consolidatedName,
             quantity: totalQuantity,
             price: totalPrice,
@@ -536,5 +536,7 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     

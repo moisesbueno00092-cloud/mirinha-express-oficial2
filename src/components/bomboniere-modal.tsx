@@ -314,7 +314,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
       )}
       </div>
       </ScrollArea>
-      <Button variant="default" className="w-full mt-4" onClick={() => setIsAdding(true)}>
+      <Button variant="default" className="w-full mt-4" onClick={() => setIsAdding(prev => !prev)} disabled={isAdding}>
           Adicionar Novo Item
       </Button>
     </div>
@@ -336,7 +336,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
       <ScrollArea className="h-80 -mx-6">
         <div className="divide-y divide-border">
           {filteredBomboniereItems.map((item) => (
-            <Card key={item.id} className="flex items-center p-2 shadow-none border-0 border-b rounded-none last:border-b-0">
+            <div key={item.id} className="flex items-center p-2">
                 <div className="flex-grow pr-4">
                     <p className="font-semibold">{item.name}</p>
                     <div className="flex items-center gap-2">
@@ -376,7 +376,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
                     </Button>
                     )}
                 </div>
-            </Card>
+            </div>
           ))}
         </div>
       </ScrollArea>
@@ -413,6 +413,8 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
     </Dialog>
   );
 }
+    
+
     
 
     
