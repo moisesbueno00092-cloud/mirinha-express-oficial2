@@ -24,7 +24,7 @@ const formatCurrency = (value: number) => {
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-background border border-border p-2 rounded-lg shadow-lg">
+      <div className="bg-background border border-border p-2 rounded-lg shadow-lg text-xs">
         <p className="label">{`${payload[0].name} : ${formatCurrency(payload[0].value)} (${payload[0].payload.percent}%)`}</p>
       </div>
     );
@@ -105,38 +105,38 @@ export default function FinalReport({ items }: FinalReportProps) {
   }
 
   return (
-    <div className="bg-card text-card-foreground rounded-lg p-4 sm:p-6 space-y-6">
+    <div className="bg-card text-card-foreground rounded-lg p-2 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex justify-between items-center">
             <div>
-                <h2 className="text-2xl font-bold">Relatório do Dia</h2>
-                <p className="text-sm text-muted-foreground">{currentDate}</p>
+                <h2 className="text-xl sm:text-2xl font-bold">Relatório do Dia</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground">{currentDate}</p>
             </div>
-            <Button variant="destructive">
+            <Button variant="destructive" size="sm" className="text-xs sm:text-sm">
                 Salvar Relatório Final
             </Button>
         </div>
 
         <Card className="bg-background/50">
-            <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-xl">Resumo do Dia - FATURAMENTO</CardTitle>
-                <CardDescription className="text-2xl font-bold text-primary">
+            <CardHeader className="flex flex-row items-center justify-between p-3 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl">Faturamento do Dia</CardTitle>
+                <CardDescription className="text-lg sm:text-2xl font-bold text-primary">
                     {formatCurrency(reportData.totalFaturamento)}
                 </CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 px-3 pb-3 sm:px-6 sm:pb-6">
                 {/* Left Column */}
-                <div className="space-y-4">
-                    <h3 className="font-semibold text-lg">Resumo Financeiro</h3>
-                    <div className="space-y-2 text-sm">
+                <div className="space-y-3 sm:space-y-4">
+                    <h3 className="font-semibold text-base sm:text-lg">Resumo Financeiro</h3>
+                    <div className="space-y-2 text-xs sm:text-sm">
                         {Object.entries(reportData.totals).map(([group, total]) => (
                              <div key={group} className="flex justify-between">
-                                <span className={group.includes('Fiado') ? 'text-destructive' : ''}>{group}:</span>
+                                <span className={cn("whitespace-nowrap", group.includes('Fiado') ? 'text-destructive' : '')}>{group}:</span>
                                 <span className="font-mono font-medium">{formatCurrency(total)}</span>
                             </div>
                         ))}
                     </div>
                      <Separator />
-                     <div className="space-y-2 text-sm">
+                     <div className="space-y-2 text-xs sm:text-sm">
                         <div className="flex justify-between">
                             <span>Total Geral (Itens):</span>
                             <span className="font-mono font-medium">{reportData.totalGeralItems}</span>
@@ -149,10 +149,10 @@ export default function FinalReport({ items }: FinalReportProps) {
                 </div>
 
                 {/* Right Column */}
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                     <div>
-                        <h3 className="font-semibold text-lg mb-2">Contagem de Itens</h3>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <h3 className="font-semibold text-base sm:text-lg mb-2">Contagem de Itens</h3>
+                        <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm">
                              <div>
                                 <h4 className="font-medium mb-1">Total</h4>
                                 <ul className="space-y-1">
@@ -178,8 +178,8 @@ export default function FinalReport({ items }: FinalReportProps) {
                         </div>
                     </div>
                     <div>
-                        <h3 className="font-semibold text-lg mb-2">Proporção de Vendas</h3>
-                        <div style={{ width: '100%', height: 200 }}>
+                        <h3 className="font-semibold text-base sm:text-lg mb-2">Proporção de Vendas</h3>
+                        <div style={{ width: '100%', height: 180 }}>
                             <ResponsiveContainer>
                                 <PieChart>
                                     <Pie
@@ -187,18 +187,20 @@ export default function FinalReport({ items }: FinalReportProps) {
                                         cx="50%"
                                         cy="50%"
                                         labelLine={false}
-                                        outerRadius={80}
+                                        outerRadius={60}
+                                        innerRadius={25}
                                         fill="#8884d8"
                                         dataKey="value"
                                         nameKey="name"
                                         label={({ percent }) => `${percent}%`}
+                                        className="text-xs"
                                     >
                                         {reportData.pieData.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={reportData.COLORS[entry.name as keyof typeof reportData.COLORS]} />
                                         ))}
                                     </Pie>
                                     <Tooltip content={<CustomTooltip />} />
-                                    <Legend iconSize={10} />
+                                    <Legend wrapperStyle={{fontSize: "10px"}} iconSize={8} />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
@@ -208,17 +210,17 @@ export default function FinalReport({ items }: FinalReportProps) {
         </Card>
         
         <div>
-            <h3 className="font-semibold text-lg mb-2">Ações</h3>
+            <h3 className="font-semibold text-base sm:text-lg mb-2">Ações</h3>
             <div className="flex flex-col sm:flex-row gap-2">
-                 <Button variant="destructive" className="flex-1">
+                 <Button variant="destructive" className="flex-1 text-xs sm:text-sm">
                     <Share className="mr-2 h-4 w-4" />
                     Enviar via WhatsApp
                  </Button>
-                 <Button variant="secondary" className="flex-1">
+                 <Button variant="secondary" className="flex-1 text-xs sm:text-sm">
                     <FileText className="mr-2 h-4 w-4" />
                      Exportar para WPS
                  </Button>
-                 <Button variant="secondary" className="flex-1">
+                 <Button variant="secondary" className="flex-1 text-xs sm:text-sm">
                     <BrainCircuit className="mr-2 h-4 w-4" />
                     Analisar com IA
                  </Button>
