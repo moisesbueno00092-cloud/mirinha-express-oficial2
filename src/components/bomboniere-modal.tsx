@@ -3,6 +3,16 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { 
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,6 +42,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
   const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<BomboniereItem | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
@@ -119,60 +130,84 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
     }
   }
 
-  const handleDeleteItem = (id: string) => {
-    setBomboniereItems(prev => prev.filter(item => item.id !== id));
+  const handleDeleteRequest = (id: string) => {
+    setItemToDelete(id);
   }
+
+  const confirmDelete = () => {
+    if (itemToDelete) {
+      setBomboniereItems(prev => prev.filter(item => item.id !== itemToDelete));
+      setItemToDelete(null);
+    }
+  };
   
   const renderEditView = () => (
-    <div className="p-1">
-        <div className="flex justify-between items-center mb-4">
-            <DialogTitle className="text-lg">Gerenciar Itens</DialogTitle>
-             <Button variant="outline" size="sm" onClick={() => { setIsEditing(false); setItemToEdit(null); setIsAdding(false); }}>
-                <X className="h-4 w-4 mr-2" /> Voltar
-            </Button>
-        </div>
-        <ScrollArea className="h-96">
-        <div className="space-y-2 pr-4">
-        {bomboniereItems.map(item => (
-            itemToEdit?.id === item.id ? (
-             <form onSubmit={handleSaveItem} key={item.id} className="bg-muted/50 p-2 rounded-lg">
-                <input type="hidden" name="id" value={item.id} />
-                <div className="flex gap-2">
-                    <Input name="name" defaultValue={item.name} className="h-8" />
-                    <Input name="price" type="text" defaultValue={String(item.price).replace('.',',')} className="h-8 w-24" />
-                    <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
-                        <Save className="h-4 w-4" />
-                    </Button>
-                </div>
-            </form>
-            ) : (
-            <Card key={item.id} className="flex items-center p-2">
-                <div className="flex-grow">
-                    <p className="font-semibold">{item.name}</p>
-                    <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => setItemToEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button>
-            </Card>
-            )
-        ))}
-        {isAdding && (
-            <form onSubmit={handleSaveItem} ref={formRef} className="bg-muted/50 p-2 rounded-lg">
-                <div className="flex gap-2">
-                    <Input name="newItemInput" placeholder="Nome do item e preço (Ex: Trident 2.50)" autoFocus className="h-8" />
-                    <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
-                        <Save className="h-4 w-4" />
-                    </Button>
-                </div>
-            </form>
-        )}
-        </div>
-        </ScrollArea>
-        <Button variant="default" className="w-full mt-4" onClick={() => setIsAdding(true)} disabled={isAdding}>
-            <Plus className="h-4 w-4 mr-2"/>
-            Adicionar Novo Item
-        </Button>
-    </div>
+    <>
+      <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Essa ação não pode ser desfeita. Isso excluirá permanentemente o item.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete}>Confirmar</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="p-1">
+          <div className="flex justify-between items-center mb-4">
+              <DialogTitle className="text-lg">Gerenciar Itens</DialogTitle>
+              <Button variant="outline" size="sm" onClick={() => { setIsEditing(false); setItemToEdit(null); setIsAdding(false); }}>
+                  <X className="h-4 w-4 mr-2" /> Voltar
+              </Button>
+          </div>
+          <ScrollArea className="h-96">
+          <div className="space-y-2 pr-4">
+          {bomboniereItems.map(item => (
+              itemToEdit?.id === item.id ? (
+              <form onSubmit={handleSaveItem} key={item.id} className="bg-muted/50 p-2 rounded-lg">
+                  <input type="hidden" name="id" value={item.id} />
+                  <div className="flex gap-2">
+                      <Input name="name" defaultValue={item.name} className="h-8" />
+                      <Input name="price" type="text" defaultValue={String(item.price).replace('.',',')} className="h-8 w-24" />
+                      <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
+                          <Save className="h-4 w-4" />
+                      </Button>
+                  </div>
+              </form>
+              ) : (
+              <Card key={item.id} className="flex items-center p-2">
+                  <div className="flex-grow">
+                      <p className="font-semibold">{item.name}</p>
+                      <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setItemToEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteRequest(item.id)}><Trash2 className="h-4 w-4" /></Button>
+              </Card>
+              )
+          ))}
+          {isAdding && (
+              <form onSubmit={handleSaveItem} ref={formRef} className="bg-muted/50 p-2 rounded-lg">
+                  <div className="flex gap-2">
+                      <Input name="newItemInput" placeholder="Nome do item e preço (Ex: Trident 2.50)" autoFocus className="h-8" />
+                      <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
+                          <Save className="h-4 w-4" />
+                      </Button>
+                  </div>
+              </form>
+          )}
+          </div>
+          </ScrollArea>
+          <Button variant="default" className="w-full mt-4" onClick={() => setIsAdding(true)} disabled={isAdding}>
+              <Plus className="h-4 w-4 mr-2"/>
+              Adicionar Novo Item
+          </Button>
+      </div>
+    </>
   );
 
   const renderSelectionView = () => (
@@ -198,44 +233,44 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
       <ScrollArea className="h-80 -mx-6">
         <div className="divide-y divide-border">
           {filteredBomboniereItems.map((item) => (
-            <div key={item.id} className="flex items-center py-3 px-6">
-              <div className="flex-grow pr-4">
-                <p className="font-semibold text-base">{item.name}</p>
-                <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
-              </div>
-              <div className="flex items-center justify-end gap-2">
-                {selectedItems[item.id] > 0 ? (
-                  <>
+            <Card key={item.id} className="flex items-center p-2 shadow-none border-0 border-b rounded-none last:border-b-0">
+                <div className="flex-grow pr-4">
+                    <p className="font-semibold">{item.name}</p>
+                    <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    {selectedItems[item.id] > 0 ? (
+                    <>
+                        <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 rounded-full"
+                        onClick={() => handleQuantityChange(item.id, -1)}
+                        >
+                        <MinusCircle className="h-6 w-6 text-destructive" />
+                        </Button>
+                        <span className="text-lg font-bold w-6 text-center tabular-nums">{selectedItems[item.id]}</span>
+                        <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 rounded-full"
+                        onClick={() => handleQuantityChange(item.id, 1)}
+                        >
+                        <PlusCircle className="h-6 w-6 text-primary" />
+                        </Button>
+                    </>
+                    ) : (
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 rounded-full"
-                      onClick={() => handleQuantityChange(item.id, -1)}
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-full"
+                        onClick={() => handleQuantityChange(item.id, 1)}
                     >
-                      <MinusCircle className="h-6 w-6 text-destructive" />
+                        <Plus className="h-5 w-5" />
                     </Button>
-                    <span className="text-lg font-bold w-6 text-center tabular-nums">{selectedItems[item.id]}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 rounded-full"
-                      onClick={() => handleQuantityChange(item.id, 1)}
-                    >
-                      <PlusCircle className="h-6 w-6 text-primary" />
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 rounded-full"
-                    onClick={() => handleQuantityChange(item.id, 1)}
-                  >
-                    <Plus className="h-5 w-5" />
-                  </Button>
-                )}
-              </div>
-            </div>
+                    )}
+                </div>
+            </Card>
           ))}
         </div>
       </ScrollArea>
