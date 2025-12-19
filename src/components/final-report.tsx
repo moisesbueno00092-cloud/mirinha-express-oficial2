@@ -51,21 +51,25 @@ export default function FinalReport({ items }: FinalReportProps) {
 
     items.forEach((item) => {
       totals[item.group] += item.total;
-
+      
       const itemName = item.name.toUpperCase();
+      const isKgItem = itemName === 'KG';
+
+      // Increment total item counts
+      const count = isKgItem ? 1 : item.quantity;
+      totalGeralItems += count;
+      if (item.group.includes('rua')) {
+        totalRuaItems += count;
+      }
+      
+      // Group items for "Contagem de Itens" table
       if (!itemCounts[itemName]) {
         itemCounts[itemName] = { total: 0, rua: 0 };
       }
-
-      const isKgItem = itemName === 'KG';
-      const count = isKgItem ? 1 : item.quantity;
       
       itemCounts[itemName].total += count;
-      totalGeralItems += count;
-
       if (item.group.includes('rua')) {
-        itemCounts[itemName].rua += count;
-        totalRuaItems += count;
+          itemCounts[itemName].rua += count;
       }
     });
     
