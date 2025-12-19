@@ -60,6 +60,7 @@ const itemBadgeStyles: { [key: string]: string } = {
   PF: "bg-lime-500 text-black",
   SL: "bg-emerald-500",
   SLKIT: "bg-fuchsia-500",
+  S: "bg-amber-600",
   KG: "bg-gray-400",
   "LANÇAMENTO MISTO": "bg-gray-700",
 };
@@ -105,14 +106,16 @@ const renderItemName = (item: Item) => {
     }
     
     // Fallback for single, non-KG items stored in 'name'
-    if (badges.length === 0 && item.name && item.name !== 'Lançamento Misto') {
+    if (badges.length === 0 && item.name && item.name !== 'Lançamento Misto' && item.name.toUpperCase() !== 'KG') {
         const itemNames = item.name.split(' ');
         itemNames.forEach((name, index) => {
-            badges.push(
-                <Badge key={`fallback-${index}`} className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
-                    {name}
-                </Badge>
-            );
+            if (name.trim()) {
+                badges.push(
+                    <Badge key={`fallback-${index}`} className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
+                        {name}
+                    </Badge>
+                );
+            }
         });
     }
     
@@ -182,5 +185,3 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
     </div>
   );
 }
-
-    
