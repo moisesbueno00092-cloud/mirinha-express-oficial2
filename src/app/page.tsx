@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
-import type { Item, Group, PredefinedItem, SelectedBomboniereItem } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -40,6 +40,8 @@ import ItemList from "@/components/item-list";
 import SummaryReport from "@/components/summary-report";
 import FinalReport from "@/components/final-report";
 import BomboniereModal from "@/components/bomboniere-modal";
+import usePersistentState from "@/hooks/use-persistent-state";
+import { BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -62,6 +64,8 @@ export default function Home() {
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const [bomboniereItems, setBomboniereItems] = usePersistentState<BomboniereItem[]>('bomboniereItems', BOMBONIERE_ITEMS_DEFAULT);
 
   const { toast } = useToast();
 
@@ -102,7 +106,7 @@ export default function Home() {
         let totalPrice = 0;
         let individualPrices: number[] = [];
         let predefinedItems: PredefinedItem[] = [];
-        let bomboniereItems: SelectedBomboniereItem[] = [];
+        let processedBomboniereItems: SelectedBomboniereItem[] = [];
         let customDeliveryFee: number | null = null;
         
         for (let i = 0; i < parts.length; i++) {
@@ -166,16 +170,17 @@ export default function Home() {
                     if (bomboniereMatch) {
                         const qty = bomboniereMatch[1] ? parseInt(bomboniereMatch[1], 10) : 1;
                         const name = bomboniereMatch[2];
+                        const bomboniereItemDef = bomboniereItems.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === name.toUpperCase());
 
                         if (customPrice !== undefined) {
-                            bomboniereItems.push({ name, quantity: qty, price: customPrice });
+                            processedBomboniereItems.push({ id: bomboniereItemDef?.id || name, name, quantity: qty, price: customPrice });
                             totalPrice += customPrice * qty;
                             if (potentialPricePart) i++; // consume price part
                             totalQuantity += qty;
                         } else if (i + 1 < parts.length && isNumeric(parts[i+1])) {
                             // Fallback for simple cases not caught by AI (e.g. no space)
                             const price = parseFloat(parts[i+1].replace(',', '.'));
-                            bomboniereItems.push({ name, quantity: qty, price });
+                            processedBomboniereItems.push({ id: bomboniereItemDef?.id || name, name, quantity: qty, price });
                             totalPrice += price * qty;
                             i++; // consume price part
                             totalQuantity += qty;
@@ -189,11 +194,26 @@ export default function Home() {
             }
         }
         
-        if (predefinedItems.length === 0 && individualPrices.length === 0 && bomboniereItems.length === 0) {
+        if (predefinedItems.length === 0 && individualPrices.length === 0 && processedBomboniereItems.length === 0) {
             toast({ variant: "destructive", title: "Entrada inválida", description: "Nenhum item válido foi encontrado."});
             setIsProcessing(false);
             return;
         };
+
+        // Decrement stock for bomboniere items
+        if (!currentItem) { // Only decrement stock for new items, not for edits
+          setBomboniereItems(prevBomboniereItems => {
+              const newBomboniereItems = [...prevBomboniereItems];
+              processedBomboniereItems.forEach(soldItem => {
+                  const itemIndex = newBomboniereItems.findIndex(i => i.id === soldItem.id);
+                  if (itemIndex !== -1) {
+                      newBomboniereItems[itemIndex].stock -= soldItem.quantity;
+                  }
+              });
+              return newBomboniereItems;
+          });
+        }
+
 
         const deliveryFee = isTaxExempt ? 0 : (customDeliveryFee !== null ? customDeliveryFee : (deliveryFeeApplicable ? DELIVERY_FEE : 0));
         const total = totalPrice + deliveryFee;
@@ -201,7 +221,7 @@ export default function Home() {
         let consolidatedName: string;
         const hasKgItems = individualPrices.length > 0;
         const hasPredefinedItems = predefinedItems.length > 0;
-        const hasBomboniereItems = bomboniereItems.length > 0;
+        const hasBomboniereItems = processedBomboniereItems.length > 0;
 
         const nameParts = [];
         if (hasPredefinedItems) nameParts.push(predefinedItems.map(p => p.name).join(' '));
@@ -221,11 +241,12 @@ export default function Home() {
             deliveryFee,
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
-            ...(bomboniereItems.length > 0 ? { bomboniereItems } : {}),
+            ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
 
 
         if (currentItem?.id) {
+            // Note: Editing an item does not currently adjust stock. This might be a desired future feature.
             const docRef = doc(firestore, "order_items", currentItem.id);
             setDocumentNonBlocking(docRef, { ...finalItem, total }, { merge: true });
             toast({ title: "Sucesso", description: "Lançamento atualizado." });
@@ -331,6 +352,7 @@ export default function Home() {
 
   const handleSaveEdit = () => {
     if(editingItem && editInputValue) {
+      // Stock is not adjusted on edit, only on new entry.
       handleUpsertItem(editInputValue, editingItem)
     }
   }
@@ -342,6 +364,7 @@ export default function Home() {
   
   const confirmDelete = () => {
     if(!firestore || !itemToDelete) return;
+    // Note: Deleting an item does not currently return stock. This might be a desired future feature.
     deleteDocumentNonBlocking(doc(firestore, "order_items", itemToDelete));
     toast({
       title: "Sucesso",
@@ -397,7 +420,7 @@ export default function Home() {
           <AlertDialogHeader>
             <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
             <AlertDialogDescription>
-              Essa ação não pode ser desfeita. Isso excluirá permanentemente o item.
+              Essa ação não pode ser desfeita. Isso excluirá permanentemente o item. A quantidade em estoque não será devolvida.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -440,6 +463,8 @@ export default function Home() {
         isOpen={isBomboniereModalOpen}
         onClose={() => setBomboniereModalOpen(false)}
         onAddItems={handleBomboniereAdd}
+        bomboniereItems={bomboniereItems}
+        setBomboniereItems={setBomboniereItems}
       />
 
 
@@ -511,3 +536,5 @@ export default function Home() {
     </>
   );
 }
+
+    

@@ -9,9 +9,11 @@ export interface BomboniereItem {
     id: string;
     name: string;
     price: number;
+    stock: number;
 }
 
 export interface SelectedBomboniereItem {
+  id: string;
   name: string;
   price: number;
   quantity: number;
