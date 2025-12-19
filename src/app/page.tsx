@@ -67,7 +67,6 @@ export default function Home() {
         let group: Group = 'Vendas salão';
         let deliveryFeeApplicable = false;
         let isTaxExempt = false;
-        const upperCaseInput = mainInput.toUpperCase();
         
         // Check for 'E' exemption flag and remove it from the input string
         const partsWithExemption = mainInput.split(' ').filter(part => part.trim() !== '');
@@ -109,10 +108,10 @@ export default function Home() {
                     const price = parseFloat(parts[i].replace(',', '.'));
                     individualPrices.push(price);
                     totalPrice += price;
-                    totalQuantity += 1;
                     i++;
                 }
-                continue; // Continue to next main part, skipping the i++ at the end
+                totalQuantity += individualPrices.length;
+                continue;
             }
 
             if (part === 'TX') {
@@ -434,5 +433,3 @@ export default function Home() {
     </>
   );
 }
-
-    
