@@ -144,48 +144,66 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
 
   const renderSelectionView = () => (
     <>
-        <DialogHeader>
-            <div className="flex justify-between items-center">
-                <DialogTitle>Bomboniere</DialogTitle>
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                    <Pencil className="h-4 w-4" />
-                </Button>
-            </div>
-        </DialogHeader>
-        <ScrollArea className="h-96 -mx-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 px-6">
-            {bomboniereItems.map((item) => (
-                <Card key={item.id} className="flex flex-col items-center justify-center text-center p-4 relative aspect-square">
-                    <div className="flex-grow flex items-center justify-center">
-                        <p className="text-base font-bold leading-tight">{item.name}</p>
-                    </div>
-                    <p className="text-sm text-muted-foreground font-semibold">{formatCurrency(item.price)}</p>
-                    
-                    {selectedItems[item.id] > 0 ? (
-                        <div className="flex items-center justify-center gap-2 mt-2 bg-background absolute bottom-1 right-1 rounded-full p-0.5 border">
-                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => handleQuantityChange(item.id, -1)}>
-                                <MinusCircle className="h-5 w-5 text-destructive" />
-                            </Button>
-                            <span className="text-sm font-bold w-4 text-center">{selectedItems[item.id]}</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => handleQuantityChange(item.id, 1)}>
-                                <PlusCircle className="h-5 w-5 text-primary" />
-                            </Button>
-                        </div>
-                    ) : (
-                        <Button variant="ghost" size="icon" className="absolute bottom-1 right-1 h-8 w-8 rounded-full" onClick={() => handleQuantityChange(item.id, 1)}>
-                            <PlusCircle className="h-6 w-6 text-primary" />
-                        </Button>
-                    )}
-                </Card>
-            ))}
-            </div>
-        </ScrollArea>
-        <DialogFooter>
-            <Button variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button onClick={handleAddClick} disabled={Object.keys(selectedItems).length === 0}>
-                Adicionar Itens
-            </Button>
-        </DialogFooter>
+      <DialogHeader>
+        <div className="flex justify-between items-center">
+          <DialogTitle>Bomboniere</DialogTitle>
+          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </div>
+      </DialogHeader>
+      <ScrollArea className="h-96 -mx-6">
+        <div className="space-y-2 px-4">
+          {bomboniereItems.map((item) => (
+            <Card key={item.id} className="flex items-center p-3">
+              <div className="flex-grow">
+                <p className="font-semibold">{item.name}</p>
+                <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                {selectedItems[item.id] > 0 ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-full"
+                      onClick={() => handleQuantityChange(item.id, -1)}
+                    >
+                      <MinusCircle className="h-5 w-5 text-destructive" />
+                    </Button>
+                    <span className="text-base font-bold w-5 text-center">{selectedItems[item.id]}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-full"
+                      onClick={() => handleQuantityChange(item.id, 1)}
+                    >
+                      <PlusCircle className="h-5 w-5 text-primary" />
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full"
+                    onClick={() => handleQuantityChange(item.id, 1)}
+                  >
+                    <PlusCircle className="h-6 w-6 text-primary" />
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+      </ScrollArea>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button onClick={handleAddClick} disabled={Object.keys(selectedItems).length === 0}>
+          Adicionar Itens
+        </Button>
+      </DialogFooter>
     </>
   );
 
