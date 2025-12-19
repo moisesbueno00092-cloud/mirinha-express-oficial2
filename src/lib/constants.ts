@@ -6,7 +6,7 @@ export const PREDEFINED_PRICES: { [key: string]: number } = {
   GG: 26.00,
   KITM: 50.00,
   KITG: 60.00,
-  PF: 25.00,
+  PF: 28.00,
   SL: 5.00,
   SLKIT: 15.00,
   S: 42.90,
