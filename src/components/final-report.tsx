@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from "react";
@@ -54,16 +55,32 @@ export default function FinalReport({ items }: FinalReportProps) {
       if (!itemCounts[itemName]) {
         itemCounts[itemName] = { total: 0, rua: 0 };
       }
-      itemCounts[itemName].total += item.quantity;
+
+      if (itemName === 'KG') {
+        // For KG items, we count occurrences, not quantity.
+        itemCounts[itemName].total += 1;
+      } else {
+        itemCounts[itemName].total += item.quantity;
+      }
+      
 
       if (item.group.includes('rua')) {
-        itemCounts[itemName].rua += item.quantity;
+        if (itemName === 'KG') {
+           itemCounts[itemName].rua += 1;
+        } else {
+           itemCounts[itemName].rua += item.quantity;
+        }
         totalRuaItems += item.quantity;
       }
     });
     
     const totalFaturamento = Object.values(totals).reduce((acc, val) => acc + val, 0);
-    const totalGeralItems = items.reduce((acc, item) => acc + item.quantity, 0);
+    const totalGeralItems = items.reduce((acc, item) => {
+        if (item.name.toUpperCase() === 'KG') {
+            return acc + 1;
+        }
+        return acc + item.quantity;
+    }, 0);
     
     const pieData = Object.entries(totals)
         .filter(([, value]) => value > 0)
