@@ -35,7 +35,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 export default function FinalReport({ items }: FinalReportProps) {
   const reportData = useMemo(() => {
-    const totals: Record<Group, number> = {
+    const totalsByGroup: Record<Group, number> = {
       'Vendas salão': 0,
       'Fiados salão': 0,
       'Vendas rua': 0,
@@ -49,10 +49,16 @@ export default function FinalReport({ items }: FinalReportProps) {
     let totalRuaItems = 0;
     let totalGeralItems = 0;
     
-    const bomboniereItemNames = new Set(BOMBONIERE_ITEMS_DEFAULT.map(i => i.name.toUpperCase().replace(/\s+/g, '-')));
+    let deliveryCount = 0;
+    let totalDeliveryFee = 0;
 
     items.forEach((item) => {
-      totals[item.group] += item.total;
+      totalsByGroup[item.group] += item.total;
+      
+      if (item.deliveryFee > 0) {
+        deliveryCount++;
+        totalDeliveryFee += item.deliveryFee;
+      }
       
       let currentItemBomboniereValue = 0;
 
@@ -71,7 +77,6 @@ export default function FinalReport({ items }: FinalReportProps) {
       }
       
       const isRua = item.group.includes('rua');
-      const mealValue = item.total - currentItemBomboniereValue;
       
       if(item.predefinedItems){
         item.predefinedItems.forEach(pItem => {
@@ -97,8 +102,10 @@ export default function FinalReport({ items }: FinalReportProps) {
       }
     });
     
-    const totalFaturamento = Object.values(totals).reduce((acc, val) => acc + val, 0);
+    const totalFaturamento = Object.values(totalsByGroup).reduce((acc, val) => acc + val, 0);
     const totalMealValue = totalFaturamento - totalBomboniereValue;
+    const totalAVista = totalsByGroup['Vendas salão'] + totalsByGroup['Vendas rua'];
+    const totalFiado = totalsByGroup['Fiados salão'] + totalsByGroup['Fiados rua'];
 
     const pieData = [
       { name: 'Refeições', value: totalMealValue, percent: totalFaturamento > 0 ? ((totalMealValue / totalFaturamento) * 100).toFixed(0) : 0 },
@@ -108,16 +115,18 @@ export default function FinalReport({ items }: FinalReportProps) {
     const COLORS = {
         'Refeições': '#d92550',
         'Bomboniere': '#3498db',
-        'Fiados salão': '#f1c40f',
-        'Fiados rua': '#2ecc71',
     };
 
     const sortedItemCounts = Object.entries(itemCounts).sort(([, a], [, b]) => b.total - a.total);
     const sortedBomboniereCounts = Object.entries(bomboniereItemCounts).sort(([, a], [, b]) => b.total - a.total);
 
     return { 
-        totals,
+        totalsByGroup,
         totalFaturamento,
+        totalAVista,
+        totalFiado,
+        deliveryCount,
+        totalDeliveryFee,
         totalGeralItems,
         totalRuaItems,
         itemCounts: sortedItemCounts,
@@ -162,12 +171,18 @@ export default function FinalReport({ items }: FinalReportProps) {
                 <div className="space-y-3 sm:space-y-4">
                     <h3 className="font-semibold text-base sm:text-lg">Resumo Financeiro</h3>
                     <div className="space-y-2 text-xs sm:text-sm">
-                        {Object.entries(reportData.totals).map(([group, total]) => (
-                             <div key={group} className="flex justify-between">
-                                <span className={cn("whitespace-nowrap", group.includes('Fiado') ? 'text-destructive' : '')}>{group}:</span>
-                                <span className="font-mono font-medium">{formatCurrency(total)}</span>
-                            </div>
-                        ))}
+                        <div className="flex justify-between">
+                            <span>À Vista:</span>
+                            <span className="font-mono font-medium">{formatCurrency(reportData.totalAVista)}</span>
+                        </div>
+                        <div className="flex justify-between text-destructive">
+                            <span>Fiado:</span>
+                            <span className="font-mono font-medium">{formatCurrency(reportData.totalFiado)}</span>
+                        </div>
+                        <div className="flex justify-between text-destructive">
+                           <span>Entregas ({reportData.deliveryCount}):</span>
+                           <span className="font-mono font-medium">{formatCurrency(reportData.totalDeliveryFee)}</span>
+                        </div>
                     </div>
                      <Separator />
                      <div className="space-y-2 text-xs sm:text-sm">
