@@ -1,0 +1,64 @@
+{
+  "bomboniereItems": [
+    {
+      "id": "coca-lata",
+      "name": "Coca-cola Lata",
+      "price": 5,
+      "aiHint": "soda can"
+    },
+    {
+      "id": "fanta-lata",
+      "name": "Fanta Lata",
+      "price": 5,
+      "aiHint": "orange soda"
+    },
+    {
+      "id": "guarana-lata",
+      "name": "Guaraná Lata",
+      "price": 5,
+      "aiHint": "guarana soda"
+    },
+    {
+      "id": "coca-2l",
+      "name": "Coca-cola 2L",
+      "price": 12,
+      "aiHint": "soda bottle"
+    },
+    {
+      "id": "guarana-2l",
+      "name": "Guaraná 2L",
+      "price": 10,
+      "aiHint": "soda bottle"
+    },
+    {
+      "id": "agua-sem-gas",
+      "name": "Água sem Gás",
+      "price": 3,
+      "aiHint": "water bottle"
+    },
+    {
+      "id": "agua-com-gas",
+      "name": "Água com Gás",
+      "price": 3.5,
+      "aiHint": "sparkling water"
+    },
+    {
+      "id": "chocolate",
+      "name": "Chocolate",
+      "price": 4,
+      "aiHint": "chocolate bar"
+    },
+    {
+      "id": "bala",
+      "name": "Balas",
+      "price": 0.5,
+      "aiHint": "assorted candies"
+    },
+    {
+      "id": "chiclete",
+      "name": "Chiclete",
+      "price": 1,
+      "aiHint": "gum package"
+    }
+  ]
+}
