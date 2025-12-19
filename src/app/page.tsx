@@ -89,6 +89,7 @@ export default function Home() {
         let totalPrice = 0;
         let individualPrices: number[] = [];
         let predefinedItems: PredefinedItem[] = [];
+        let customDeliveryFee: number | null = null;
         
         let i = 0;
         while (i < parts.length) {
@@ -106,6 +107,14 @@ export default function Home() {
                 continue; // Continue to next main part, skipping the i++ at the end
             }
 
+            if (part === 'TX') {
+                if (i + 1 < parts.length && isNumeric(parts[i+1])) {
+                    customDeliveryFee = parseFloat(parts[i+1].replace(',', '.'));
+                    i += 2; // Skip 'TX' and the value
+                    continue;
+                }
+            }
+
             const quantityMatch = part.match(/^(\d+)([A-Z]+)$/i);
             let baseQuantity = 1;
             let currentItemCode = part;
@@ -118,7 +127,7 @@ export default function Home() {
             if (PREDEFINED_PRICES[currentItemCode]) {
                 const defaultPrice = PREDEFINED_PRICES[currentItemCode];
                 // Check if next part is a custom price
-                if (i + 1 < parts.length && isNumeric(parts[i+1]) && !quantityMatch) {
+                if (i + 1 < parts.length && isNumeric(parts[i+1]) && !PREDEFINED_PRICES[parts[i+1].toUpperCase()]) {
                     const customPrice = parseFloat(parts[i+1].replace(',', '.'));
                     predefinedItems.push({ name: currentItemCode, price: customPrice });
                     totalPrice += customPrice;
@@ -141,7 +150,7 @@ export default function Home() {
             return;
         };
 
-        const deliveryFee = deliveryFeeApplicable ? DELIVERY_FEE : 0;
+        const deliveryFee = customDeliveryFee !== null ? customDeliveryFee : (deliveryFeeApplicable ? DELIVERY_FEE : 0);
         const total = totalPrice + deliveryFee;
         
         let consolidatedName: string;
@@ -153,7 +162,7 @@ export default function Home() {
         } else if (hasKgItems) {
             consolidatedName = 'KG';
         } else {
-            consolidatedName = predefinedItems.map(p => p.name).join(' ');
+             consolidatedName = predefinedItems.map(p => p.name).join(' ');
         }
         
         const finalItem: Omit<Item, 'id' | 'total'> = {
@@ -251,6 +260,10 @@ export default function Home() {
       reconstructedParts.push(`kg ${item.individualPrices.map(p => String(p).replace('.', ',')).join(' ')}`);
     }
 
+    if (item.deliveryFee > 0 && item.deliveryFee !== DELIVERY_FEE) {
+        reconstructedParts.push(`tx ${String(item.deliveryFee).replace('.', ',')}`);
+    }
+
     if (reconstructedParts.length === 0 && item.name) {
        reconstructedParts.push(item.name);
     }
@@ -287,11 +300,7 @@ export default function Home() {
     const total = items.reduce((acc, item) => acc + item.total, 0);
     const deliveryItems = items.filter(item => item.deliveryFee > 0);
     
-    let deliveryCount = 0;
-    deliveryItems.forEach(item => {
-      // For mixed items, count can't be based on quantity. Let's assume 1 delivery per entry.
-      deliveryCount += 1; 
-    });
+    let deliveryCount = deliveryItems.length;
     
     const totalDeliveryFee = deliveryItems.reduce((acc, item) => acc + (item.deliveryFee || 0), 0);
 
