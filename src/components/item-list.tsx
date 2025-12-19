@@ -1,6 +1,7 @@
+
 "use client";
 
-import type { Item } from "@/types";
+import type { Item, Group } from "@/types";
 import {
   Table,
   TableBody,
@@ -33,11 +34,20 @@ const formatTimestamp = (timestamp: string) => {
   try {
     return new Date(timestamp).toLocaleTimeString("pt-BR", {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      second: '2-digit'
     });
   } catch (e) {
     return '-';
   }
+};
+
+// Define styles for each group
+const groupBadgeStyles: Record<Group, string> = {
+  "Vendas salão": "bg-purple-600 hover:bg-purple-700 border-transparent text-white",
+  "Fiados salão": "bg-red-600 hover:bg-red-700 border-transparent text-white",
+  "Vendas rua": "bg-blue-600 hover:bg-blue-700 border-transparent text-white",
+  "Fiados rua": "bg-orange-500 hover:bg-orange-600 border-transparent text-white",
 };
 
 export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemListProps) {
@@ -76,7 +86,7 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive")}>
               <TableCell className="font-medium px-2 sm:px-4">{item.name}</TableCell>
               <TableCell className="px-2 sm:px-4">
-                <Badge variant={item.group.includes('Fiados') ? "destructive" : "secondary"} className="whitespace-nowrap">
+                <Badge className={cn("whitespace-nowrap", groupBadgeStyles[item.group] || "bg-gray-500")}>
                   {item.group}
                 </Badge>
               </TableCell>
