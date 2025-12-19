@@ -61,6 +61,7 @@ const itemBadgeStyles: { [key: string]: string } = {
   PF: "bg-lime-500 text-black",
   SL: "bg-emerald-500",
   SLKIT: "bg-fuchsia-500",
+  KG: "bg-gray-400",
 };
 
 const getItemBadgeStyle = (itemName: string) => {

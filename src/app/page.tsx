@@ -89,24 +89,32 @@ export default function Home() {
             group = 'Vendas salão';
         }
         
-        const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
         let price = 0;
         let finalName = "";
 
-        if (Object.prototype.hasOwnProperty.call(PREDEFINED_PRICES, predefinedKey)) {
-            price = PREDEFINED_PRICES[predefinedKey];
-            finalName = predefinedKey;
-        } else {
-             const aiResult = await parseCustomItemPrice({
-                itemName: input.replace(",", "."),
-            });
+        const numericValue = parseFloat(input.replace(',', '.'));
+        const isNumericOnly = !isNaN(numericValue) && /^[0-9,.]+$/.test(input);
 
-            if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
-                price = aiResult.customPrice;
-                finalName = aiResult.itemName;
+        if (isNumericOnly) {
+            price = numericValue;
+            finalName = "KG";
+        } else {
+            const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
+            if (Object.prototype.hasOwnProperty.call(PREDEFINED_PRICES, predefinedKey)) {
+                price = PREDEFINED_PRICES[predefinedKey];
+                finalName = predefinedKey;
             } else {
-                finalName = input;
-                price = 0;
+                 const aiResult = await parseCustomItemPrice({
+                    itemName: input.replace(",", "."),
+                });
+
+                if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
+                    price = aiResult.customPrice;
+                    finalName = aiResult.itemName;
+                } else {
+                    finalName = input;
+                    price = 0;
+                }
             }
         }
         
@@ -186,6 +194,11 @@ export default function Home() {
         'Vendas salão': '',
     };
     const prefix = groupPrefixMap[item.group] || '';
+
+    if (item.name === 'KG') {
+        reconstructedInput = item.price.toString().replace('.', ',');
+    }
+
     reconstructedInput = prefix + reconstructedInput;
     
     if(item.quantity > 1) {
