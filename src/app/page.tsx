@@ -90,7 +90,6 @@ export default function Home() {
           group = 'Vendas salão';
       }
 
-      // Process items with potential price overrides
       const itemInputs = mainInput.split(' ').filter(input => input.trim() !== '');
       let i = 0;
       while (i < itemInputs.length) {
@@ -98,46 +97,47 @@ export default function Home() {
         let price = 0;
         let finalName = "";
 
-        const numericValue = parseFloat(input.replace(',', '.'));
-        const isNumericOnly = !isNaN(numericValue) && /^[0-9,.]+$/.test(input);
+        const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
 
-        if (isNumericOnly) {
+        if (Object.prototype.hasOwnProperty.call(PREDEFINED_PRICES, predefinedKey)) {
+          finalName = predefinedKey;
+          // Check if next part is a price override
+          if (i + 1 < itemInputs.length) {
+            const nextPart = itemInputs[i + 1];
+            const overridePrice = parseFloat(nextPart.replace(',', '.'));
+            if (!isNaN(overridePrice) && /^[0-9,.]+$/.test(nextPart)) {
+              price = overridePrice;
+              i += 2; // Consume both item key and price
+            } else {
+              price = PREDEFINED_PRICES[predefinedKey];
+              i++; // Consume just item key
+            }
+          } else {
+            price = PREDEFINED_PRICES[predefinedKey];
+            i++; // Consume just item key
+          }
+        } else {
+          // It's not a predefined key. Check if it's a number.
+          const numericValue = parseFloat(input.replace(',', '.'));
+          if (!isNaN(numericValue) && /^[0-9,.]+$/.test(input)) {
             price = numericValue;
             finalName = "KG";
             i++; // Move to next input part
-        } else {
-            const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
-            if (Object.prototype.hasOwnProperty.call(PREDEFINED_PRICES, predefinedKey)) {
-                finalName = predefinedKey;
-                // Check if next part is a price override
-                if (i + 1 < itemInputs.length) {
-                    const nextPart = itemInputs[i + 1];
-                    const overridePrice = parseFloat(nextPart.replace(',', '.'));
-                    if (!isNaN(overridePrice) && /^[0-9,.]+$/.test(nextPart)) {
-                        price = overridePrice;
-                        i += 2; // Consume both item key and price
-                    } else {
-                        price = PREDEFINED_PRICES[predefinedKey];
-                        i++; // Consume just item key
-                    }
-                } else {
-                    price = PREDEFINED_PRICES[predefinedKey];
-                    i++; // Consume just item key
-                }
-            } else {
-                 const aiResult = await parseCustomItemPrice({
-                    itemName: input.replace(",", "."),
-                });
+          } else {
+            // Not a predefined key, not a number, treat as a custom item with AI parsing
+             const aiResult = await parseCustomItemPrice({
+                itemName: input.replace(",", "."),
+            });
 
-                if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
-                    price = aiResult.customPrice;
-                    finalName = aiResult.itemName;
-                } else {
-                    finalName = input;
-                    price = 0;
-                }
-                i++;
+            if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
+                price = aiResult.customPrice;
+                finalName = aiResult.itemName;
+            } else {
+                finalName = input;
+                price = 0; // Or handle as an error
             }
+            i++;
+          }
         }
         
         if (!finalName) {
