@@ -34,7 +34,7 @@ export default function ItemForm({
             <Input
               ref={inputRef}
               type="text"
-              placeholder="Ex: R M P ou F 2P 1M TX 8..."
+              placeholder=""
               value={rawInput}
               onChange={(e) => setRawInput(e.target.value)}
               className="h-10 flex-1 sm:h-12 text-base"
