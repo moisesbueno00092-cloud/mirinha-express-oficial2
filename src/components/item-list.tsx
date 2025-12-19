@@ -10,10 +10,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ItemListProps {
   items: Item[];
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -30,7 +34,7 @@ const formatTimestamp = (timestamp: string) => {
   });
 };
 
-export default function ItemList({ items }: ItemListProps) {
+export default function ItemList({ items, onEdit, onDelete }: ItemListProps) {
   if (items.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-10">
@@ -50,6 +54,7 @@ export default function ItemList({ items }: ItemListProps) {
             <TableHead className="text-right">Preço Unit.</TableHead>
             <TableHead className="text-right">Total</TableHead>
             <TableHead className="text-right">Hora</TableHead>
+            <TableHead className="text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -65,6 +70,14 @@ export default function ItemList({ items }: ItemListProps) {
               <TableCell className="text-right">{formatCurrency(item.price)}</TableCell>
               <TableCell className="text-right font-semibold">{formatCurrency(item.total)}</TableCell>
               <TableCell className="text-right">{formatTimestamp(item.timestamp)}</TableCell>
+              <TableCell className="flex justify-end gap-2">
+                <Button variant="ghost" size="icon" onClick={() => onEdit(item.id)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => onDelete(item.id)} className="text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

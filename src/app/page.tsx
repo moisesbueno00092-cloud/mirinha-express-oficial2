@@ -20,9 +20,10 @@ import FinalReport from "@/components/final-report";
 export default function Home() {
   const [items, setItems] = usePersistentState<Item[]>("mirinhas-tracker-items", []);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleAddItem = async (rawItemName: string, quantity: number) => {
+  const handleUpsertItem = async (rawItemName: string, quantity: number) => {
     setIsProcessing(true);
     try {
       let nameForProcessing = rawItemName.trim();
@@ -32,7 +33,6 @@ export default function Home() {
 
       const upperCaseName = nameForProcessing.toUpperCase();
 
-      // 1. Check for group prefixes and strip them
       let nameWithoutGroupPrefix = nameForProcessing;
       if (upperCaseName.startsWith("FR ")) {
         group = "Fiados rua";
@@ -47,12 +47,10 @@ export default function Home() {
 
       const itemLookupKey = nameWithoutGroupPrefix.toUpperCase();
 
-      // 2. Check for predefined prices first
       if (PREDEFINED_PRICES[itemLookupKey]) {
         price = PREDEFINED_PRICES[itemLookupKey];
         finalName = itemLookupKey;
       } else {
-        // 3. If not predefined, try parsing with AI for custom prices like "M 12.50 Item"
         const aiResult = await parseCustomItemPrice({
           itemName: nameWithoutGroupPrefix.replace(",", "."),
         });
@@ -61,7 +59,6 @@ export default function Home() {
           price = aiResult.customPrice;
           finalName = aiResult.itemName;
         } else {
-          // 4. If AI doesn't find a custom price, use the name as is (price will be 0)
           finalName = nameWithoutGroupPrefix;
         }
       }
@@ -76,23 +73,43 @@ export default function Home() {
         return;
       }
 
-      const newItem: Item = {
-        id: crypto.randomUUID(),
-        name: finalName,
-        quantity,
-        price,
-        total: price * quantity,
-        group,
-        timestamp: new Date().toISOString(),
-      };
-
-      setItems((prevItems) => [...prevItems, newItem]);
+      if (editingItemId) {
+        // Update existing item
+        setItems(prevItems =>
+          prevItems.map(item =>
+            item.id === editingItemId
+              ? {
+                  ...item,
+                  name: finalName,
+                  quantity,
+                  price,
+                  total: price * quantity,
+                  group,
+                }
+              : item
+          )
+        );
+        toast({ title: "Sucesso", description: "Item atualizado." });
+        setEditingItemId(null);
+      } else {
+        // Add new item
+        const newItem: Item = {
+          id: crypto.randomUUID(),
+          name: finalName,
+          quantity,
+          price,
+          total: price * quantity,
+          group,
+          timestamp: new Date().toISOString(),
+        };
+        setItems(prevItems => [...prevItems, newItem]);
+      }
 
     } catch (error) {
-      console.error("Error adding item:", error);
+      console.error("Error upserting item:", error);
       toast({
         variant: "destructive",
-        title: "Erro ao adicionar item",
+        title: "Erro ao processar item",
         description: "Ocorreu um problema ao processar o item.",
       });
     } finally {
@@ -108,6 +125,25 @@ export default function Home() {
     });
   };
 
+  const handleEditItem = (id: string) => {
+    setEditingItemId(id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  
+  const handleDeleteItem = (id: string) => {
+    setItems(prevItems => prevItems.filter(item => item.id !== id));
+    toast({
+      title: "Sucesso",
+      description: "Item removido.",
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
+  };
+
+  const itemToEdit = items.find(item => item.id === editingItemId) || null;
+
   return (
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
       <header className="mb-8 text-center">
@@ -118,7 +154,12 @@ export default function Home() {
       </header>
 
       <main className="space-y-8">
-        <ItemForm onAddItem={handleAddItem} isProcessing={isProcessing} />
+        <ItemForm
+          onItemSubmit={handleUpsertItem}
+          isProcessing={isProcessing}
+          editingItem={itemToEdit}
+          onCancelEdit={handleCancelEdit}
+        />
 
         <Card>
           <CardContent className="p-0">
@@ -130,7 +171,7 @@ export default function Home() {
               </TabsList>
               <div className="p-6">
                 <TabsContent value="pedidos">
-                  <ItemList items={items} />
+                  <ItemList items={items} onEdit={handleEditItem} onDelete={handleDeleteItem} />
                 </TabsContent>
                 <TabsContent value="resumo">
                   <SummaryReport items={items} />
