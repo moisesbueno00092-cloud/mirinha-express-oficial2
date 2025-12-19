@@ -134,12 +134,17 @@ export default function Home() {
         
         // Determine the name for the consolidated item
         let consolidatedName: string;
-        if (itemNames.every(name => name === 'KG')) {
-             consolidatedName = 'KG';
-        } else if (itemNames.length === 1) {
-            consolidatedName = itemNames[0];
-        } else {
+        const kgItemsCount = itemNames.filter(name => name === 'KG').length;
+        const predefinedItems = itemNames.filter(name => name !== 'KG');
+
+        if (predefinedItems.length === 0 && kgItemsCount > 0) {
+            consolidatedName = 'KG';
+        } else if (predefinedItems.length > 0 && kgItemsCount > 0) {
             consolidatedName = 'Lançamento Misto';
+        } else if (predefinedItems.length > 1) {
+            consolidatedName = predefinedItems.join(' ');
+        } else {
+            consolidatedName = itemNames[0] || 'Item';
         }
         
         const finalItem: Omit<Item, 'id' | 'total'> = {
