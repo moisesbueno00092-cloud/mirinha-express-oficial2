@@ -408,16 +408,30 @@ export default function Home() {
   const displayItems = items || [];
   
   const summary = useMemo(() => {
-    if (!items) return { total: 0, deliveryCount: 0, totalDeliveryFee: 0 };
-    
-    const total = items.reduce((acc, item) => acc + item.total, 0);
-    const deliveryItems = items.filter(item => item.deliveryFee > 0);
-    
-    let deliveryCount = deliveryItems.length;
-    
-    const totalDeliveryFee = deliveryItems.reduce((acc, item) => acc + (item.deliveryFee || 0), 0);
+    if (!items) {
+      return { total: 0, totalAVista: 0, totalFiado: 0, deliveryCount: 0, totalDeliveryFee: 0 };
+    }
 
-    return { total, deliveryCount, totalDeliveryFee };
+    let total = 0;
+    let totalAVista = 0;
+    let totalFiado = 0;
+    let deliveryCount = 0;
+    let totalDeliveryFee = 0;
+
+    items.forEach(item => {
+      total += item.total;
+      if (item.group.includes('Fiados')) {
+        totalFiado += item.total;
+      } else {
+        totalAVista += item.total;
+      }
+      if (item.deliveryFee > 0) {
+        deliveryCount++;
+        totalDeliveryFee += item.deliveryFee;
+      }
+    });
+
+    return { total, totalAVista, totalFiado, deliveryCount, totalDeliveryFee };
   }, [items]);
 
   if (firestoreError) {
@@ -540,14 +554,21 @@ export default function Home() {
         </main>
       </div>
       <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
-        <div className="container mx-auto max-w-4xl flex justify-between items-center p-3 text-xs sm:text-sm">
-          <div className="flex flex-col sm:flex-row sm:gap-4">
-             <div className="text-muted-foreground">Entregas: <span className="font-bold text-foreground">{summary.deliveryCount} ({formatCurrency(summary.totalDeliveryFee)})</span></div>
-          </div>
-          <div className="text-right">
-            <span className="text-muted-foreground">Faturamento Total:</span>
-            <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
-          </div>
+        <div className="container mx-auto max-w-4xl grid grid-cols-2 sm:grid-cols-3 items-center p-3 text-xs sm:text-sm gap-2">
+            <div className="flex flex-col gap-1">
+                <div><span className="text-muted-foreground">À Vista:</span> <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span></div>
+                <div><span className="text-muted-foreground">Fiado:</span> <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span></div>
+            </div>
+            <div className="flex flex-col gap-1 text-center">
+                <div className="text-muted-foreground">
+                    Entregas: <span className="font-bold text-foreground">{summary.deliveryCount}</span>
+                </div>
+                <div className="text-destructive font-bold">({formatCurrency(summary.totalDeliveryFee)})</div>
+            </div>
+            <div className="text-right col-span-2 sm:col-span-1">
+                <span className="text-muted-foreground">Faturamento Total:</span>
+                <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
+            </div>
         </div>
       </footer>
     </>
