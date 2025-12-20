@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { useFirestore } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
 
 
@@ -191,12 +191,11 @@ export default function FinalReport({ items }: FinalReportProps) {
   const currentDateFormatted = currentDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   const reportId = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
-  const handleSaveReport = async () => {
+  const handleSaveAndClear = async () => {
     if (!firestore) return;
     
+    // 1. Salvar o relatório
     const reportDocRef = doc(firestore, "daily_reports", reportId);
-
-    // Convert arrays of entries to objects to avoid nested arrays in Firestore
     const itemCountsAsObject = Object.fromEntries(reportData.itemCounts);
     const bomboniereItemCountsAsObject = Object.fromEntries(reportData.bomboniereItemCounts);
 
@@ -213,8 +212,8 @@ export default function FinalReport({ items }: FinalReportProps) {
         totalBomboniereValue: reportData.totalBomboniereValue,
         totalBomboniereQuantity: reportData.totalBomboniereQuantity,
         totalsByGroup: reportData.totalsByGroup,
-        itemCounts: itemCountsAsObject, // Saving as object
-        bomboniereItemCounts: bomboniereItemCountsAsObject, // Saving as object
+        itemCounts: itemCountsAsObject,
+        bomboniereItemCounts: bomboniereItemCountsAsObject,
         totalMealValue: reportData.totalMealValue,
       },
       rawItems: items,
@@ -222,10 +221,24 @@ export default function FinalReport({ items }: FinalReportProps) {
     
     setDocumentNonBlocking(reportDocRef, reportToSave, { merge: true });
 
-    toast({
-      title: "Relatório Salvo!",
-      description: `O relatório do dia ${currentDateFormatted} foi salvo com sucesso.`,
-    });
+    // 2. Limpar os itens do dia
+    try {
+      items.forEach(item => {
+        const docRef = doc(firestore, "order_items", item.id);
+        deleteDocumentNonBlocking(docRef);
+      });
+      toast({
+        title: "Relatório Salvo e Dia Encerrado!",
+        description: `O relatório foi salvo e a área de trabalho foi limpa.`,
+      });
+    } catch (error) {
+       console.error("Error clearing data after saving report:", error);
+       toast({
+        variant: "destructive",
+        title: "Erro ao limpar dados",
+        description: "O relatório foi salvo, mas ocorreu um problema ao limpar os itens do dia.",
+      });
+    }
   };
 
   if (items.length === 0) {
@@ -313,9 +326,9 @@ export default function FinalReport({ items }: FinalReportProps) {
                         Histórico
                     </Button>
                 </Link>
-                <Button variant="destructive" size="sm" className="text-xs sm:text-sm" onClick={handleSaveReport}>
+                <Button variant="destructive" size="sm" className="text-xs sm:text-sm" onClick={handleSaveAndClear}>
                     <Save className="mr-2 h-4 w-4" />
-                    Salvar Relatório
+                    Salvar e Encerrar
                 </Button>
             </div>
         </div>
