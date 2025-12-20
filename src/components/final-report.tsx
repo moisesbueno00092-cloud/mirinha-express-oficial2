@@ -70,7 +70,6 @@ export default function FinalReport({ items }: FinalReportProps) {
 
     items.forEach((item) => {
       // item.total já inclui a deliveryFee. Para a análise, separamos.
-      const itemValue = item.price;
       totalsByGroup[item.group] += item.total;
       
       if (item.deliveryFee > 0) {
@@ -117,7 +116,7 @@ export default function FinalReport({ items }: FinalReportProps) {
     });
     
     const totalFaturamento = Object.values(totalsByGroup).reduce((acc, val) => acc + val, 0);
-    const totalMealValue = totalFaturamento - totalBomboniereValue - totalDeliveryFee;
+    const totalMealValue = items.reduce((sum, item) => sum + (item.price - (item.bomboniereItems ? item.bomboniereItems.reduce((acc, bi) => acc + (bi.price * bi.quantity), 0) : 0)), 0);
     const totalAVista = totalsByGroup['Vendas salão'] + totalsByGroup['Vendas rua'];
     const totalFiado = totalsByGroup['Fiados salão'] + totalsByGroup['Fiados rua'];
 
@@ -128,35 +127,34 @@ export default function FinalReport({ items }: FinalReportProps) {
         .map(([name, value]) => ({
             name: name as Group,
             value: value,
-            percent: totalFaturamento > 0 ? (value / totalFaturamento) * 100 : 0,
-            isCurrency: true
         }))
         .filter(d => d.value > 0);
+    const totalFaturamentoForPercent = faturamentoByGroupData.reduce((sum, item) => sum + item.value, 0);
+    const faturamentoByGroupDataWithPercent = faturamentoByGroupData.map(item => ({...item, percent: totalFaturamentoForPercent > 0 ? (item.value / totalFaturamentoForPercent) * 100 : 0, isCurrency: true}));
+
 
     // 2. Proporção de Vendas (Receita)
-    const salesTotalForProportion = totalMealValue + totalBomboniereValue + totalDeliveryFee;
     const salesProportionData = [
       { name: 'Refeições', value: totalMealValue, isCurrency: true },
       { name: 'Bomboniere', value: totalBomboniereValue, isCurrency: true },
       { name: 'Entregas', value: totalDeliveryFee, isCurrency: true },
-    ]
-    .map(d => ({
+    ].filter(d => d.value > 0);
+    const salesTotalForProportion = salesProportionData.reduce((sum, item) => sum + item.value, 0);
+    const salesProportionDataWithPercent = salesProportionData.map(d => ({
         ...d,
         percent: salesTotalForProportion > 0 ? (d.value / salesTotalForProportion) * 100 : 0,
-    }))
-    .filter(d => d.value > 0);
+    }));
     
     // 3. Contagem de Itens
-    const totalItemsCount = totalMealItems + totalBomboniereQuantity;
     const itemsCountData = [
       { name: 'Refeições', value: totalMealItems },
       { name: 'Bomboniere', value: totalBomboniereQuantity },
-    ]
-    .map(d => ({
+    ].filter(d => d.value > 0);
+    const totalItemsCount = itemsCountData.reduce((sum, item) => sum + item.value, 0);
+    const itemsCountDataWithPercent = itemsCountData.map(d => ({
         ...d,
         percent: totalItemsCount > 0 ? (d.value / totalItemsCount) * 100 : 0
-    }))
-    .filter(d => d.value > 0);
+    }));
 
     const sortedItemCounts = Object.entries(itemCounts).sort(([, a], [, b]) => b.total - a.total);
     const sortedBomboniereCounts = Object.entries(bomboniereItemCounts).sort(([, a], [, b]) => b.total - a.total);
@@ -172,9 +170,9 @@ export default function FinalReport({ items }: FinalReportProps) {
         totalRuaItems: items.filter(i => i.group.includes('rua')).reduce((acc, i) => acc + i.quantity, 0),
         itemCounts: sortedItemCounts,
         bomboniereItemCounts: sortedBomboniereCounts,
-        salesProportionData,
-        faturamentoByGroupData,
-        itemsCountData,
+        salesProportionData: salesProportionDataWithPercent,
+        faturamentoByGroupData: faturamentoByGroupDataWithPercent,
+        itemsCountData: itemsCountDataWithPercent,
         totalBomboniereValue,
         totalMealValue,
     };
@@ -189,6 +187,20 @@ export default function FinalReport({ items }: FinalReportProps) {
       </div>
     );
   }
+  
+  const RADIAN = Math.PI / 180;
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }: any) => {
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" className="text-xs font-bold">
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
 
   const renderPieChart = (data: any[], title: string) => (
     <div className="flex-1 min-w-[200px] flex flex-col">
@@ -201,12 +213,12 @@ export default function FinalReport({ items }: FinalReportProps) {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
+                        label={renderCustomizedLabel}
                         outerRadius={60}
                         innerRadius={30}
                         fill="#8884d8"
                         dataKey="value"
                         nameKey="name"
-                        label={({ percent }) => `${percent.toFixed(0)}%`}
                         className="text-xs focus:outline-none"
                     >
                         {data.map((entry, index) => (
@@ -378,6 +390,8 @@ export default function FinalReport({ items }: FinalReportProps) {
     </div>
   );
 }
+
+    
 
     
 
