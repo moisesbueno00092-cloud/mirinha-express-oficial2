@@ -263,8 +263,10 @@ export default function FinalReport({ items }: FinalReportProps) {
                             <ul className="space-y-1 mt-2">
                                 {reportData.itemCounts.map(([name, count]) => (
                                     <li key={name} className="flex items-baseline justify-between gap-2">
-                                        <span className="font-medium">{name}:</span>
-                                        <span className="font-mono">{count.total}</span>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{name}:</span>
+                                            <span className="font-mono">{count.total}</span>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
@@ -274,8 +276,10 @@ export default function FinalReport({ items }: FinalReportProps) {
                             <ul className="space-y-1 mt-2">
                                 {reportData.itemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
                                     <li key={name} className="flex items-baseline justify-between gap-2">
-                                        <span className="font-medium">{name}:</span>
-                                        <span className="font-mono">{count.rua}</span>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{name}:</span>
+                                            <span className="font-mono">{count.rua}</span>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
@@ -291,7 +295,10 @@ export default function FinalReport({ items }: FinalReportProps) {
                      <ul className="space-y-1">
                         {reportData.bomboniereItemCounts.map(([name, data]) => (
                             <li key={name} className="flex items-baseline justify-between gap-2">
-                                <span>{data.quantity}x {name}</span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="font-medium">{data.quantity}x</span>
+                                    <span>{name}</span>
+                                </div>
                                 <span className="font-mono">{formatCurrency(data.total)}</span>
                             </li>
                         ))}
