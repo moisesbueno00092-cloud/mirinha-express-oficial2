@@ -12,7 +12,7 @@ export default function MirinhaLogo({ className }: { className?: string }) {
         {`
           .mirinha-script {
             font-family: 'Brush Script MT', 'Brush Script Std', 'cursive';
-            font-size: 38px;
+            font-size: 42px;
             fill: currentColor;
           }
           .restaurante-script {
@@ -22,35 +22,35 @@ export default function MirinhaLogo({ className }: { className?: string }) {
             fill: currentColor;
             letter-spacing: 0.5px;
           }
+           .flame {
+            fill: hsl(var(--primary));
+            filter: drop-shadow(0 0 2px hsl(var(--primary) / 0.8));
+          }
         `}
       </style>
       
       <text x="5" y="22" className="restaurante-script">Restaurante da</text>
       
-      {/* "M" stylized as a cloche */}
-      <path 
-        d="M20 60 L20 45 C20 42, 22 40, 25 40 L45 40 C48 40, 50 42, 50 45 L50 60"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <line x1="35" y1="40" x2="35" y2="35" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      <circle cx="35" cy="33" r="1.8" fill="currentColor" />
-
-      {/* Sparkle/star element */}
-      <path 
-        d="M52 38 L54 40 L52 42 L50 40 Z"
-        fill="currentColor"
-      />
-       <line x1="52" y1="36" x2="52" y2="44" stroke="currentColor" strokeWidth="0.8" />
-       <line x1="49" y1="40" x2="55" y2="40" stroke="currentColor" strokeWidth="0.8" />
-
-
-      <text x="55" y="60" className="mirinha-script">
+      {/* Stylized "M" using fork and knife shapes */}
+      <g transform="translate(10, 35) scale(0.8)">
+        {/* Fork */}
+        <path d="M 12 28 L 12 10 C 12 5, 10 2, 5 2" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        <line x1="12" y1="12" x2="8" y2="12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+        <line x1="12" y1="16" x2="8" y2="16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+        
+        {/* Knife */}
+        <path d="M 18 28 L 18 2 C 23 2, 25 5, 25 10 L 25 28" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      </g>
+      
+      <text x="40" y="62" className="mirinha-script">
         <tspan>irinha</tspan>
       </text>
+
+      {/* Flame for the dot on the 'i' */}
+      <path 
+        className="flame"
+        d="M 66.5 32.5 C 66.5 32.5, 68 30, 68 28.5 C 68 27, 65 27, 65 28.5 C 65 30, 66.5 32.5, 66.5 32.5 Z"
+      />
     </svg>
   );
 }
