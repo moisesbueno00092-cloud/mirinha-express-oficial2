@@ -167,7 +167,7 @@ export default function FinalReport({ items }: FinalReportProps) {
   }
 
   const renderPieChart = (data: any[], title: string) => (
-    <div className="flex-1 min-w-[200px]">
+    <div className="flex-1 min-w-[200px] flex flex-col">
         <h3 className="font-semibold text-base sm:text-lg mb-2 text-center">{title}</h3>
         <div style={{ width: '100%', height: 180 }}>
             <ResponsiveContainer>
@@ -178,19 +178,25 @@ export default function FinalReport({ items }: FinalReportProps) {
                         cy="50%"
                         labelLine={false}
                         outerRadius={60}
-                        innerRadius={25}
+                        innerRadius={30}
                         fill="#8884d8"
                         dataKey="value"
                         nameKey="name"
-                        label={({ percent, name }) => name.length > 10 ? `${percent}%` : `${name}: ${percent}%`}
-                        className="text-xs"
+                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                        className="text-xs focus:outline-none"
                     >
                         {data.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.name as keyof typeof PIE_CHART_COLORS]} />
+                            <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.name as keyof typeof PIE_CHART_COLORS]} stroke={entry.name === 'Fiados salão' ? 'hsl(var(--destructive))' : 'hsl(var(--border))'} />
                         ))}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend wrapperStyle={{fontSize: "10px", marginTop: "10px"}} iconSize={8} />
+                    <Legend 
+                      wrapperStyle={{fontSize: "12px", paddingTop: "10px"}} 
+                      iconSize={10} 
+                      layout="horizontal" 
+                      verticalAlign="bottom" 
+                      align="center"
+                    />
                 </PieChart>
             </ResponsiveContainer>
         </div>
@@ -348,5 +354,7 @@ export default function FinalReport({ items }: FinalReportProps) {
     </div>
   );
 }
+
+    
 
     
