@@ -47,6 +47,32 @@
         "orderDateTime",
         "itemGroup"
       ]
+    },
+    "DailyReport": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DailyReport",
+      "type": "object",
+      "description": "Represents a summarized report for a single day of sales.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the report, in YYYY-MM-DD format."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time when the report was saved.",
+          "format": "date-time"
+        },
+        "reportData": {
+          "type": "object",
+          "description": "The summarized data for the report."
+        },
+        "rawItems": {
+          "type": "array",
+          "description": "A complete list of all individual order items for that day."
+        }
+      },
+      "required": ["id", "timestamp", "reportData", "rawItems"]
     }
   },
   "auth": {
@@ -72,8 +98,26 @@
             }
           ]
         }
+      },
+       {
+        "path": "/daily_reports/{reportId}",
+        "definition": {
+          "entityName": "DailyReport",
+          "schema": {
+            "$ref": "#/backend/entities/DailyReport"
+          },
+          "description": "Stores the final summarized report for each day.",
+          "params": [
+            {
+              "name": "reportId",
+              "description": "Unique identifier for the daily report (YYYY-MM-DD)."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support Mirinha's Tracker app, focusing on real-time access and data persistence as requested.  The primary entity is `OrderItem`, which stores the details of each item ordered. To ensure authorization independence (CRITICAL), we rely solely on `request.auth.uid` and do not use `get()` calls in our security rules. This simplifies security and enables atomic operations.\n\nStructural Segregation (Homogeneous Security Posture):  All documents in the `order_items` collection share the same security requirements.  This ensures we can use simple rules without needing to filter data based on its content.\n\nAccess Modeling (Standardization and Consistency): The application utilizes a single collection for order items.\n\nData Clarity and Predictability: Each `OrderItem` document includes explicit fields like `itemGroup`, `orderDateTime`, and other item details. This allows for clear modeling and reporting.\n\nQAPs (Rules are not Filters): Since we are using a flat collection structure with all documents having the same security requirements, listing operations are inherently secure.  We're not relying on filtering data within the rules themselves.\n\nDenormalization Strategy:  While not explicitly denormalizing authorization data in this simple example, the structure is ready to accommodate it. If, in the future, access to order items needs to be restricted based on user roles or group memberships, we can easily add a `members` map or other denormalized authorization fields to each `OrderItem` document. This ensures that authorization can be determined without needing to retrieve parent documents, preserving authorization independence."
+    "reasoning": "The Firestore data structure is designed to support Mirinha's Tracker app, focusing on real-time access and data persistence. The primary entity `OrderItem` stores details of each order. A new collection `daily_reports` is added to store historical end-of-day summaries. This allows for long-term analysis without needing to query the entire `order_items` collection. To ensure authorization independence (CRITICAL), we rely solely on `request.auth.uid` and do not use `get()` calls in our security rules. This simplifies security and enables atomic operations.\n\nStructural Segregation (Homogeneous Security Posture):  All documents in the `order_items` and `daily_reports` collections share the same public security requirements. This ensures we can use simple rules without needing to filter data based on its content.\n\nData Clarity and Predictability: Each `OrderItem` and `DailyReport` document has a clear, explicit schema.\n\nQAPs (Rules are not Filters): Since we are using a flat collection structure with all documents having the same security requirements, listing operations are inherently secure."
   }
 }
+
+    

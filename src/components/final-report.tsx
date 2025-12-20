@@ -7,8 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { Share, FileText, BrainCircuit } from "lucide-react";
+import { Share, FileText, BrainCircuit, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useFirestore } from "@/firebase";
+import { doc, setDoc } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+
 
 interface FinalReportProps {
   items: Item[];
@@ -50,6 +55,9 @@ const PIE_CHART_COLORS: Record<string, string> = {
 
 
 export default function FinalReport({ items }: FinalReportProps) {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
   const reportData = useMemo(() => {
     const totalsByGroup: Record<Group, number> = {
       'Vendas salão': 0,
@@ -166,6 +174,7 @@ export default function FinalReport({ items }: FinalReportProps) {
         deliveryCount,
         totalDeliveryFee,
         totalMealItems,
+        totalBomboniereQuantity,
         totalRuaItems: items.filter(i => i.group.includes('rua')).reduce((acc, i) => acc + i.quantity, 0),
         itemCounts: sortedItemCounts,
         bomboniereItemCounts: sortedBomboniereCounts,
@@ -177,7 +186,50 @@ export default function FinalReport({ items }: FinalReportProps) {
     };
   }, [items]);
   
-  const currentDate = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const currentDate = new Date();
+  const currentDateFormatted = currentDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const reportId = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+  const handleSaveReport = async () => {
+    if (!firestore) return;
+    
+    const reportDocRef = doc(firestore, "daily_reports", reportId);
+
+    const reportToSave = {
+      id: reportId,
+      timestamp: new Date().toISOString(),
+      reportData: {
+        totalFaturamento: reportData.totalFaturamento,
+        totalAVista: reportData.totalAVista,
+        totalFiado: reportData.totalFiado,
+        deliveryCount: reportData.deliveryCount,
+        totalDeliveryFee: reportData.totalDeliveryFee,
+        totalMealItems: reportData.totalMealItems,
+        totalBomboniereValue: reportData.totalBomboniereValue,
+        totalBomboniereQuantity: reportData.totalBomboniereQuantity,
+        totalsByGroup: reportData.totalsByGroup,
+        itemCounts: reportData.itemCounts,
+        bomboniereItemCounts: reportData.bomboniereItemCounts,
+        totalMealValue: reportData.totalMealValue,
+      },
+      rawItems: items,
+    };
+    
+    try {
+      await setDoc(reportDocRef, reportToSave);
+      toast({
+        title: "Relatório Salvo!",
+        description: `O relatório do dia ${currentDateFormatted} foi salvo com sucesso.`,
+      });
+    } catch (error) {
+      console.error("Error saving report:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao Salvar",
+        description: "Não foi possível salvar o relatório.",
+      });
+    }
+  };
 
   if (items.length === 0) {
     return (
@@ -249,9 +301,10 @@ export default function FinalReport({ items }: FinalReportProps) {
         <div className="flex justify-between items-center">
             <div>
                 <h2 className="text-xl sm:text-2xl font-bold">Relatório do Dia</h2>
-                <p className="text-xs sm:text-sm text-muted-foreground">{currentDate}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">{currentDateFormatted}</p>
             </div>
-            <Button variant="destructive" size="sm" className="text-xs sm:text-sm">
+            <Button variant="destructive" size="sm" className="text-xs sm:text-sm" onClick={handleSaveReport}>
+                <Save className="mr-2 h-4 w-4" />
                 Salvar Relatório Final
             </Button>
         </div>
@@ -395,3 +448,5 @@ export default function FinalReport({ items }: FinalReportProps) {
     </div>
   );
 }
+
+    

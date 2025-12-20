@@ -1,14 +1,14 @@
 /**
  * Core Philosophy: This ruleset enforces a public access model. It is designed for a single-user application (like a personal tracker) where the primary goal is to sync data across devices without requiring user login. Any client can read and write data.
  *
- * Data Structure: The data is organized in a single, flat top-level collection named `order_items`. Each document within this collection represents a specific order item.
+ * Data Structure: The data is organized in two flat top-level collections: `order_items` and `daily_reports`.
  *
  * Key Security Decisions:
  * - Public Access: All operations (read, write, delete) on any data are permitted. This is a deliberate choice for a single-user app model where ease of access is prioritized over security.
  *
  * Denormalization for Authorization: This model is simple and does not currently require denormalization.
  *
- * Structural Segregation: Not applicable, as all data resides in a single collection (`order_items`) with a uniform security posture.
+ * Structural Segregation: Not applicable, as all data resides in collections with a uniform public security posture.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -23,5 +23,17 @@ service cloud.firestore {
     match /order_items/{orderItemId} {
       allow read, write: if true;
     }
+    
+    /**
+     * @description Allows public read and write access to daily reports.
+     * @path        /daily_reports/{reportId}
+     * @allow       (read, write) Any client can create, read, and update daily reports.
+     * @principle   Provides open access for storing historical data.
+     */
+    match /daily_reports/{reportId} {
+      allow read, write: if true;
+    }
   }
 }
+
+    

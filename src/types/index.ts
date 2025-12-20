@@ -34,3 +34,26 @@ export interface Item {
   predefinedItems?: PredefinedItem[]; // For items like M, P, G etc.
   bomboniereItems?: SelectedBomboniereItem[];
 }
+
+
+export interface DailyReport {
+  id: string; // YYYY-MM-DD
+  timestamp: string;
+  reportData: {
+    totalFaturamento: number;
+    totalAVista: number;
+    totalFiado: number;
+    deliveryCount: number;
+    totalDeliveryFee: number;
+    totalMealItems: number;
+    totalBomboniereValue: number;
+    totalBomboniereQuantity: number;
+    totalsByGroup: Record<Group, number>;
+    itemCounts: [string, { total: number; rua: number }][];
+    bomboniereItemCounts: [string, { quantity: number; total: number }][];
+    totalMealValue: number;
+  };
+  rawItems: Item[];
+}
+
+    
