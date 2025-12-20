@@ -69,7 +69,6 @@ export default function FinalReport({ items }: FinalReportProps) {
     let totalDeliveryFee = 0;
 
     items.forEach((item) => {
-      // item.total já inclui a deliveryFee. Para a análise, separamos.
       totalsByGroup[item.group] += item.total;
       
       if (item.deliveryFee > 0) {
@@ -188,20 +187,6 @@ export default function FinalReport({ items }: FinalReportProps) {
     );
   }
   
-  const RADIAN = Math.PI / 180;
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }: any) => {
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-    return (
-      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" className="text-xs font-bold">
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
-  };
-
-
   const renderPieChart = (data: any[], title: string) => (
     <div className="flex-1 min-w-[200px] flex flex-col">
         <h3 className="font-semibold text-base sm:text-lg mb-2 text-center">{title}</h3>
@@ -213,7 +198,6 @@ export default function FinalReport({ items }: FinalReportProps) {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={renderCustomizedLabel}
                         outerRadius={60}
                         innerRadius={30}
                         fill="#8884d8"
@@ -390,9 +374,3 @@ export default function FinalReport({ items }: FinalReportProps) {
     </div>
   );
 }
-
-    
-
-    
-
-    
