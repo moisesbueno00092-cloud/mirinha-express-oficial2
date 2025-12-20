@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { Share, FileText, BrainCircuit, Save, History } from "lucide-react";
+import { Share, FileText, BrainCircuit, Save, History, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFirestore } from "@/firebase";
 import { doc } from "firebase/firestore";
@@ -18,6 +18,7 @@ import Link from "next/link";
 
 interface FinalReportProps {
   items: Item[];
+  onClearData: () => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -55,7 +56,7 @@ const PIE_CHART_COLORS: Record<string, string> = {
 };
 
 
-export default function FinalReport({ items }: FinalReportProps) {
+export default function FinalReport({ items, onClearData }: FinalReportProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -319,7 +320,11 @@ export default function FinalReport({ items }: FinalReportProps) {
                 <h2 className="text-xl sm:text-2xl font-bold">Relatório do Dia</h2>
                 <p className="text-xs sm:text-sm text-muted-foreground">{currentDateFormatted}</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+                <Button variant="ghost" size="sm" className="text-xs sm:text-sm" onClick={onClearData} disabled={!items || items.length === 0}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Limpar Dados
+                </Button>
                 <Link href="/history" passHref>
                     <Button variant="outline" size="sm" className="text-xs sm:text-sm">
                         <History className="mr-2 h-4 w-4" />

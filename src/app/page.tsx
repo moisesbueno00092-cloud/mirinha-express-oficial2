@@ -557,19 +557,12 @@ export default function Home() {
                     <SummaryReport items={displayItems} />
                   </TabsContent>
                   <TabsContent value="relatorio">
-                    <FinalReport items={displayItems} />
+                    <FinalReport items={displayItems} onClearData={handleClearData} />
                   </TabsContent>
                 </div>
               </Tabs>
             </CardContent>
           </Card>
-          
-          <div className="flex justify-center">
-            <Button variant="destructive" onClick={handleClearData} disabled={!items || items.length === 0}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Limpar Todos os Dados
-            </Button>
-          </div>
         </main>
       </div>
       <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
@@ -593,5 +586,3 @@ export default function Home() {
     </>
   );
 }
-
-    
