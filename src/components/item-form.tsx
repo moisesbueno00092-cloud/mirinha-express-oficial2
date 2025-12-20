@@ -13,6 +13,7 @@ interface ItemFormProps {
   onOpenBomboniere: () => void;
   isProcessing: boolean;
   inputRef: React.RefObject<HTMLInputElement>;
+  children?: React.ReactNode;
 }
 
 export default function ItemForm({ 
@@ -21,7 +22,8 @@ export default function ItemForm({
     onItemSubmit, 
     onOpenBomboniere,
     isProcessing,
-    inputRef 
+    inputRef,
+    children
 }: ItemFormProps) {
   
   return (
@@ -40,10 +42,11 @@ export default function ItemForm({
               className="h-10 flex-1 sm:h-12 text-base"
               disabled={isProcessing}
             />
+            {children}
             <Button 
                 type="button" 
                 variant="outline"
-                className="h-10 w-24 sm:h-12" 
+                className="h-10 sm:h-12 px-4" 
                 onClick={onOpenBomboniere}
                 disabled={isProcessing}
             >
@@ -52,7 +55,7 @@ export default function ItemForm({
             </Button>
             <Button 
                 type="submit" 
-                className="h-10 w-24 sm:h-12"
+                className="h-10 sm:h-12 px-4"
                 disabled={isProcessing || !rawInput.trim()}
             >
               {isProcessing ? (

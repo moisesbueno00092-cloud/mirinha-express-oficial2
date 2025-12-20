@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Loader2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 
@@ -83,6 +83,21 @@ const getItemBadgeStyle = (itemName: string) => {
 
 const renderItemName = (item: Item) => {
     const itemElements = [];
+
+    // Handle favorite client
+    if (item.customerName) {
+      itemElements.push(
+        <div key={`fav-client-${item.id}`} className="flex flex-col items-start">
+            <div className="flex items-center gap-1.5">
+                <User className="h-3 w-3 text-amber-500" />
+                <span className="font-semibold">{item.customerName}</span>
+            </div>
+            <span className="text-xs text-muted-foreground pl-5">{item.name}</span>
+        </div>
+      );
+      return <div className="flex flex-wrap gap-2 items-start">{itemElements}</div>;
+    }
+
 
     // Handle predefined items by counting them
     if (item.predefinedItems && item.predefinedItems.length > 0) {

@@ -34,6 +34,26 @@ export interface Item {
   individualPrices?: number[]; // For KG items
   predefinedItems?: PredefinedItem[]; // For items like M, P, G etc.
   bomboniereItems?: SelectedBomboniereItem[];
+
+  // For favorite client entries
+  favoriteClientId?: string;
+  customerName?: string;
+}
+
+export interface FavoriteClient {
+    id: string;
+    name: string;
+    orderDescription: string;
+    price: number;
+}
+
+export interface ClientAccountEntry {
+    id: string;
+    customerId: string;
+    customerName: string;
+    description: string;
+    price: number;
+    timestamp: string;
 }
 
 

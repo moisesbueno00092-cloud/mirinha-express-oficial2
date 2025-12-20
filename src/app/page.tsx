@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
-import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History } from "lucide-react";
+import { Trash2, Save, History, Star } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -41,9 +41,11 @@ import ItemList from "@/components/item-list";
 import SummaryReport from "@/components/summary-report";
 import FinalReport from "@/components/final-report";
 import BomboniereModal from "@/components/bomboniere-modal";
+import ManageFavoritesModal from "@/components/manage-favorites-modal";
 import usePersistentState from "@/hooks/use-persistent-state";
 import { BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import MirinhaLogo from "@/components/mirinha-logo";
+import FavoritesMenu from "@/components/favorites-menu";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -57,17 +59,21 @@ const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && 
 export default function Home() {
   const firestore = useFirestore();
   const orderItemsRef = useMemoFirebase(() => collection(firestore, "order_items"), [firestore]);
+  const clientAccountsRef = useMemoFirebase(() => collection(firestore, "client_accounts"), [firestore]);
   const { data: items, isLoading, error: firestoreError } = useCollection<Item>(orderItemsRef);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [editInputValue, setEditInputValue] = useState("");
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [clearAllDataRequest, setClearAllDataRequest] = useState(false);
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
+  const [isFavoritesModalOpen, setFavoritesModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [bomboniereItems, setBomboniereItems] = usePersistentState<BomboniereItem[]>('bomboniereItems', BOMBONIERE_ITEMS_DEFAULT);
+  const [favoriteClients, setFavoriteClients] = usePersistentState<FavoriteClient[]>('favoriteClients', []);
 
   const { toast } = useToast();
 
@@ -297,8 +303,41 @@ export default function Home() {
     }
   };
 
+  const handleFavoriteLaunch = (client: FavoriteClient) => {
+    if (!firestore) return;
+    
+    // 1. Add to daily order_items
+    const dailyItem: Omit<Item, 'id'> = {
+      name: client.orderDescription,
+      quantity: 1,
+      price: client.price,
+      group: 'Fiados salão',
+      timestamp: new Date().toISOString(),
+      deliveryFee: 0,
+      total: client.price,
+      favoriteClientId: client.id,
+      customerName: client.name,
+    };
+    addDocumentNonBlocking(orderItemsRef, dailyItem);
 
-  const handleClearData = async () => {
+    // 2. Add to permanent client_accounts
+    const accountEntry = {
+        customerId: client.id,
+        customerName: client.name,
+        description: client.orderDescription,
+        price: client.price,
+        timestamp: new Date().toISOString()
+    };
+    addDocumentNonBlocking(clientAccountsRef, accountEntry);
+
+    toast({
+      title: "Lançamento Rápido",
+      description: `Pedido para ${client.name} adicionado com sucesso.`,
+    });
+  }
+
+
+  const confirmClearData = () => {
     if (!items || !firestore) return;
     try {
       items.forEach(item => {
@@ -317,6 +356,7 @@ export default function Home() {
         description: "Ocorreu um problema ao apagar os itens.",
       });
     }
+    setClearAllDataRequest(false);
   };
 
   const handleEditRequest = (item: Item) => {
@@ -331,6 +371,11 @@ export default function Home() {
     const prefix = groupPrefixMap[item.group] || '';
 
     let reconstructedParts: string[] = [];
+    
+    if (item.favoriteClientId) {
+      setEditInputValue(`${prefix}${item.name}`);
+      return;
+    }
 
     if (item.predefinedItems && item.predefinedItems.length > 0) {
       const itemGroups: Record<string, {count: number, price: number}> = {};
@@ -482,6 +527,21 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={clearAllDataRequest} onOpenChange={setClearAllDataRequest}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita e excluirá permanentemente todos os lançamentos do dia atual. Salve o relatório antes, se necessário.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmClearData}>Confirmar Exclusão</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -498,13 +558,19 @@ export default function Home() {
                   handleSaveEdit();
                 }
               }}
+              disabled={!!editingItem?.favoriteClientId}
             />
+             {editingItem?.favoriteClientId && (
+                <p className="text-xs text-muted-foreground mt-2">
+                    Lançamentos de clientes favoritos não podem ser editados diretamente. Você pode excluir este lançamento e fazê-lo novamente.
+                </p>
+             )}
           </div>
           <DialogFooter>
             <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancelar</Button>
             </DialogClose>
-            <Button type="submit" onClick={handleSaveEdit} disabled={isProcessing}>
+            <Button type="submit" onClick={handleSaveEdit} disabled={isProcessing || !!editingItem?.favoriteClientId}>
                 <Save className="mr-2 h-4 w-4" /> Salvar
             </Button>
           </DialogFooter>
@@ -517,6 +583,13 @@ export default function Home() {
         onAddItems={handleBomboniereAdd}
         bomboniereItems={bomboniereItems}
         setBomboniereItems={setBomboniereItems}
+      />
+      
+      <ManageFavoritesModal
+        isOpen={isFavoritesModalOpen}
+        onClose={() => setFavoritesModalOpen(false)}
+        favoriteClients={favoriteClients}
+        setFavoriteClients={setFavoriteClients}
       />
 
 
@@ -534,7 +607,13 @@ export default function Home() {
             onOpenBomboniere={() => setBomboniereModalOpen(true)}
             isProcessing={isProcessing}
             inputRef={inputRef}
-          />
+          >
+             <FavoritesMenu
+                favoriteClients={favoriteClients}
+                onSelectClient={handleFavoriteLaunch}
+                onManageFavorites={() => setFavoritesModalOpen(true)}
+            />
+          </ItemForm>
 
           <Card>
             <CardContent className="p-0">
@@ -557,7 +636,7 @@ export default function Home() {
                     <SummaryReport items={displayItems} />
                   </TabsContent>
                   <TabsContent value="relatorio">
-                    <FinalReport items={displayItems} onClearData={handleClearData} />
+                    <FinalReport items={displayItems} onClearData={() => setClearAllDataRequest(true)} />
                   </TabsContent>
                 </div>
               </Tabs>
