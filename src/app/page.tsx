@@ -42,7 +42,6 @@ import SummaryReport from "@/components/summary-report";
 import FinalReport from "@/components/final-report";
 import BomboniereModal from "@/components/bomboniere-modal";
 import ManageFavoritesModal from "@/components/manage-favorites-modal";
-import usePersistentState from "@/hooks/use-persistent-state";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
 
@@ -60,9 +59,11 @@ export default function Home() {
   const orderItemsRef = useMemoFirebase(() => collection(firestore, "order_items"), [firestore]);
   const clientAccountsRef = useMemoFirebase(() => collection(firestore, "client_accounts"), [firestore]);
   const bomboniereItemsRef = useMemoFirebase(() => collection(firestore, "bomboniere_items"), [firestore]);
+  const favoriteClientsRef = useMemoFirebase(() => collection(firestore, "favorite_clients"), [firestore]);
 
   const { data: items, isLoading, error: firestoreError } = useCollection<Item>(orderItemsRef);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
+  const { data: favoriteClients, isLoading: isLoadingFavorites } = useCollection<FavoriteClient>(favoriteClientsRef);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -73,8 +74,6 @@ export default function Home() {
   const [isFavoritesModalOpen, setFavoritesModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const [favoriteClients, setFavoriteClients] = usePersistentState<FavoriteClient[]>('favoriteClients', []);
 
   const { toast } = useToast();
 
@@ -586,8 +585,7 @@ export default function Home() {
       <ManageFavoritesModal
         isOpen={isFavoritesModalOpen}
         onClose={() => setFavoritesModalOpen(false)}
-        favoriteClients={favoriteClients}
-        setFavoriteClients={setFavoriteClients}
+        favoriteClients={favoriteClients || []}
       />
 
 
@@ -607,7 +605,7 @@ export default function Home() {
             inputRef={inputRef}
           >
              <FavoritesMenu
-                favoriteClients={favoriteClients}
+                favoriteClients={favoriteClients || []}
                 onSelectClient={handleFavoriteLaunch}
                 onManageFavorites={() => setFavoritesModalOpen(true)}
             />

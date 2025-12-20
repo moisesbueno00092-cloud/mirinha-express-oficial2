@@ -2,7 +2,7 @@
 /**
  * Core Philosophy: This ruleset enforces a public access model. It is designed for a single-user application (like a personal tracker) where the primary goal is to sync data across devices without requiring user login. Any client can read and write data.
  *
- * Data Structure: The data is organized in four flat top-level collections: `order_items`, `daily_reports`, `client_accounts`, and `bomboniere_items`.
+ * Data Structure: The data is organized in five flat top-level collections: `order_items`, `daily_reports`, `client_accounts`, `bomboniere_items`, and `favorite_clients`.
  *
  * Key Security Decisions:
  * - Public Access: All operations (read, write, delete) on any data are permitted. This is a deliberate choice for a single-user app model where ease of access is prioritized over security.
@@ -52,6 +52,16 @@ service cloud.firestore {
      * @principle   Provides open access for a simple, single-user application to synchronize data.
      */
     match /bomboniere_items/{bomboniereItemId} {
+        allow read, write: if true;
+    }
+    
+    /**
+     * @description Allows public read and write access to favorite clients.
+     * @path        /favorite_clients/{favoriteClientId}
+     * @allow       (read, write) Any client can create, read, update, and delete favorite clients.
+     * @principle   Provides open access for a simple, single-user application to synchronize data.
+     */
+    match /favorite_clients/{favoriteClientId} {
         allow read, write: if true;
     }
   }

@@ -133,6 +133,31 @@
         }
       },
       "required": ["id", "name", "price", "stock"]
+    },
+    "FavoriteClient": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FavoriteClient",
+      "type": "object",
+      "description": "Represents a favorite client with a predefined order for quick entry.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the favorite client."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the client."
+        },
+        "orderDescription": {
+          "type": "string",
+          "description": "A short description of the client's usual order (e.g., 'PF com suco')."
+        },
+        "price": {
+          "type": "number",
+          "description": "The fixed price for the client's usual order."
+        }
+      },
+      "required": ["id", "name", "orderDescription", "price"]
     }
   },
   "auth": {
@@ -206,8 +231,24 @@
             }
           ]
         }
+      },
+       {
+        "path": "/favorite_clients/{favoriteClientId}",
+        "definition": {
+          "entityName": "FavoriteClient",
+          "schema": {
+            "$ref": "#/backend/entities/FavoriteClient"
+          },
+          "description": "Stores the list of favorite clients for quick order entries.",
+          "params": [
+            {
+              "name": "favoriteClientId",
+              "description": "Unique identifier for the favorite client."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support Mirinha's Tracker app, focusing on real-time access and data persistence. The primary entity `OrderItem` stores details of each order. A new collection `daily_reports` is added to store historical end-of-day summaries. A `client_accounts` collection is added to track individual transactions for favorite clients for monthly billing. A `bomboniere_items` collection is added to store the list of bomboniere items, ensuring the data is synchronized across all devices. This allows for long-term analysis without needing to query the entire `order_items` collection. To ensure authorization independence (CRITICAL), we rely solely on `request.auth.uid` and do not use `get()` calls in our security rules. This simplifies security and enables atomic operations.\n\nStructural Segregation (Homogeneous Security Posture):  All documents in the `order_items`, `daily_reports`, `client_accounts`, and `bomboniere_items` collections share the same public security requirements. This ensures we can use simple rules without needing to filter data based on its content.\n\nData Clarity and Predictability: Each document schema is clear and explicit.\n\nQAPs (Rules are not Filters): Since we are using a flat collection structure with all documents having the same security requirements, listing operations are inherently secure."
+    "reasoning": "The Firestore data structure is designed to support Mirinha's Tracker app, focusing on real-time access and data persistence. The primary entity `OrderItem` stores details of each order. A `daily_reports` collection stores historical end-of-day summaries. A `client_accounts` collection tracks individual transactions for favorite clients for monthly billing. A `bomboniere_items` collection stores the list of bomboniere items. Finally, a `favorite_clients` collection is added to store the list of favorite clients and their predefined orders, ensuring all app data is synchronized across all devices. This allows for long-term analysis without needing to query the entire `order_items` collection. To ensure authorization independence (CRITICAL), we rely solely on `request.auth.uid` and do not use `get()` calls in our security rules. This simplifies security and enables atomic operations.\n\nStructural Segregation (Homogeneous Security Posture):  All documents in the `order_items`, `daily_reports`, `client_accounts`, `bomboniere_items` and `favorite_clients` collections share the same public security requirements. This ensures we can use simple rules without needing to filter data based on its content.\n\nData Clarity and Predictability: Each document schema is clear and explicit.\n\nQAPs (Rules are not Filters): Since we are using a flat collection structure with all documents having the same security requirements, listing operations are inherently secure."
   }
 }

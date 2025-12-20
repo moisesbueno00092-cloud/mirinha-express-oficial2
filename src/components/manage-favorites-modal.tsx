@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect, Dispatch, SetStateAction } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { 
     AlertDialog,
@@ -20,13 +20,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Pencil, Trash2, Save, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { FavoriteClient } from '@/types';
-import { cn } from '@/lib/utils';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+
 
 interface ManageFavoritesModalProps {
   isOpen: boolean;
   onClose: () => void;
   favoriteClients: FavoriteClient[];
-  setFavoriteClients: Dispatch<SetStateAction<FavoriteClient[]>>;
 }
 
 const formatCurrency = (value: number) => {
@@ -36,7 +38,10 @@ const formatCurrency = (value: number) => {
     }).format(value);
 };
 
-export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients, setFavoriteClients }: ManageFavoritesModalProps) {
+export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients }: ManageFavoritesModalProps) {
+  const firestore = useFirestore();
+  const favoriteClientsRef = useMemoFirebase(() => collection(firestore, 'favorite_clients'), [firestore]);
+
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [editingClient, setEditingClient] = useState<FavoriteClient | null>(null);
@@ -53,6 +58,8 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients,
 
   const handleSaveItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!firestore) return;
+
     const formData = new FormData(e.currentTarget);
     const name = formData.get('name') as string;
     const orderDescription = formData.get('orderDescription') as string;
@@ -64,19 +71,16 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients,
     }
 
     if (isAdding) {
-      const newClient: FavoriteClient = {
-        id: name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(),
+      const newClient: Omit<FavoriteClient, 'id'> = {
         name,
         orderDescription,
         price,
       };
-      setFavoriteClients(prev => [...prev, newClient].sort((a,b) => a.name.localeCompare(b.name)));
+      addDocumentNonBlocking(favoriteClientsRef, newClient);
       setIsAdding(false);
     } else if (editingClient) {
-      setFavoriteClients(prev => 
-        prev.map(c => c.id === editingClient.id ? { ...c, name, orderDescription, price } : c)
-        .sort((a, b) => a.name.localeCompare(b.name))
-      );
+      const docRef = doc(firestore, 'favorite_clients', editingClient.id);
+      updateDocumentNonBlocking(docRef, { name, orderDescription, price });
       setEditingClient(null);
     }
   };
@@ -86,8 +90,9 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients,
   };
 
   const confirmDelete = () => {
-    if (clientToDelete) {
-      setFavoriteClients(prev => prev.filter(client => client.id !== clientToDelete));
+    if (clientToDelete && firestore) {
+      const docRef = doc(firestore, 'favorite_clients', clientToDelete);
+      deleteDocumentNonBlocking(docRef);
       setClientToDelete(null);
     }
   };
@@ -95,6 +100,8 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients,
   const handleCancelEdit = () => {
       setEditingClient(null);
   }
+  
+  const sortedClients = [...favoriteClients].sort((a,b) => a.name.localeCompare(b.name));
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -120,7 +127,7 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients,
 
         <ScrollArea className="h-80 -mx-6 px-6">
           <div className="space-y-3">
-            {favoriteClients.map(client => (
+            {sortedClients.map(client => (
               editingClient?.id === client.id ? (
                 <form key={client.id} ref={editFormRef} onSubmit={handleSaveItem} className="p-4 bg-muted/50 rounded-lg space-y-3">
                     <div className="space-y-1">
