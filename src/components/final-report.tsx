@@ -262,9 +262,9 @@ export default function FinalReport({ items }: FinalReportProps) {
                             <h4 className="font-medium mb-1 border-b pb-1">Total</h4>
                             <ul className="space-y-1 mt-2">
                                 {reportData.itemCounts.map(([name, count]) => (
-                                    <li key={name} className="flex justify-between items-center gap-2">
-                                        <span className="truncate">{name}:</span>
-                                        <span className="font-mono whitespace-nowrap">{count.total}</span>
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <span className="font-medium">{name}:</span>
+                                        <span className="font-mono">{count.total}</span>
                                     </li>
                                 ))}
                             </ul>
@@ -273,9 +273,9 @@ export default function FinalReport({ items }: FinalReportProps) {
                             <h4 className="font-medium mb-1 border-b pb-1">Rua</h4>
                             <ul className="space-y-1 mt-2">
                                 {reportData.itemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
-                                    <li key={name} className="flex justify-between items-center gap-2">
-                                        <span className="truncate">{name}:</span>
-                                        <span className="font-mono whitespace-nowrap">{count.rua}</span>
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <span className="font-medium">{name}:</span>
+                                        <span className="font-mono">{count.rua}</span>
                                     </li>
                                 ))}
                             </ul>
@@ -290,9 +290,9 @@ export default function FinalReport({ items }: FinalReportProps) {
                 <CardContent className="text-xs sm:text-sm">
                      <ul className="space-y-1">
                         {reportData.bomboniereItemCounts.map(([name, data]) => (
-                            <li key={name} className="flex justify-between items-center gap-2">
-                                <span className="truncate">{data.quantity}x {name}</span>
-                                <span className="font-mono whitespace-nowrap">{formatCurrency(data.total)}</span>
+                            <li key={name} className="flex items-baseline justify-between gap-2">
+                                <span>{data.quantity}x {name}</span>
+                                <span className="font-mono">{formatCurrency(data.total)}</span>
                             </li>
                         ))}
                     </ul>
