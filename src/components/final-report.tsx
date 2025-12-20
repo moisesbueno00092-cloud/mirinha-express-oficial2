@@ -111,14 +111,15 @@ export default function FinalReport({ items }: FinalReportProps) {
     });
     
     const totalFaturamento = Object.values(totalsByGroup).reduce((acc, val) => acc + val, 0);
-    const totalMealValue = totalFaturamento - totalBomboniereValue - totalDeliveryFee;
+    const totalMealValue = totalFaturamento - totalBomboniereValue; // Fee is part of faturamento, but not a separate category for this chart
     const totalAVista = totalsByGroup['Vendas salão'] + totalsByGroup['Vendas rua'];
     const totalFiado = totalsByGroup['Fiados salão'] + totalsByGroup['Fiados rua'];
 
+    const salesTotalForProportion = totalMealValue + totalBomboniereValue + totalDeliveryFee;
     const salesProportionData = [
-      { name: 'Refeições', value: totalMealValue, percent: totalFaturamento > 0 ? ((totalMealValue / totalFaturamento) * 100).toFixed(0) : 0, isCurrency: true },
-      { name: 'Bomboniere', value: totalBomboniereValue, percent: totalFaturamento > 0 ? ((totalBomboniereValue / totalFaturamento) * 100).toFixed(0) : 0, isCurrency: true },
-      { name: 'Entregas', value: totalDeliveryFee, percent: totalFaturamento > 0 ? ((totalDeliveryFee / totalFaturamento) * 100).toFixed(0) : 0, isCurrency: true },
+      { name: 'Refeições', value: totalMealValue, percent: salesTotalForProportion > 0 ? ((totalMealValue / salesTotalForProportion) * 100).toFixed(0) : 0, isCurrency: true },
+      { name: 'Bomboniere', value: totalBomboniereValue, percent: salesTotalForProportion > 0 ? ((totalBomboniereValue / salesTotalForProportion) * 100).toFixed(0) : 0, isCurrency: true },
+      { name: 'Entregas', value: totalDeliveryFee, percent: salesTotalForProportion > 0 ? ((totalDeliveryFee / salesTotalForProportion) * 100).toFixed(0) : 0, isCurrency: true },
     ].filter(d => d.value > 0);
     
     const faturamentoByGroupData = Object.entries(totalsByGroup).map(([name, value]) => ({
@@ -186,7 +187,7 @@ export default function FinalReport({ items }: FinalReportProps) {
                         className="text-xs focus:outline-none"
                     >
                         {data.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.name as keyof typeof PIE_CHART_COLORS]} stroke={entry.name === 'Fiados salão' ? 'hsl(var(--destructive))' : 'hsl(var(--border))'} />
+                            <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.name as keyof typeof PIE_CHART_COLORS]} stroke={entry.name.includes('Fiado') ? 'hsl(var(--destructive))' : 'hsl(var(--border))'} />
                         ))}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
@@ -354,7 +355,5 @@ export default function FinalReport({ items }: FinalReportProps) {
     </div>
   );
 }
-
-    
 
     
