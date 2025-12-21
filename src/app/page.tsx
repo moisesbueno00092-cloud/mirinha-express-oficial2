@@ -78,7 +78,6 @@ export default function Home() {
   const [isSaveFavoriteOpen, setIsSaveFavoriteOpen] = useState(false);
   const [itemToSaveAsFavorite, setItemToSaveAsFavorite] = useState<Item | null>(null);
   const [favoriteName, setFavoriteName] = useState("");
-  const [favoriteToDelete, setFavoriteToDelete] = useState<string | null>(null);
 
   const { toast } = useToast();
   
@@ -433,16 +432,11 @@ export default function Home() {
     handleUpsertItem(client.command);
   };
   
-  const handleDeleteFavoriteRequest = (clientId: string) => {
-    setFavoriteToDelete(clientId);
-  };
-
-  const confirmDeleteFavorite = () => {
-    if (!firestore || !favoriteToDelete) return;
-    const docRef = doc(firestore, 'favorite_clients', favoriteToDelete);
+  const handleDeleteFavorite = (clientId: string) => {
+    if (!firestore) return;
+    const docRef = doc(firestore, 'favorite_clients', clientId);
     deleteDocumentNonBlocking(docRef);
     toast({ title: 'Sucesso', description: 'Favorito removido.' });
-    setFavoriteToDelete(null);
   };
   // --- End Favorites Logic ---
 
@@ -572,22 +566,6 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Favorite Alert */}
-      <AlertDialog open={!!favoriteToDelete} onOpenChange={(open) => !open && setFavoriteToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Favorito?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir este cliente favorito? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteFavorite}>Confirmar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-48">
         <header className="mb-6 flex flex-col items-center justify-center text-center relative">
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
@@ -606,7 +584,7 @@ export default function Home() {
              <FavoritesMenu 
               favoriteClients={favoriteClients || []}
               onSelectClient={handleSelectFavorite}
-              onDeleteClient={handleDeleteFavoriteRequest}
+              onDeleteClient={handleDeleteFavorite}
              />
           </ItemForm>
 
