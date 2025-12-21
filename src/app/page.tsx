@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
-import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -30,10 +30,12 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History } from "lucide-react";
+import { Trash2, Save, History, Star } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -42,6 +44,7 @@ import SummaryReport from "@/components/summary-report";
 import FinalReport from "@/components/final-report";
 import BomboniereModal from "@/components/bomboniere-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
+import FavoritesMenu from "@/components/favorites-menu";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -56,9 +59,11 @@ export default function Home() {
   const firestore = useFirestore();
   const orderItemsRef = useMemoFirebase(() => collection(firestore, "order_items"), [firestore]);
   const bomboniereItemsRef = useMemoFirebase(() => collection(firestore, "bomboniere_items"), [firestore]);
+  const favoriteClientsRef = useMemoFirebase(() => collection(firestore, "favorite_clients"), [firestore]);
 
   const { data: items, isLoading, error: firestoreError } = useCollection<Item>(orderItemsRef);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
+  const { data: favoriteClients } = useCollection<FavoriteClient>(favoriteClientsRef);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -68,6 +73,12 @@ export default function Home() {
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  // State for Favorites
+  const [isSaveFavoriteOpen, setIsSaveFavoriteOpen] = useState(false);
+  const [itemToSaveAsFavorite, setItemToSaveAsFavorite] = useState<Item | null>(null);
+  const [favoriteName, setFavoriteName] = useState("");
+  const [favoriteToDelete, setFavoriteToDelete] = useState<string | null>(null);
 
   const { toast } = useToast();
   
@@ -393,6 +404,48 @@ export default function Home() {
     if (!rawInput.trim()) return;
     await handleUpsertItem(rawInput);
   };
+  
+  // --- Favorites Logic ---
+  const handleSaveFavoriteRequest = (item: Item) => {
+    if (!item.originalCommand) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'Este lançamento não pode ser salvo como favorito.' });
+        return;
+    }
+    setItemToSaveAsFavorite(item);
+    setFavoriteName('');
+    setIsSaveFavoriteOpen(true);
+  };
+
+  const confirmSaveFavorite = () => {
+    if (!firestore || !itemToSaveAsFavorite || !favoriteName.trim() || !itemToSaveAsFavorite.originalCommand) return;
+    
+    const newFavorite: Omit<FavoriteClient, 'id'> = {
+      name: favoriteName.trim(),
+      command: itemToSaveAsFavorite.originalCommand,
+    };
+    
+    addDocumentNonBlocking(favoriteClientsRef, newFavorite);
+    toast({ title: 'Sucesso', description: `"${favoriteName.trim()}" foi salvo como favorito.` });
+    setIsSaveFavoriteOpen(false);
+  };
+  
+  const handleSelectFavorite = (client: FavoriteClient) => {
+    handleUpsertItem(client.command);
+  };
+  
+  const handleDeleteFavoriteRequest = (clientId: string) => {
+    setFavoriteToDelete(clientId);
+  };
+
+  const confirmDeleteFavorite = () => {
+    if (!firestore || !favoriteToDelete) return;
+    const docRef = doc(firestore, 'favorite_clients', favoriteToDelete);
+    deleteDocumentNonBlocking(docRef);
+    toast({ title: 'Sucesso', description: 'Favorito removido.' });
+    setFavoriteToDelete(null);
+  };
+  // --- End Favorites Logic ---
+
 
   const displayItems = items || [];
   
@@ -486,6 +539,55 @@ export default function Home() {
         bomboniereItems={bomboniereItems || []}
       />
       
+      {/* Save as Favorite Dialog */}
+      <Dialog open={isSaveFavoriteOpen} onOpenChange={setIsSaveFavoriteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Salvar como Favorito</DialogTitle>
+            <DialogDescription>
+              Dê um nome para este cliente favorito. O comando "{itemToSaveAsFavorite?.originalCommand}" será salvo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="favorite-name" className="text-right">
+                Nome
+              </Label>
+              <Input
+                id="favorite-name"
+                value={favoriteName}
+                onChange={(e) => setFavoriteName(e.target.value)}
+                className="col-span-3"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmSaveFavorite();
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSaveFavoriteOpen(false)}>Cancelar</Button>
+            <Button onClick={confirmSaveFavorite} disabled={!favoriteName.trim()}>Salvar Favorito</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Favorite Alert */}
+      <AlertDialog open={!!favoriteToDelete} onOpenChange={(open) => !open && setFavoriteToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Favorito?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este cliente favorito? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteFavorite}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-48">
         <header className="mb-6 flex flex-col items-center justify-center text-center relative">
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
@@ -500,7 +602,13 @@ export default function Home() {
             onOpenBomboniere={() => setBomboniereModalOpen(true)}
             isProcessing={isProcessing}
             inputRef={inputRef}
-          />
+          >
+             <FavoritesMenu 
+              favoriteClients={favoriteClients || []}
+              onSelectClient={handleSelectFavorite}
+              onDeleteClient={handleDeleteFavoriteRequest}
+             />
+          </ItemForm>
 
           <Card>
             <CardContent className="p-0">
@@ -517,6 +625,7 @@ export default function Home() {
                       onEdit={handleEditRequest}
                       onDelete={handleDeleteRequest}
                       isLoading={isLoading}
+                      onSaveFavorite={handleSaveFavoriteRequest}
                     />
                   </TabsContent>
                   <TabsContent value="resumo">

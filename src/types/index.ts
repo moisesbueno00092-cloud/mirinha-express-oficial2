@@ -49,6 +49,12 @@ export interface ClientAccountEntry {
     timestamp: string;
 }
 
+export interface FavoriteClient {
+  id: string;
+  name: string;
+  command: string;
+}
+
 
 export interface DailyReport {
   id: string; // YYYY-MM-DD

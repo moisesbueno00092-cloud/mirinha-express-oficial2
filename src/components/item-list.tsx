@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Loader2, User } from "lucide-react";
+import { Pencil, Trash2, Loader2, User, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 
@@ -22,6 +22,7 @@ interface ItemListProps {
   onEdit: (item: Item) => void;
   onDelete: (id: string) => void;
   isLoading: boolean;
+  onSaveFavorite: (item: Item) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -168,7 +169,7 @@ const renderItemName = (item: Item) => {
     return <div className="flex flex-wrap gap-2 items-start">{itemElements}</div>;
 }
 
-export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemListProps) {
+export default function ItemList({ items, onEdit, onDelete, isLoading, onSaveFavorite }: ItemListProps) {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-10">
@@ -220,6 +221,9 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
               <TableCell className="text-right px-2 sm:px-4 align-top">{formatTimestamp(item.timestamp)}</TableCell>
               <TableCell className="p-0 align-top">
                 <div className="flex justify-end">
+                   <Button variant="ghost" size="icon" onClick={() => onSaveFavorite(item)}>
+                    <Star className="h-4 w-4 text-amber-400 hover:text-amber-500" />
+                  </Button>
                   <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
