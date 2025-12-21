@@ -23,6 +23,7 @@ import type { FavoriteClient } from '@/types';
 import { useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { cn } from '@/lib/utils';
 
 
 interface ManageFavoritesModalProps {
@@ -36,38 +37,38 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
   const favoriteClientsRef = useMemoFirebase(() => collection(firestore, 'favorite_clients'), [firestore]);
 
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
-  const [isAdding, setIsAdding] = useState(false);
-  const [editingClient, setEditingClient] = useState<FavoriteClient | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ name: '', command: '' });
 
-  const [newName, setNewName] = useState('');
-  const [newCommand, setNewCommand] = useState('');
-  
+  // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setIsAdding(false);
-      setEditingClient(null);
       setClientToDelete(null);
-      setNewName('');
-      setNewCommand('');
+      setSelectedClientId(null);
+      setFormData({ name: '', command: '' });
     }
   }, [isOpen]);
 
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleSaveItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!firestore) return;
+    if (!firestore || !formData.name || !formData.command) return;
 
-    if (isAdding) {
-      if (!newName || !newCommand) return;
-      addDocumentNonBlocking(favoriteClientsRef, { name: newName, command: newCommand });
-      setIsAdding(false);
-      setNewName('');
-      setNewCommand('');
-    } else if (editingClient) {
-      if (!newName || !newCommand) return;
-      const docRef = doc(firestore, 'favorite_clients', editingClient.id);
-      updateDocumentNonBlocking(docRef, { name: newName, command: newCommand });
-      setEditingClient(null);
+    if (selectedClientId) {
+      // Editing existing client
+      const docRef = doc(firestore, 'favorite_clients', selectedClientId);
+      updateDocumentNonBlocking(docRef, { name: formData.name, command: formData.command });
+    } else {
+      // Adding new client
+      addDocumentNonBlocking(favoriteClientsRef, { name: formData.name, command: formData.command });
     }
+    // Reset form
+    setSelectedClientId(null);
+    setFormData({ name: '', command: '' });
   };
 
   const handleDeleteRequest = (id: string) => {
@@ -83,64 +84,17 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
   };
   
   const handleEditClick = (client: FavoriteClient) => {
-      setEditingClient(client);
-      setNewName(client.name);
-      setNewCommand(client.command);
-      setIsAdding(false);
-  }
+    setSelectedClientId(client.id);
+    setFormData({ name: client.name, command: client.command });
+  };
 
   const handleAddNewClick = () => {
-      setIsAdding(true);
-      setEditingClient(null);
-      setNewName('');
-      setNewCommand('');
-  }
-  
-  const handleCancel = () => {
-      setIsAdding(false);
-      setEditingClient(null);
-  }
+    setSelectedClientId(null);
+    setFormData({ name: '', command: '' });
+  };
   
   const sortedClients = [...favoriteClients].sort((a,b) => a.name.localeCompare(b.name));
-
-  const renderClientList = () => (
-    <div className="space-y-3">
-        {sortedClients.map(client => (
-            <Card key={client.id}>
-                <CardContent className="p-3 flex items-center">
-                    <div className="flex-grow">
-                        <p className="font-semibold">{client.name}</p>
-                        <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
-                    </div>
-                    <div className="flex">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(client)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteRequest(client.id)}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                </CardContent>
-            </Card>
-        ))}
-    </div>
-  );
-
-  const renderForm = () => (
-     <form onSubmit={handleSaveItem} className="p-4 bg-muted/50 rounded-lg space-y-3 mt-4">
-        <h3 className="font-semibold text-center">{isAdding ? "Adicionar Novo Cliente" : "Editar Cliente"}</h3>
-         <div className="space-y-1">
-            <Label htmlFor="add-name">Nome do Cliente</Label>
-            <Input id="add-name" name="name" placeholder="Ex: João da Silva" required autoFocus value={newName} onChange={e => setNewName(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-            <Label htmlFor="add-command">Comando de Lançamento</Label>
-            <Input id="add-command" name="command" placeholder="Ex: PF coquinha" required value={newCommand} onChange={e => setNewCommand(e.target.value)} />
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>Cancelar</Button>
-            <Button type="submit" size="sm"><Save className="h-4 w-4 mr-2" /> Salvar</Button>
-        </div>
-    </form>
-  );
-
-
+  
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
@@ -163,15 +117,46 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
           <DialogTitle>Gerenciar Clientes Favoritos</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="h-80 -mx-6 px-6">
-          {isAdding || editingClient ? renderForm() : renderClientList()}
+        <ScrollArea className="h-72 -mx-6 px-6">
+           <div className="space-y-3">
+              {sortedClients.map(client => (
+                  <Card key={client.id} className={cn(client.id === selectedClientId && "border-primary")}>
+                      <CardContent className="p-3 flex items-center">
+                          <div className="flex-grow">
+                              <p className="font-semibold">{client.name}</p>
+                              <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
+                          </div>
+                          <div className="flex">
+                              <Button variant="ghost" size="icon" onClick={() => handleEditClick(client)}><Pencil className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteRequest(client.id)}><Trash2 className="h-4 w-4" /></Button>
+                          </div>
+                      </CardContent>
+                  </Card>
+              ))}
+          </div>
         </ScrollArea>
         
-        <DialogFooter className="mt-4 gap-2 sm:gap-0">
-          <Button variant="outline" className="w-full" onClick={handleAddNewClick} disabled={isAdding || !!editingClient}>
-            <Plus className="h-4 w-4 mr-2" />
-            Adicionar Novo
-          </Button>
+        <form onSubmit={handleSaveItem} className="p-4 bg-muted/50 rounded-lg space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="font-semibold text-center">{selectedClientId ? "Editar Cliente" : "Adicionar Novo Cliente"}</h3>
+              <Button type="button" variant="ghost" size="sm" onClick={handleAddNewClick}>
+                <Plus className="h-4 w-4 mr-2" /> Novo
+              </Button>
+            </div>
+            <div className="space-y-1">
+                <Label htmlFor="form-name">Nome do Cliente</Label>
+                <Input id="form-name" name="name" placeholder="Ex: João da Silva" required value={formData.name} onChange={handleFormChange} />
+            </div>
+            <div className="space-y-1">
+                <Label htmlFor="form-command">Comando de Lançamento</Label>
+                <Input id="form-command" name="command" placeholder="Ex: pf coquinha" required value={formData.command} onChange={handleFormChange} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+                <Button type="submit" size="sm" disabled={!formData.name || !formData.command}><Save className="h-4 w-4 mr-2" /> Salvar</Button>
+            </div>
+        </form>
+
+        <DialogFooter className="mt-2">
           <DialogClose asChild>
             <Button className="w-full">Fechar</Button>
           </DialogClose>
