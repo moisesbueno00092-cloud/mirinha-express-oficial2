@@ -35,7 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star, Pencil, Settings } from "lucide-react";
+import { Trash2, Save, History, Star, Pencil } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -45,7 +45,6 @@ import FinalReport from "@/components/final-report";
 import BomboniereModal from "@/components/bomboniere-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
-import SettingsModal from "@/components/settings-modal";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -73,7 +72,6 @@ export default function Home() {
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [clearAllDataRequest, setClearAllDataRequest] = useState(false);
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
-  const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -584,22 +582,11 @@ export default function Home() {
         onAddItems={handleBomboniereAdd}
         bomboniereItems={bomboniereItems || []}
       />
-
-      <SettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setSettingsModalOpen(false)}
-        favoriteClients={favoriteClients || []}
-      />
       
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-48">
         <header className="mb-6 flex flex-col items-center justify-center text-center relative">
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
           <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
-           <div className="absolute top-0 right-0">
-                <Button variant="ghost" size="icon" onClick={() => setSettingsModalOpen(true)}>
-                    <Settings className="h-5 w-5" />
-                </Button>
-            </div>
         </header>
 
         <main className="space-y-6">
