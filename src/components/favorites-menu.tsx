@@ -44,11 +44,6 @@ export default function FavoritesMenu({ favoriteClients, onSelectClient, onManag
         ) : (
             <DropdownMenuItem disabled>Nenhum cliente salvo</DropdownMenuItem>
         )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onManageFavorites}>
-          <UserPlus className="mr-2 h-4 w-4" />
-          <span>Gerenciar Favoritos</span>
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
