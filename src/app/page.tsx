@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
-import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -30,12 +30,10 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star } from "lucide-react";
+import { Trash2, Save, History } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -44,7 +42,6 @@ import SummaryReport from "@/components/summary-report";
 import FinalReport from "@/components/final-report";
 import BomboniereModal from "@/components/bomboniere-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
-import FavoritesMenu from "@/components/favorites-menu";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -58,28 +55,19 @@ const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && 
 export default function Home() {
   const firestore = useFirestore();
   const orderItemsRef = useMemoFirebase(() => collection(firestore, "order_items"), [firestore]);
-  const clientAccountsRef = useMemoFirebase(() => collection(firestore, "client_accounts"), [firestore]);
   const bomboniereItemsRef = useMemoFirebase(() => collection(firestore, "bomboniere_items"), [firestore]);
-  const favoriteClientsRef = useMemoFirebase(() => collection(firestore, "favorite_clients"), [firestore]);
 
   const { data: items, isLoading, error: firestoreError } = useCollection<Item>(orderItemsRef);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
-  const { data: favoriteClients, isLoading: isLoadingFavorites } = useCollection<FavoriteClient>(favoriteClientsRef);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [editInputValue, setEditInputValue] = useState("");
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
-  const [favoriteToDelete, setFavoriteToDelete] = useState<string | null>(null);
   const [clearAllDataRequest, setClearAllDataRequest] = useState(false);
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // State for the new "Save as Favorite" workflow
-  const [itemToFavorite, setItemToFavorite] = useState<Item | null>(null);
-  const [favoriteTitle, setFavoriteTitle] = useState('');
-
 
   const { toast } = useToast();
   
@@ -94,21 +82,18 @@ export default function Home() {
     }
   }, [firestore, bomboniereItems, isLoadingBomboniere]);
 
-  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteClient?: FavoriteClient) => {
+  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null) => {
     setIsProcessing(true);
     try {
         let mainInput = rawInputToProcess.trim();
         if (!mainInput) return;
 
         let group: Group = 'Vendas salão';
-        if (favoriteClient) {
-            group = 'Fiados salão'; // default for favorites
-        }
-
+        
         let deliveryFeeApplicable = false;
         let isTaxExempt = false;
         let originalGroup: Group | null = null;
-        let customerName: string | undefined = favoriteClient?.name;
+        let customerName: string | undefined = undefined;
         
         const partsWithExemption = mainInput.split(' ').filter(part => part.trim() !== '');
         if (partsWithExemption.map(p => p.toUpperCase()).includes('E')) {
@@ -240,8 +225,8 @@ export default function Home() {
                 } catch(e) {
                     console.error("AI parsing failed, skipping part:", part, e);
                 }
-            } else if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado')) && !favoriteClient) {
-                // Assume it's a customer name for fiado if not a favorite client launch
+            } else if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado'))) {
+                // Assume it's a customer name for fiado
                 potentialCustomerNameParts.push(part);
             }
         }
@@ -299,7 +284,6 @@ export default function Home() {
             deliveryFee,
             originalCommand: rawInputToProcess, // Save the original command
             ...(customerName && { customerName }),
-            ...(favoriteClient && { favoriteClientId: favoriteClient.id }),
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
@@ -337,23 +321,6 @@ export default function Home() {
         }
     }
   };
-
-  const handleFavoriteLaunch = (client: FavoriteClient) => {
-    if (!firestore) return;
-    
-    // Set the raw input to the client's command and process it
-    const commandWithFiado = client.command.toUpperCase().startsWith('F ') || client.command.toUpperCase().startsWith('FR ')
-      ? client.command
-      : `F ${client.name} ${client.command}`;
-      
-    handleUpsertItem(commandWithFiado, null, client);
-
-    toast({
-      title: "Lançamento Rápido",
-      description: `Comando para ${client.name} executado.`,
-    });
-  };
-
 
   const confirmClearData = () => {
     if (!items || !firestore) return;
@@ -403,20 +370,6 @@ export default function Home() {
     setItemToDelete(null);
   };
   
-  const handleDeleteFavoriteRequest = (id: string) => {
-    setFavoriteToDelete(id);
-  };
-  
-  const confirmDeleteFavorite = () => {
-    if(!firestore || !favoriteToDelete) return;
-    deleteDocumentNonBlocking(doc(firestore, "favorite_clients", favoriteToDelete));
-    toast({
-      title: "Sucesso",
-      description: "Cliente favorito removido.",
-    });
-    setFavoriteToDelete(null);
-  };
-
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
       if (!bomboniereItems) return;
       const itemsString = itemsToAdd.map(item => {
@@ -441,38 +394,6 @@ export default function Home() {
     await handleUpsertItem(rawInput);
   };
 
-  const handleRequestFavorite = (item: Item) => {
-    if (item.originalCommand) {
-        setItemToFavorite(item);
-    } else {
-        toast({
-            variant: 'destructive',
-            title: 'Não é possível salvar',
-            description: 'Este lançamento não pode ser salvo como favorito.'
-        })
-    }
-  };
-
-  const handleConfirmFavorite = () => {
-    if (!itemToFavorite || !favoriteTitle.trim() || !firestore) return;
-
-    const newFavorite: Omit<FavoriteClient, 'id'> = {
-        name: favoriteTitle.trim(),
-        command: itemToFavorite.originalCommand!
-    };
-    
-    addDocumentNonBlocking(favoriteClientsRef, newFavorite);
-
-    toast({
-        title: 'Favorito Salvo!',
-        description: `${favoriteTitle.trim()} foi adicionado aos seus clientes favoritos.`
-    });
-
-    // Reset and close
-    setItemToFavorite(null);
-    setFavoriteTitle('');
-  };
-  
   const displayItems = items || [];
   
   const summary = useMemo(() => {
@@ -528,54 +449,6 @@ export default function Home() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
-      <AlertDialog open={!!favoriteToDelete} onOpenChange={(open) => !open && setFavoriteToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Cliente Favorito?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Essa ação não pode ser desfeita. Isso excluirá permanentemente o cliente dos seus favoritos.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteFavorite}>Confirmar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      
-      <Dialog open={!!itemToFavorite} onOpenChange={(open) => { if(!open) setItemToFavorite(null) }}>
-          <DialogContent>
-              <DialogHeader>
-                  <DialogTitle>Salvar Lançamento como Favorito</DialogTitle>
-                  <DialogDescription>
-                      Crie um atalho para este lançamento para uso futuro.
-                  </DialogDescription>
-              </DialogHeader>
-              <div className="py-4 space-y-2">
-                  <Label htmlFor="favorite-title">Título do Favorito (Nome do Cliente)</Label>
-                  <Input 
-                      id="favorite-title"
-                      value={favoriteTitle}
-                      onChange={(e) => setFavoriteTitle(e.target.value)}
-                      placeholder="Ex: Tião Pezinho"
-                      autoFocus
-                  />
-                  <p className="text-xs text-muted-foreground">
-                      <span className="font-semibold">Comando a ser salvo:</span> {itemToFavorite?.originalCommand}
-                  </p>
-              </div>
-              <DialogFooter>
-                  <DialogClose asChild>
-                      <Button type="button" variant="secondary">Cancelar</Button>
-                  </DialogClose>
-                  <Button onClick={handleConfirmFavorite} disabled={!favoriteTitle.trim()}>
-                      <Save className="mr-2 h-4 w-4" /> Salvar Favorito
-                  </Button>
-              </DialogFooter>
-          </DialogContent>
-      </Dialog>
-
 
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="sm:max-w-[425px]">
@@ -627,13 +500,7 @@ export default function Home() {
             onOpenBomboniere={() => setBomboniereModalOpen(true)}
             isProcessing={isProcessing}
             inputRef={inputRef}
-          >
-             <FavoritesMenu
-                favoriteClients={favoriteClients || []}
-                onSelectClient={handleFavoriteLaunch}
-                onDeleteClient={handleDeleteFavoriteRequest}
-            />
-          </ItemForm>
+          />
 
           <Card>
             <CardContent className="p-0">
@@ -649,7 +516,6 @@ export default function Home() {
                       items={displayItems}
                       onEdit={handleEditRequest}
                       onDelete={handleDeleteRequest}
-                      onFavorite={handleRequestFavorite}
                       isLoading={isLoading}
                     />
                   </TabsContent>

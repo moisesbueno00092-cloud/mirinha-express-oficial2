@@ -37,14 +37,7 @@ export interface Item {
   bomboniereItems?: SelectedBomboniereItem[];
 
   // For favorite client entries
-  favoriteClientId?: string;
   customerName?: string;
-}
-
-export interface FavoriteClient {
-    id: string;
-    name: string;
-    command: string;
 }
 
 export interface ClientAccountEntry {
