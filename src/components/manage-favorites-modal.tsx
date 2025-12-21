@@ -39,7 +39,8 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
   const [isAdding, setIsAdding] = useState(false);
   const [editingClient, setEditingClient] = useState<FavoriteClient | null>(null);
 
-  const addFormRef = useRef<HTMLFormElement>(null);
+  const [newName, setNewName] = useState('');
+  const [newCommand, setNewCommand] = useState('');
   
   useEffect(() => {
     if(!isOpen) {
@@ -47,14 +48,6 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
         setEditingClient(null);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    // Reset form only when switching to adding mode
-    if (isAdding && addFormRef.current) {
-        addFormRef.current.reset();
-    }
-  }, [isAdding]);
-
 
   const handleSaveItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -70,12 +63,10 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
     }
 
     if (isAdding) {
-      const newClient: Omit<FavoriteClient, 'id'> = {
-        name,
-        command,
-      };
-      addDocumentNonBlocking(favoriteClientsRef, newClient);
+      addDocumentNonBlocking(favoriteClientsRef, { name, command });
       setIsAdding(false);
+      setNewName('');
+      setNewCommand('');
     } else if (editingClient) {
       const docRef = doc(firestore, 'favorite_clients', editingClient.id);
       updateDocumentNonBlocking(docRef, { name, command });
@@ -149,7 +140,7 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
                             <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
                         </div>
                         <div className="flex">
-                            <Button variant="ghost" size="icon" onClick={() => setEditingClient(client)}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => { setEditingClient(client); setIsAdding(false); }}><Pencil className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteRequest(client.id)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                     </CardContent>
@@ -158,15 +149,15 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
             ))}
 
             {isAdding && (
-                <form ref={addFormRef} onSubmit={handleSaveItem} className="p-4 bg-muted/50 rounded-lg space-y-3 mt-4">
+                <form onSubmit={handleSaveItem} className="p-4 bg-muted/50 rounded-lg space-y-3 mt-4">
                     <h3 className="font-semibold text-center">Adicionar Novo Cliente</h3>
                      <div className="space-y-1">
                         <Label htmlFor="add-name">Nome do Cliente</Label>
-                        <Input id="add-name" name="name" placeholder="Ex: João da Silva" required autoFocus/>
+                        <Input id="add-name" name="name" placeholder="Ex: João da Silva" required autoFocus value={newName} onChange={e => setNewName(e.target.value)} />
                     </div>
                     <div className="space-y-1">
                         <Label htmlFor="add-command">Comando de Lançamento</Label>
-                        <Input id="add-command" name="command" placeholder="Ex: PF coquinha" required />
+                        <Input id="add-command" name="command" placeholder="Ex: PF coquinha" required value={newCommand} onChange={e => setNewCommand(e.target.value)} />
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
                         <Button type="button" variant="ghost" size="sm" onClick={() => setIsAdding(false)}>Cancelar</Button>
