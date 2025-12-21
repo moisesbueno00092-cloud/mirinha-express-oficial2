@@ -72,11 +72,11 @@ export default function Home() {
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [clearAllDataRequest, setClearAllDataRequest] = useState(false);
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
-  const [isFavoritesModalOpen, setFavoritesModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   // State for Favorites Modal
+  const [isFavoritesModalOpen, setFavoritesModalOpen] = useState(false);
   const [favoriteClientToDelete, setFavoriteClientToDelete] = useState<string | null>(null);
   const [editingFavoriteClientId, setEditingFavoriteClientId] = useState<string | null>(null);
   const [favoriteFormData, setFavoriteFormData] = useState({ name: '', command: '' });
@@ -339,7 +339,7 @@ export default function Home() {
 
   const handleFavoriteLaunch = (client: FavoriteClient) => {
     if (!firestore) return;
-    const command = `F ${client.name} ${client.command}`;
+    const command = `${client.command}`;
     handleUpsertItem(command, null, client);
     toast({
       title: "Lançamento Rápido",
@@ -496,13 +496,6 @@ export default function Home() {
   
   const isFavoriteFormValid = favoriteFormData.name.trim() && favoriteFormData.command.trim();
 
-  useEffect(() => {
-    if (!isFavoritesModalOpen) {
-      setEditingFavoriteClientId(null);
-      setFavoriteFormData({ name: '', command: '' });
-    }
-  }, [isFavoritesModalOpen]);
-
   const handleSaveFavorite = () => {
     if (!firestore || !isFavoriteFormValid) return;
 
@@ -513,6 +506,7 @@ export default function Home() {
       addDocumentNonBlocking(favoriteClientsRef, favoriteFormData);
     }
     
+    // Reset form after saving
     setEditingFavoriteClientId(null);
     setFavoriteFormData({ name: '', command: '' });
   };
@@ -522,12 +516,24 @@ export default function Home() {
     setFavoriteFormData({ name: client.name, command: client.command });
   }
 
+  const handleCancelEditFavorite = () => {
+    setEditingFavoriteClientId(null);
+    setFavoriteFormData({ name: '', command: '' });
+  };
+
   const confirmDeleteFavorite = () => {
     if (favoriteClientToDelete && firestore) {
       const docRef = doc(firestore, 'favorite_clients', favoriteClientToDelete);
       deleteDocumentNonBlocking(docRef);
       setFavoriteClientToDelete(null);
     }
+  };
+  
+  const handleOpenFavoritesModal = () => {
+    // Reset state when opening the modal
+    setEditingFavoriteClientId(null);
+    setFavoriteFormData({ name: '', command: '' });
+    setFavoritesModalOpen(true);
   };
   // --- End Favorites Modal Logic ---
 
@@ -692,7 +698,7 @@ export default function Home() {
                     </div>
                     <div className="flex justify-end gap-2 pt-1">
                         {editingFavoriteClientId && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingFavoriteClientId(null); setFavoriteFormData({ name: '', command: '' }); }}>
+                            <Button type="button" variant="ghost" size="sm" onClick={handleCancelEditFavorite}>
                                 <X className="h-4 w-4 mr-1" /> Cancelar Edição
                             </Button>
                         )}
@@ -729,7 +735,7 @@ export default function Home() {
              <FavoritesMenu
                 favoriteClients={favoriteClients || []}
                 onSelectClient={handleFavoriteLaunch}
-                onManageFavorites={() => setFavoritesModalOpen(true)}
+                onManageFavorites={handleOpenFavoritesModal}
             />
           </ItemForm>
 
