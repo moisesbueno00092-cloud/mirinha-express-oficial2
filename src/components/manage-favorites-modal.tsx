@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { 
     AlertDialog,
@@ -43,7 +43,6 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
   const [newCommand, setNewCommand] = useState('');
   
   useEffect(() => {
-    // Reset internal state when the modal is opened
     if (isOpen) {
       setIsAdding(false);
       setEditingClient(null);
@@ -53,28 +52,20 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
     }
   }, [isOpen]);
 
-
   const handleSaveItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!firestore) return;
 
-    const formData = new FormData(e.currentTarget);
-    const name = formData.get('name') as string;
-    const command = formData.get('command') as string;
-    
-    if (!name || !command) {
-        alert("Por favor, preencha todos os campos corretamente.");
-        return;
-    }
-
     if (isAdding) {
-      addDocumentNonBlocking(favoriteClientsRef, { name, command });
+      if (!newName || !newCommand) return;
+      addDocumentNonBlocking(favoriteClientsRef, { name: newName, command: newCommand });
       setIsAdding(false);
       setNewName('');
       setNewCommand('');
     } else if (editingClient) {
+      if (!newName || !newCommand) return;
       const docRef = doc(firestore, 'favorite_clients', editingClient.id);
-      updateDocumentNonBlocking(docRef, { name, command });
+      updateDocumentNonBlocking(docRef, { name: newName, command: newCommand });
       setEditingClient(null);
     }
   };
@@ -91,11 +82,64 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
     }
   };
   
-  const handleCancelEdit = () => {
+  const handleEditClick = (client: FavoriteClient) => {
+      setEditingClient(client);
+      setNewName(client.name);
+      setNewCommand(client.command);
+      setIsAdding(false);
+  }
+
+  const handleAddNewClick = () => {
+      setIsAdding(true);
+      setEditingClient(null);
+      setNewName('');
+      setNewCommand('');
+  }
+  
+  const handleCancel = () => {
+      setIsAdding(false);
       setEditingClient(null);
   }
   
   const sortedClients = [...favoriteClients].sort((a,b) => a.name.localeCompare(b.name));
+
+  const renderClientList = () => (
+    <div className="space-y-3">
+        {sortedClients.map(client => (
+            <Card key={client.id}>
+                <CardContent className="p-3 flex items-center">
+                    <div className="flex-grow">
+                        <p className="font-semibold">{client.name}</p>
+                        <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
+                    </div>
+                    <div className="flex">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(client)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteRequest(client.id)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                </CardContent>
+            </Card>
+        ))}
+    </div>
+  );
+
+  const renderForm = () => (
+     <form onSubmit={handleSaveItem} className="p-4 bg-muted/50 rounded-lg space-y-3 mt-4">
+        <h3 className="font-semibold text-center">{isAdding ? "Adicionar Novo Cliente" : "Editar Cliente"}</h3>
+         <div className="space-y-1">
+            <Label htmlFor="add-name">Nome do Cliente</Label>
+            <Input id="add-name" name="name" placeholder="Ex: João da Silva" required autoFocus value={newName} onChange={e => setNewName(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+            <Label htmlFor="add-command">Comando de Lançamento</Label>
+            <Input id="add-command" name="command" placeholder="Ex: PF coquinha" required value={newCommand} onChange={e => setNewCommand(e.target.value)} />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>Cancelar</Button>
+            <Button type="submit" size="sm"><Save className="h-4 w-4 mr-2" /> Salvar</Button>
+        </div>
+    </form>
+  );
+
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -120,62 +164,11 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
         </DialogHeader>
 
         <ScrollArea className="h-80 -mx-6 px-6">
-          <div className="space-y-3">
-            {sortedClients.map(client => (
-              editingClient?.id === client.id ? (
-                <form key={client.id} onSubmit={handleSaveItem} className="p-4 bg-muted/50 rounded-lg space-y-3">
-                    <div className="space-y-1">
-                        <Label htmlFor={`edit-name-${client.id}`}>Nome do Cliente</Label>
-                        <Input id={`edit-name-${client.id}`} name="name" defaultValue={client.name} required />
-                    </div>
-                    <div className="space-y-1">
-                        <Label htmlFor={`edit-command-${client.id}`}>Comando de Lançamento</Label>
-                        <Input id={`edit-command-${client.id}`} name="command" defaultValue={client.command} required />
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                        <Button type="button" variant="ghost" size="sm" onClick={handleCancelEdit}>Cancelar</Button>
-                        <Button type="submit" size="sm"><Save className="h-4 w-4 mr-2" /> Salvar</Button>
-                    </div>
-                </form>
-              ) : (
-                <Card key={client.id}>
-                    <CardContent className="p-3 flex items-center">
-                        <div className="flex-grow">
-                            <p className="font-semibold">{client.name}</p>
-                            <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
-                        </div>
-                        <div className="flex">
-                            <Button variant="ghost" size="icon" onClick={() => { setEditingClient(client); setIsAdding(false); }}><Pencil className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteRequest(client.id)}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                    </CardContent>
-                </Card>
-              )
-            ))}
-
-            {isAdding && (
-                <form onSubmit={handleSaveItem} className="p-4 bg-muted/50 rounded-lg space-y-3 mt-4">
-                    <h3 className="font-semibold text-center">Adicionar Novo Cliente</h3>
-                     <div className="space-y-1">
-                        <Label htmlFor="add-name">Nome do Cliente</Label>
-                        <Input id="add-name" name="name" placeholder="Ex: João da Silva" required autoFocus value={newName} onChange={e => setNewName(e.target.value)} />
-                    </div>
-                    <div className="space-y-1">
-                        <Label htmlFor="add-command">Comando de Lançamento</Label>
-                        <Input id="add-command" name="command" placeholder="Ex: PF coquinha" required value={newCommand} onChange={e => setNewCommand(e.target.value)} />
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => setIsAdding(false)}>Cancelar</Button>
-                        <Button type="submit" size="sm"><Save className="h-4 w-4 mr-2" /> Salvar Cliente</Button>
-                    </div>
-                </form>
-            )}
-
-          </div>
+          {isAdding || editingClient ? renderForm() : renderClientList()}
         </ScrollArea>
         
         <DialogFooter className="mt-4 gap-2 sm:gap-0">
-          <Button variant="outline" className="w-full" onClick={() => { setIsAdding(prev => !prev); setEditingClient(null); }}>
+          <Button variant="outline" className="w-full" onClick={handleAddNewClick} disabled={isAdding || !!editingClient}>
             <Plus className="h-4 w-4 mr-2" />
             Adicionar Novo
           </Button>
