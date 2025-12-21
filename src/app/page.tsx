@@ -88,7 +88,7 @@ export default function Home() {
     }
   }, [firestore, bomboniereItems, isLoadingBomboniere]);
 
-  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null) => {
+  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteClient?: FavoriteClient) => {
     setIsProcessing(true);
     try {
         let mainInput = rawInputToProcess.trim();
@@ -98,7 +98,7 @@ export default function Home() {
         let deliveryFeeApplicable = false;
         let isTaxExempt = false;
         let originalGroup: Group | null = null;
-        let customerName: string | undefined = undefined;
+        let customerName: string | undefined = favoriteClient?.name;
         
         const partsWithExemption = mainInput.split(' ').filter(part => part.trim() !== '');
         if (partsWithExemption.map(p => p.toUpperCase()).includes('E')) {
@@ -133,6 +133,8 @@ export default function Home() {
         let processedBomboniereItems: SelectedBomboniereItem[] = [];
         let customDeliveryFee: number | null = null;
         
+        let potentialCustomerNameParts: string[] = [];
+
         for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             const upperPart = part.toUpperCase();
@@ -228,14 +230,14 @@ export default function Home() {
                 } catch(e) {
                     console.error("AI parsing failed, skipping part:", part, e);
                 }
-            } else if (!isPredefined && !bomboniereItemDef && !isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado'))) {
-                // Assume it's a customer name for fiado
-                 if (!customerName) {
-                    customerName = part;
-                } else {
-                    customerName += ` ${part}`;
-                }
+            } else if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado')) && !favoriteClient) {
+                // Assume it's a customer name for fiado if not a favorite client launch
+                potentialCustomerNameParts.push(part);
             }
+        }
+        
+        if (!customerName && potentialCustomerNameParts.length > 0) {
+            customerName = potentialCustomerNameParts.join(' ');
         }
         
         if (predefinedItems.length === 0 && individualPrices.length === 0 && processedBomboniereItems.length === 0) {
@@ -270,7 +272,6 @@ export default function Home() {
         const hasBomboniereItems = processedBomboniereItems.length > 0;
 
         const nameParts = [];
-        // Do not add customer name to consolidated name, it is a separate field
         if (hasPredefinedItems) nameParts.push(predefinedItems.map(p => p.name).join(' '));
         if (hasKgItems) nameParts.push('KG');
         if (hasBomboniereItems) nameParts.push('Bomboniere');
@@ -287,6 +288,7 @@ export default function Home() {
             timestamp: new Date().toISOString(),
             deliveryFee,
             ...(customerName && { customerName }),
+            ...(favoriteClient && { favoriteClientId: favoriteClient.id }),
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
@@ -329,9 +331,9 @@ export default function Home() {
     if (!firestore) return;
     
     // The command to be executed, always as fiado and with the client's name
-    const commandToExecute = `F ${client.name} ${client.command}`;
+    const commandToExecute = `F ${client.command}`;
     
-    handleUpsertItem(commandToExecute);
+    handleUpsertItem(commandToExecute, null, client);
     
     toast({
       title: "Lançamento Rápido",
