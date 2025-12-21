@@ -34,9 +34,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star, UserPlus, Pencil, X } from "lucide-react";
+import { Trash2, Save, History, Star, Pencil } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -76,10 +75,10 @@ export default function Home() {
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // State for Favorites Modal
-  const [isFavoritesModalOpen, setFavoritesModalOpen] = useState(false);
-  const [favoriteClientToDelete, setFavoriteClientToDelete] = useState<string | null>(null);
-  const [favoriteFormData, setFavoriteFormData] = useState({ name: '', command: '' });
+  // State for the new "Save as Favorite" workflow
+  const [itemToFavorite, setItemToFavorite] = useState<Item | null>(null);
+  const [favoriteTitle, setFavoriteTitle] = useState('');
+
 
   const { toast } = useToast();
   
@@ -133,7 +132,7 @@ export default function Home() {
             originalGroup = group;
             mainInput = mainInput.substring(2).trim();
         }
-
+        
         const parts = mainInput.split(' ').filter(part => part.trim() !== '');
         
         let totalQuantity = 0;
@@ -297,6 +296,7 @@ export default function Home() {
             group,
             timestamp: new Date().toISOString(),
             deliveryFee,
+            originalCommand: rawInputToProcess, // Save the original command
             ...(customerName && { customerName }),
             ...(favoriteClient && { favoriteClientId: favoriteClient.id }),
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
@@ -339,7 +339,14 @@ export default function Home() {
 
   const handleFavoriteLaunch = (client: FavoriteClient) => {
     if (!firestore) return;
-    handleUpsertItem(client.command, null, client);
+    
+    // Set the raw input to the client's command and process it
+    const commandWithFiado = client.command.toUpperCase().startsWith('F ') || client.command.toUpperCase().startsWith('FR ')
+      ? client.command
+      : `F ${client.name} ${client.command}`;
+      
+    handleUpsertItem(commandWithFiado, null, client);
+
     toast({
       title: "Lançamento Rápido",
       description: `Comando para ${client.name} executado.`,
@@ -371,75 +378,7 @@ export default function Home() {
 
   const handleEditRequest = (item: Item) => {
     setEditingItem(item);
-    
-    const groupPrefixMap: { [K in Item['group']]?: string } = {
-        'Fiados rua': 'Fr ',
-        'Fiados salão': 'F ',
-        'Vendas rua': 'R ',
-        'Vendas salão': '',
-    };
-    const prefix = groupPrefixMap[item.group] || '';
-
-    let reconstructedParts: string[] = [];
-    
-    if (item.customerName && !item.favoriteClientId) {
-      reconstructedParts.push(item.customerName);
-    }
-
-    if (item.predefinedItems && item.predefinedItems.length > 0) {
-      const itemGroups: Record<string, {count: number, price: number}> = {};
-      
-      item.predefinedItems.forEach(pi => {
-        const key = `${pi.name}-${pi.price}`;
-        if (!itemGroups[key]) {
-          itemGroups[key] = { count: 0, price: pi.price };
-        }
-        itemGroups[key].count++;
-      });
-      
-      Object.entries(itemGroups).forEach(([key, {count, price}]) => {
-          const name = key.split('-')[0];
-          const defaultPrice = PREDEFINED_PRICES[name.toUpperCase()];
-          let part = count > 1 ? `${count}${name.toLowerCase()}` : name.toLowerCase();
-          if (price !== defaultPrice) {
-            part += ` ${String(price).replace('.', ',')}`;
-          }
-          reconstructedParts.push(part);
-      });
-    }
-    
-    if (item.individualPrices && item.individualPrices.length > 0) {
-      reconstructedParts.push(`kg ${item.individualPrices.map(p => String(p).replace('.', ',')).join(' ')}`);
-    }
-
-    if(item.bomboniereItems && item.bomboniereItems.length > 0 && bomboniereItems) {
-        item.bomboniereItems.forEach(bi => {
-            const qtyPart = bi.quantity > 1 ? `${bi.quantity}` : '';
-            const bomboniereDef = bomboniereItems.find(item => item.id === bi.id);
-            const namePart = bomboniereDef ? bomboniereDef.name.toLowerCase().replace(/\s+/g, '-') : bi.name.toLowerCase();
-
-            // Check if the price is the default bomboniere price. If not, append it.
-            let part = `${qtyPart}${namePart}`;
-            if (bomboniereDef && bi.price !== bomboniereDef.price) {
-                part += ` ${String(bi.price).replace('.', ',')}`;
-            } else if (!bomboniereDef) { // If it's a custom item, always add price
-                 part += ` ${String(bi.price).replace('.', ',')}`;
-            }
-            reconstructedParts.push(part);
-        });
-    }
-
-    if (item.deliveryFee > 0 && item.deliveryFee !== DELIVERY_FEE) {
-        reconstructedParts.push(`tx ${String(item.deliveryFee).replace('.', ',')}`);
-    } else if (item.deliveryFee === 0 && (item.group === 'Vendas rua' || item.group === 'Fiados rua')) {
-        reconstructedParts.push('e');
-    }
-
-    if (reconstructedParts.length === 0 && item.name) {
-       reconstructedParts.push(item.name);
-    }
-
-    setEditInputValue(prefix + reconstructedParts.join(' '));
+    setEditInputValue(item.originalCommand || '');
   };
 
   const handleSaveEdit = () => {
@@ -486,43 +425,39 @@ export default function Home() {
     if (!rawInput.trim()) return;
     await handleUpsertItem(rawInput);
   };
-  
-  // --- Favorites Modal Logic ---
-  const sortedFavoriteClients = useMemo(() => 
-    [...(favoriteClients || [])].sort((a, b) => a.name.localeCompare(b.name)),
-    [favoriteClients]
-  );
-  
-  const isFavoriteFormValid = favoriteFormData.name.trim() && favoriteFormData.command.trim();
 
-  const handleSaveFavorite = () => {
-    if (!firestore || !isFavoriteFormValid) return;
-
-    addDocumentNonBlocking(favoriteClientsRef, favoriteFormData);
-    
-    // Reset form after saving
-    setFavoriteFormData({ name: '', command: '' });
-  };
-
-  const confirmDeleteFavorite = () => {
-    if (favoriteClientToDelete && firestore) {
-      const docRef = doc(firestore, 'favorite_clients', favoriteClientToDelete);
-      deleteDocumentNonBlocking(docRef);
-      setFavoriteClientToDelete(null);
+  const handleRequestFavorite = (item: Item) => {
+    if (item.originalCommand) {
+        setItemToFavorite(item);
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Não é possível salvar',
+            description: 'Este lançamento não pode ser salvo como favorito.'
+        })
     }
   };
+
+  const handleConfirmFavorite = () => {
+    if (!itemToFavorite || !favoriteTitle.trim() || !firestore) return;
+
+    const newFavorite: Omit<FavoriteClient, 'id'> = {
+        name: favoriteTitle.trim(),
+        command: itemToFavorite.originalCommand!
+    };
+    
+    addDocumentNonBlocking(favoriteClientsRef, newFavorite);
+
+    toast({
+        title: 'Favorito Salvo!',
+        description: `${favoriteTitle.trim()} foi adicionado aos seus clientes favoritos.`
+    });
+
+    // Reset and close
+    setItemToFavorite(null);
+    setFavoriteTitle('');
+  };
   
-  const handleOpenFavoritesModal = () => {
-    setFavoriteFormData({ name: '', command: '' });
-    setFavoritesModalOpen(true);
-  };
-
-  const handleCloseFavoritesModal = () => {
-    setFavoritesModalOpen(false);
-  };
-  // --- End Favorites Modal Logic ---
-
-
   const displayItems = items || [];
   
   const summary = useMemo(() => {
@@ -578,6 +513,39 @@ export default function Home() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <Dialog open={!!itemToFavorite} onOpenChange={(open) => { if(!open) setItemToFavorite(null) }}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Salvar Lançamento como Favorito</DialogTitle>
+                  <DialogDescription>
+                      Crie um atalho para este lançamento para uso futuro.
+                  </DialogDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-2">
+                  <Label htmlFor="favorite-title">Título do Favorito (Nome do Cliente)</Label>
+                  <Input 
+                      id="favorite-title"
+                      value={favoriteTitle}
+                      onChange={(e) => setFavoriteTitle(e.target.value)}
+                      placeholder="Ex: Tião Pezinho"
+                      autoFocus
+                  />
+                  <p className="text-xs text-muted-foreground">
+                      <span className="font-semibold">Comando a ser salvo:</span> {itemToFavorite?.originalCommand}
+                  </p>
+              </div>
+              <DialogFooter>
+                  <DialogClose asChild>
+                      <Button type="button" variant="secondary">Cancelar</Button>
+                  </DialogClose>
+                  <Button onClick={handleConfirmFavorite} disabled={!favoriteTitle.trim()}>
+                      <Save className="mr-2 h-4 w-4" /> Salvar Favorito
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+
 
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="sm:max-w-[425px]">
@@ -588,26 +556,20 @@ export default function Home() {
             <Input
               value={editInputValue}
               onChange={(e) => setEditInputValue(e.target.value)}
-              placeholder=""
+              placeholder="Comando original..."
               className="h-10 flex-1 sm:h-12 text-base"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   handleSaveEdit();
                 }
               }}
-              disabled={!!editingItem?.favoriteClientId}
             />
-             {editingItem?.favoriteClientId && (
-                <p className="text-xs text-muted-foreground mt-2">
-                    Lançamentos de clientes favoritos não podem ser editados diretamente. Você pode excluir este lançamento e fazê-lo novamente.
-                </p>
-             )}
           </div>
           <DialogFooter>
             <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancelar</Button>
             </DialogClose>
-            <Button type="submit" onClick={handleSaveEdit} disabled={isProcessing || !!editingItem?.favoriteClientId}>
+            <Button type="submit" onClick={handleSaveEdit} disabled={isProcessing}>
                 <Save className="mr-2 h-4 w-4" /> Salvar
             </Button>
           </DialogFooter>
@@ -621,77 +583,6 @@ export default function Home() {
         bomboniereItems={bomboniereItems || []}
       />
       
-      {/* Manage Favorites Modal */}
-      <Dialog open={isFavoritesModalOpen} onOpenChange={setFavoritesModalOpen}>
-        <DialogContent className="sm:max-w-md flex flex-col">
-            <AlertDialog open={!!favoriteClientToDelete} onOpenChange={(open) => !open && setFavoriteClientToDelete(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Essa ação não pode ser desfeita. Isso excluirá permanentemente o cliente dos seus favoritos.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmDeleteFavorite}>Confirmar</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            <DialogHeader>
-                <DialogTitle>Gerenciar Clientes Favoritos</DialogTitle>
-            </DialogHeader>
-            <div className="flex-grow overflow-hidden">
-                <ScrollArea className="h-64">
-                    <div className="space-y-3 pr-6">
-                        {sortedFavoriteClients.map((client) => (
-                            <Card key={client.id}>
-                                <CardContent className="p-3 flex items-center">
-                                    <div className="flex-grow">
-                                        <p className="font-semibold">{client.name}</p>
-                                        <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
-                                    </div>
-                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setFavoriteClientToDelete(client.id)}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        ))}
-                        {sortedFavoriteClients.length === 0 && (
-                            <div className="text-center text-muted-foreground py-10">
-                                <p>Nenhum cliente favorito adicionado.</p>
-                            </div>
-                        )}
-                    </div>
-                </ScrollArea>
-            </div>
-            <div className="flex-shrink-0 pt-4 border-t">
-                <div className="p-1 bg-muted/50 rounded-lg space-y-3">
-                    <h3 className="font-semibold text-center text-sm">Adicionar Novo Cliente</h3>
-                    <div className="space-y-1">
-                        <Label htmlFor="fav-form-name" className="text-xs">Nome</Label>
-                        <Input id="fav-form-name" placeholder="Ex: João da Silva" value={favoriteFormData.name} onChange={(e) => setFavoriteFormData(prev => ({ ...prev, name: e.target.value }))} className="h-8" />
-                    </div>
-                    <div className="space-y-1">
-                        <Label htmlFor="fav-form-command" className="text-xs">Comando</Label>
-                        <Input id="fav-form-command" placeholder="Ex: pf coquinha-200ml" value={favoriteFormData.command} onChange={(e) => setFavoriteFormData(prev => ({ ...prev, command: e.target.value }))} className="h-8" />
-                    </div>
-                    <div className="flex justify-end gap-2 pt-1">
-                        <Button type="button" size="sm" onClick={handleSaveFavorite} disabled={!isFavoriteFormValid}>
-                            <Save className="h-4 w-4 mr-2" /> Salvar Novo Cliente
-                        </Button>
-                    </div>
-                </div>
-            </div>
-            <DialogFooter className="mt-2">
-                <DialogClose asChild>
-                    <Button className="w-full" variant="outline">Fechar</Button>
-                </DialogClose>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-48">
         <header className="mb-6 flex flex-col items-center justify-center text-center">
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
@@ -710,7 +601,6 @@ export default function Home() {
              <FavoritesMenu
                 favoriteClients={favoriteClients || []}
                 onSelectClient={handleFavoriteLaunch}
-                onManageFavorites={handleOpenFavoritesModal}
             />
           </ItemForm>
 
@@ -728,6 +618,7 @@ export default function Home() {
                       items={displayItems}
                       onEdit={handleEditRequest}
                       onDelete={handleDeleteRequest}
+                      onFavorite={handleRequestFavorite}
                       isLoading={isLoading}
                     />
                   </TabsContent>

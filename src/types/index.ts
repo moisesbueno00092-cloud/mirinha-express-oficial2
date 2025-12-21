@@ -29,6 +29,7 @@ export interface Item {
   total: number; // price + deliveryFee
   group: Group;
   timestamp: string; // ISO string for date
+  originalCommand?: string; // The raw string used to create the item
   
   // To store details for complex entries
   individualPrices?: number[]; // For KG items

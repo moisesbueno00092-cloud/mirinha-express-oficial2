@@ -10,16 +10,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Star, UserPlus } from "lucide-react";
+import { Star } from "lucide-react";
 import type { FavoriteClient } from "@/types";
 
 interface FavoritesMenuProps {
   favoriteClients: FavoriteClient[];
   onSelectClient: (client: FavoriteClient) => void;
-  onManageFavorites: () => void;
 }
 
-export default function FavoritesMenu({ favoriteClients, onSelectClient, onManageFavorites }: FavoritesMenuProps) {
+export default function FavoritesMenu({ favoriteClients, onSelectClient }: FavoritesMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
