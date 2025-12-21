@@ -516,6 +516,10 @@ export default function Home() {
     setFavoriteFormData({ name: '', command: '' });
     setFavoritesModalOpen(true);
   };
+
+  const handleCloseFavoritesModal = () => {
+    setFavoritesModalOpen(false);
+  };
   // --- End Favorites Modal Logic ---
 
 
@@ -647,11 +651,9 @@ export default function Home() {
                                         <p className="font-semibold">{client.name}</p>
                                         <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
                                     </div>
-                                    <div className="flex">
-                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setFavoriteClientToDelete(client.id)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setFavoriteClientToDelete(client.id)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </CardContent>
                             </Card>
                         ))}
@@ -762,4 +764,3 @@ export default function Home() {
     </>
   );
 }
-
