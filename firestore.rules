@@ -36,7 +36,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows public access to the client_accounts collection.
+     * @description Allows public access to individual client account entries.
      *              - Any client can read, write, and delete individual documents.
      * @path        /client_accounts/{clientAccountId}
      * @principle   Provides open access for a simple, single-user application.
@@ -49,10 +49,10 @@ service cloud.firestore {
      * @description Allows public listing of the client_accounts collection.
      *              - Any client can list the entire collection.
      * @path        /client_accounts
-     * @principle   Provides open access for a simple, single-user application.
+     * @principle   This rule is separate from the individual document rule to ensure collection-level queries are allowed.
      */
     match /client_accounts {
-        allow list: if true;
+      allow list: if true;
     }
 
     /**
