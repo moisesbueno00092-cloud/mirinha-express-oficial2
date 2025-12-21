@@ -32,8 +32,10 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star } from "lucide-react";
+import { Trash2, Save, History, Star, UserPlus, Pencil, X } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -41,7 +43,6 @@ import ItemList from "@/components/item-list";
 import SummaryReport from "@/components/summary-report";
 import FinalReport from "@/components/final-report";
 import BomboniereModal from "@/components/bomboniere-modal";
-import ManageFavoritesModal from "@/components/manage-favorites-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
 
@@ -74,6 +75,11 @@ export default function Home() {
   const [isFavoritesModalOpen, setFavoritesModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // State for Favorites Modal
+  const [favoriteClientToDelete, setFavoriteClientToDelete] = useState<string | null>(null);
+  const [editingFavoriteClientId, setEditingFavoriteClientId] = useState<string | null>(null);
+  const [favoriteFormData, setFavoriteFormData] = useState({ name: '', command: '' });
 
   const { toast } = useToast();
   
@@ -278,7 +284,7 @@ export default function Home() {
         const nameParts = [];
         if (hasPredefinedItems) nameParts.push(predefinedItems.map(p => p.name).join(' '));
         if (hasKgItems) nameParts.push('KG');
-        if (hasBomboniereItems) nameParts.push('Bomboniere');
+        if (hasBomboniereItems) nameParts.push(processedBomboniereItems.map(item => `${item.quantity > 1 ? item.quantity : ''}${item.name.replace(/\s+/g, '-')}`).join(' '));
         
         consolidatedName = nameParts.join(' + ') || 'Lançamento';
         if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
@@ -333,7 +339,8 @@ export default function Home() {
 
   const handleFavoriteLaunch = (client: FavoriteClient) => {
     if (!firestore) return;
-    handleUpsertItem(client.command, null, client);
+    const command = `F ${client.name} ${client.command}`;
+    handleUpsertItem(command, null, client);
     toast({
       title: "Lançamento Rápido",
       description: `Comando para ${client.name} executado.`,
@@ -480,6 +487,49 @@ export default function Home() {
     if (!rawInput.trim()) return;
     await handleUpsertItem(rawInput);
   };
+  
+  // --- Favorites Modal Logic ---
+  const sortedFavoriteClients = useMemo(() => 
+    [...(favoriteClients || [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [favoriteClients]
+  );
+  
+  const isFavoriteFormValid = favoriteFormData.name.trim() && favoriteFormData.command.trim();
+
+  useEffect(() => {
+    if (!isFavoritesModalOpen) {
+      setEditingFavoriteClientId(null);
+      setFavoriteFormData({ name: '', command: '' });
+    }
+  }, [isFavoritesModalOpen]);
+
+  const handleSaveFavorite = () => {
+    if (!firestore || !isFavoriteFormValid) return;
+
+    if (editingFavoriteClientId) {
+      const docRef = doc(firestore, 'favorite_clients', editingFavoriteClientId);
+      updateDocumentNonBlocking(docRef, favoriteFormData);
+    } else {
+      addDocumentNonBlocking(favoriteClientsRef, favoriteFormData);
+    }
+    
+    setEditingFavoriteClientId(null);
+    setFavoriteFormData({ name: '', command: '' });
+  };
+
+  const handleEditFavoriteClick = (client: FavoriteClient) => {
+    setEditingFavoriteClientId(client.id);
+    setFavoriteFormData({ name: client.name, command: client.command });
+  }
+
+  const confirmDeleteFavorite = () => {
+    if (favoriteClientToDelete && firestore) {
+      const docRef = doc(firestore, 'favorite_clients', favoriteClientToDelete);
+      deleteDocumentNonBlocking(docRef);
+      setFavoriteClientToDelete(null);
+    }
+  };
+  // --- End Favorites Modal Logic ---
 
 
   const displayItems = items || [];
@@ -580,11 +630,85 @@ export default function Home() {
         bomboniereItems={bomboniereItems || []}
       />
       
-      <ManageFavoritesModal
-        isOpen={isFavoritesModalOpen}
-        onClose={() => setFavoritesModalOpen(false)}
-        favoriteClients={favoriteClients || []}
-      />
+      {/* Manage Favorites Modal */}
+      <Dialog open={isFavoritesModalOpen} onOpenChange={setFavoritesModalOpen}>
+        <DialogContent className="sm:max-w-md flex flex-col">
+            <AlertDialog open={!!favoriteClientToDelete} onOpenChange={(open) => !open && setFavoriteClientToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Essa ação não pode ser desfeita. Isso excluirá permanentemente o cliente dos seus favoritos.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDeleteFavorite}>Confirmar</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <DialogHeader>
+                <DialogTitle>Gerenciar Clientes Favoritos</DialogTitle>
+            </DialogHeader>
+            <div className="flex-grow overflow-hidden">
+                <ScrollArea className="h-64">
+                    <div className="space-y-3 pr-6">
+                        {sortedFavoriteClients.map((client) => (
+                            <Card key={client.id}>
+                                <CardContent className="p-3 flex items-center">
+                                    <div className="flex-grow">
+                                        <p className="font-semibold">{client.name}</p>
+                                        <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
+                                    </div>
+                                    <div className="flex">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEditFavoriteClick(client)}>
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setFavoriteClientToDelete(client.id)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                        {sortedFavoriteClients.length === 0 && (
+                            <div className="text-center text-muted-foreground py-10">
+                                <p>Nenhum cliente favorito adicionado.</p>
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
+            </div>
+            <div className="flex-shrink-0 pt-4 border-t">
+                <div className="p-1 bg-muted/50 rounded-lg space-y-3">
+                    <h3 className="font-semibold text-center text-sm">{editingFavoriteClientId ? 'Editar Cliente' : 'Adicionar Novo Cliente'}</h3>
+                    <div className="space-y-1">
+                        <Label htmlFor="fav-form-name" className="text-xs">Nome</Label>
+                        <Input id="fav-form-name" placeholder="Ex: João da Silva" value={favoriteFormData.name} onChange={(e) => setFavoriteFormData(prev => ({ ...prev, name: e.target.value }))} className="h-8" />
+                    </div>
+                    <div className="space-y-1">
+                        <Label htmlFor="fav-form-command" className="text-xs">Comando</Label>
+                        <Input id="fav-form-command" placeholder="Ex: pf coquinha-200ml" value={favoriteFormData.command} onChange={(e) => setFavoriteFormData(prev => ({ ...prev, command: e.target.value }))} className="h-8" />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                        {editingFavoriteClientId && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingFavoriteClientId(null); setFavoriteFormData({ name: '', command: '' }); }}>
+                                <X className="h-4 w-4 mr-1" /> Cancelar Edição
+                            </Button>
+                        )}
+                        <Button type="button" size="sm" onClick={handleSaveFavorite} disabled={!isFavoriteFormValid}>
+                            <Save className="h-4 w-4 mr-2" /> Salvar
+                        </Button>
+                    </div>
+                </div>
+            </div>
+            <DialogFooter className="mt-2">
+                <DialogClose asChild>
+                    <Button className="w-full" variant="outline">Fechar</Button>
+                </DialogClose>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
 
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-48">
@@ -659,5 +783,3 @@ export default function Home() {
     </>
   );
 }
-
-    
