@@ -42,7 +42,7 @@ service cloud.firestore {
      * @principle   Provides open access for a simple, single-user application.
      */
     match /client_accounts/{clientAccountId} {
-        allow read, write, list: if true;
+        allow read, write: if true;
     }
 
     /**
