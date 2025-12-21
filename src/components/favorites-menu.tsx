@@ -10,15 +10,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Star } from "lucide-react";
+import { Star, Trash2 } from "lucide-react";
 import type { FavoriteClient } from "@/types";
 
 interface FavoritesMenuProps {
   favoriteClients: FavoriteClient[];
   onSelectClient: (client: FavoriteClient) => void;
+  onDeleteClient: (clientId: string) => void;
 }
 
-export default function FavoritesMenu({ favoriteClients, onSelectClient }: FavoritesMenuProps) {
+export default function FavoritesMenu({ favoriteClients, onSelectClient, onDeleteClient }: FavoritesMenuProps) {
   if (favoriteClients.length === 0) {
     return null;
   }
@@ -39,8 +40,21 @@ export default function FavoritesMenu({ favoriteClients, onSelectClient }: Favor
         <DropdownMenuLabel>Clientes Favoritos</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {favoriteClients.map((client) => (
-          <DropdownMenuItem key={client.id} onSelect={() => onSelectClient(client)}>
-            {client.name}
+          <DropdownMenuItem key={client.id} onSelect={(e) => { e.preventDefault(); onSelectClient(client)}}>
+            <div className="flex justify-between items-center w-full">
+              <span>{client.name}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteClient(client.id);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

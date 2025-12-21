@@ -35,7 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star, Pencil } from "lucide-react";
+import { Trash2, Save, History, Star } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -70,6 +70,7 @@ export default function Home() {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [editInputValue, setEditInputValue] = useState("");
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [favoriteToDelete, setFavoriteToDelete] = useState<string | null>(null);
   const [clearAllDataRequest, setClearAllDataRequest] = useState(false);
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
@@ -401,6 +402,20 @@ export default function Home() {
     });
     setItemToDelete(null);
   };
+  
+  const handleDeleteFavoriteRequest = (id: string) => {
+    setFavoriteToDelete(id);
+  };
+  
+  const confirmDeleteFavorite = () => {
+    if(!firestore || !favoriteToDelete) return;
+    deleteDocumentNonBlocking(doc(firestore, "favorite_clients", favoriteToDelete));
+    toast({
+      title: "Sucesso",
+      description: "Cliente favorito removido.",
+    });
+    setFavoriteToDelete(null);
+  };
 
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
       if (!bomboniereItems) return;
@@ -514,6 +529,21 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
       
+      <AlertDialog open={!!favoriteToDelete} onOpenChange={(open) => !open && setFavoriteToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Cliente Favorito?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. Isso excluirá permanentemente o cliente dos seus favoritos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteFavorite}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <Dialog open={!!itemToFavorite} onOpenChange={(open) => { if(!open) setItemToFavorite(null) }}>
           <DialogContent>
               <DialogHeader>
@@ -601,6 +631,7 @@ export default function Home() {
              <FavoritesMenu
                 favoriteClients={favoriteClients || []}
                 onSelectClient={handleFavoriteLaunch}
+                onDeleteClient={handleDeleteFavoriteRequest}
             />
           </ItemForm>
 
