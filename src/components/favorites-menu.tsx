@@ -19,31 +19,6 @@ interface FavoritesMenuProps {
 }
 
 export default function FavoritesMenu({ favoriteClients, onSelectClient }: FavoritesMenuProps) {
-  if (favoriteClients.length === 0) {
-    return null;
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-10 w-10 sm:h-12 sm:w-12"
-        >
-          <Star className="h-5 w-5 text-amber-500" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Lançamento Rápido</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {favoriteClients.sort((a,b) => a.name.localeCompare(b.name)).map(client => (
-            <DropdownMenuItem key={client.id} onClick={() => onSelectClient(client)}>
-                {client.name}
-            </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  // Always return null to effectively hide and "clear" the favorites from the UI.
+  return null;
 }
