@@ -19,6 +19,10 @@ interface FavoritesMenuProps {
 }
 
 export default function FavoritesMenu({ favoriteClients, onSelectClient }: FavoritesMenuProps) {
+  if (favoriteClients.length === 0) {
+    return null;
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -32,17 +36,13 @@ export default function FavoritesMenu({ favoriteClients, onSelectClient }: Favor
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Clientes Favoritos</DropdownMenuLabel>
+        <DropdownMenuLabel>Lançamento Rápido</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {favoriteClients.length > 0 ? (
-            favoriteClients.map(client => (
-                <DropdownMenuItem key={client.id} onClick={() => onSelectClient(client)}>
-                    {client.name}
-                </DropdownMenuItem>
-            ))
-        ) : (
-            <DropdownMenuItem disabled>Nenhum cliente salvo</DropdownMenuItem>
-        )}
+        {favoriteClients.sort((a,b) => a.name.localeCompare(b.name)).map(client => (
+            <DropdownMenuItem key={client.id} onClick={() => onSelectClient(client)}>
+                {client.name}
+            </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
