@@ -8,6 +8,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Star, Trash2 } from "lucide-react";
@@ -40,22 +44,22 @@ export default function FavoritesMenu({ favoriteClients, onSelectClient, onDelet
         <DropdownMenuLabel>Clientes Favoritos</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {favoriteClients.map((client) => (
-          <DropdownMenuItem key={client.id} onSelect={(e) => { e.preventDefault(); onSelectClient(client)}}>
-            <div className="flex justify-between items-center w-full">
-              <span>{client.name}</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteClient(client.id);
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </DropdownMenuItem>
+          <DropdownMenuSub key={client.id}>
+             <DropdownMenuSubTrigger>
+              <span className="flex-1" onClick={() => onSelectClient(client)}>{client.name}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem 
+                  className="text-destructive focus:text-destructive"
+                  onSelect={() => onDeleteClient(client.id)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  <span>Confirmar Exclusão</span>
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
