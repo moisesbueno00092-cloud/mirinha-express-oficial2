@@ -489,28 +489,28 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
                     <div className="grid grid-cols-3 gap-x-4 font-semibold mb-2 border-b pb-2">
-                        <h4>Total</h4>
-                        <h4>Salão</h4>
-                        <h4>Rua</h4>
+                        <span>Total</span>
+                        <span>Salão</span>
+                        <span>Rua</span>
                     </div>
                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
                             {reportData.itemCounts.map(([name, count]) => (
-                                <li key={name} className="flex items-baseline justify-between gap-2">
+                                <li key={`${name}-total`} className="flex items-baseline justify-between gap-2">
                                     <span className="font-medium truncate">{count.total > 1 && `${count.total}x `}{name}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
                             {reportData.itemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
-                                <li key={name} className="flex items-baseline justify-between gap-2">
+                                <li key={`${name}-salao`} className="flex items-baseline justify-between gap-2">
                                     <span className="font-medium truncate">{count.salao > 1 && `${count.salao}x `}{name}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
                             {reportData.itemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
-                                <li key={name} className="flex items-baseline justify-between gap-2">
+                                <li key={`${name}-rua`} className="flex items-baseline justify-between gap-2">
                                    <span className="font-medium truncate">{count.rua > 1 && `${count.rua}x `}{name}</span>
                                 </li>
                             ))}
@@ -524,31 +524,41 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
                     <div className="grid grid-cols-2 gap-x-4 font-semibold mb-2 border-b pb-2">
-                        <h4>Salão</h4>
-                        <h4>Rua</h4>
+                        <span>Salão</span>
+                        <span>Rua</span>
                     </div>
                     <div className="grid grid-cols-2 gap-x-4">
+                        {/* Coluna Salão */}
                         <ul className="space-y-1">
-                            {reportData.bomboniereItemCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
-                                <li key={name} className="flex justify-between items-center">
-                                    <span className="truncate pr-2">
-                                        <span className="font-medium">{data.salao_qty > 1 ? `${data.salao_qty}x` : ''}</span>
-                                        <span className="ml-1">{name}</span>
-                                    </span>
-                                    <span className="font-mono text-muted-foreground">{formatCurrency((data.totalValue / data.quantity) * data.salao_qty)}</span>
-                                </li>
-                            ))}
+                            {reportData.bomboniereItemCounts
+                                .filter(([, data]) => data.salao_qty > 0)
+                                .map(([name, data]) => (
+                                    <li key={`${name}-salao-bomboniere`} className="flex justify-between items-center">
+                                        <span className="truncate pr-2">
+                                            {data.salao_qty > 1 && <span className="font-medium">{`${data.salao_qty}x`}</span>}
+                                            <span className="ml-1">{name}</span>
+                                        </span>
+                                        <span className="font-mono text-muted-foreground">
+                                            {formatCurrency((data.totalValue / data.quantity) * data.salao_qty)}
+                                        </span>
+                                    </li>
+                                ))}
                         </ul>
+                        {/* Coluna Rua */}
                         <ul className="space-y-1">
-                            {reportData.bomboniereItemCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
-                                <li key={name} className="flex justify-between items-center">
-                                    <span className="truncate pr-2">
-                                        <span className="font-medium">{data.rua_qty > 1 ? `${data.rua_qty}x` : ''}</span>
-                                        <span className="ml-1">{name}</span>
-                                    </span>
-                                    <span className="font-mono text-muted-foreground">{formatCurrency((data.totalValue / data.quantity) * data.rua_qty)}</span>
-                                </li>
-                            ))}
+                            {reportData.bomboniereItemCounts
+                                .filter(([, data]) => data.rua_qty > 0)
+                                .map(([name, data]) => (
+                                    <li key={`${name}-rua-bomboniere`} className="flex justify-between items-center">
+                                        <span className="truncate pr-2">
+                                            {data.rua_qty > 1 && <span className="font-medium">{`${data.rua_qty}x`}</span>}
+                                            <span className="ml-1">{name}</span>
+                                        </span>
+                                        <span className="font-mono text-muted-foreground">
+                                            {formatCurrency((data.totalValue / data.quantity) * data.rua_qty)}
+                                        </span>
+                                    </li>
+                                ))}
                         </ul>
                     </div>
                 </CardContent>
