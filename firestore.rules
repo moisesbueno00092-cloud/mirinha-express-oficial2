@@ -11,8 +11,8 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    match /client_accounts/{document=**} {
-      allow read, write: if true;
+    match /client_accounts/{clientAccountId} {
+      allow get, list, create, update, delete: if true;
     }
 
     match /bomboniere_items/{docId} {
