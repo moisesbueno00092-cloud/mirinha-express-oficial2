@@ -5,10 +5,9 @@ import { DailyReport, Group } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trash2, TrendingUp, Coins, Users, Utensils, Package, FileText, BrainCircuit, Share } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { useRouter } from 'next/navigation';
-import { KeyRound } from 'lucide-react';
 
 interface HistoryReportDetailProps {
   report: DailyReport;
@@ -99,8 +98,8 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
   
   const renderPieChart = (data: any[], title: string) => (
     <div className="flex-1 min-w-[200px] flex flex-col">
-        <h3 className="font-semibold text-base sm:text-lg mb-2 text-center">{title}</h3>
-        <div style={{ width: '100%', height: 200 }}>
+        <h3 className="font-semibold text-sm mb-2 text-center text-muted-foreground">{title}</h3>
+        <div style={{ width: '100%', height: 180 }}>
             <ResponsiveContainer>
                 <PieChart>
                     <Pie
@@ -109,8 +108,8 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                         cy="50%"
                         labelLine={false}
                         label={renderCustomizedLabel}
-                        outerRadius={60}
-                        innerRadius={0}
+                        outerRadius={50}
+                        innerRadius={25}
                         fill="#8884d8"
                         dataKey="value"
                         nameKey="name"
@@ -122,8 +121,8 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
                     <Legend 
-                      wrapperStyle={{fontSize: "12px", paddingTop: "10px", marginTop: "10px"}} 
-                      iconSize={10} 
+                      wrapperStyle={{fontSize: "11px", paddingTop: "10px", marginTop: "5px"}} 
+                      iconSize={8} 
                       layout="horizontal" 
                       verticalAlign="bottom" 
                       align="center"
@@ -135,146 +134,119 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
   );
 
   return (
-    <div className="container mx-auto max-w-4xl p-2 sm:p-6 space-y-4 sm:space-y-6">
-        <div className="flex flex-wrap gap-2 justify-between items-center">
-            <div>
-                <h2 className="text-xl sm:text-2xl font-bold">Relatório Salvo</h2>
-                <p className="text-xs sm:text-sm text-muted-foreground">{new Date(report.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+    <div className="container mx-auto max-w-4xl p-2 sm:p-4 space-y-4">
+      <div className="flex flex-wrap gap-2 justify-between items-center border-b pb-4">
+          <div>
+              <h2 className="text-xl sm:text-2xl font-bold">Relatório Salvo</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground">{new Date(report.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="destructive" size="sm" className="text-xs" onClick={onDelete}>
+                <Trash2 className="mr-2 h-3 w-3" />
+                Excluir
+            </Button>
+            <Button variant="outline" size="sm" className="text-xs" onClick={onBack}>
+                <ArrowLeft className="mr-2 h-3 w-3" />
+                Voltar
+            </Button>
+          </div>
+      </div>
+      
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-1 space-y-4">
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2">
+                           <Coins className="h-4 w-4 text-muted-foreground" />
+                           <span>Resumo Financeiro</span>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm space-y-2">
+                        <div className="flex justify-between"><span>À Vista (Salão):</span> <span className="font-mono">{formatCurrency(reportData.totalsByGroup['Vendas salão'])}</span></div>
+                        <div className="flex justify-between"><span>À Vista (Rua):</span> <span className="font-mono">{formatCurrency(reportData.totalsByGroup['Vendas rua'])}</span></div>
+                        <div className="flex justify-between text-destructive"><span>Fiado (Salão):</span> <span className="font-mono">{formatCurrency(reportData.totalsByGroup['Fiados salão'])}</span></div>
+                        <div className="flex justify-between text-destructive"><span>Fiado (Rua):</span> <span className="font-mono">{formatCurrency(reportData.totalsByGroup['Fiados rua'])}</span></div>
+                        <Separator />
+                        <div className="flex justify-between font-bold"><span>Total Salão:</span> <span className="font-mono">{formatCurrency(reportData.totalSalao)}</span></div>
+                        <div className="flex justify-between font-bold"><span>Total Rua:</span> <span className="font-mono">{formatCurrency(reportData.totalRua)}</span></div>
+                         <Separator />
+                        <div className="flex justify-between font-bold text-primary text-base"><span>Faturamento Total:</span> <span className="font-mono">{formatCurrency(reportData.totalFaturamento)}</span></div>
+                    </CardContent>
+                </Card>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="destructive" size="sm" onClick={onDelete}>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Excluir
-              </Button>
-              <Button variant="outline" size="sm" onClick={onBack}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Voltar
-              </Button>
+            <div className="md:col-span-2">
+                <Card>
+                    <CardHeader className="pb-2">
+                         <CardTitle className="text-base flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                           <span>Análise Gráfica</span>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-wrap justify-around items-start gap-4">
+                        {faturamentoByGroupData.length > 0 && renderPieChart(faturamentoByGroupData, 'Faturamento por Grupo')}
+                        {salesProportionData.length > 0 && renderPieChart(salesProportionData, 'Proporção de Vendas')}
+                        {itemsCountData.length > 0 && renderPieChart(itemsCountData, 'Contagem de Itens')}
+                    </CardContent>
+                </Card>
             </div>
         </div>
 
-        <Card className="bg-background/50">
-            <CardHeader className="flex flex-row items-center justify-between p-3 sm:p-6">
-                <CardTitle className="text-lg sm:text-xl">Faturamento do Dia</CardTitle>
-                <CardDescription className="text-lg sm:text-2xl font-bold text-primary">
-                    {formatCurrency(reportData.totalFaturamento)}
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 px-3 pb-3 sm:px-6 sm:pb-6">
-                <div className="space-y-3 sm:space-y-4">
-                    <h3 className="font-semibold text-base sm:text-lg">Resumo Financeiro</h3>
-                    <div className="space-y-2 text-xs sm:text-sm">
-                        <div className="flex justify-between">
-                            <span>À Vista (Salão):</span>
-                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Vendas salão'])}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>À Vista (Rua):</span>
-                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Vendas rua'])}</span>
-                        </div>
-                        <div className="flex justify-between text-destructive">
-                            <span>Fiado (Salão):</span>
-                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Fiados salão'])}</span>
-                        </div>
-                         <div className="flex justify-between text-destructive">
-                            <span>Fiado (Rua):</span>
-                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Fiados rua'])}</span>
-                        </div>
-                        <div className="flex justify-between text-yellow-500">
-                           <span>Entregas ({reportData.deliveryCount}):</span>
-                           <span className="font-mono font-medium">{formatCurrency(reportData.totalDeliveryFee)}</span>
-                        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Utensils className="h-4 w-4 text-muted-foreground" />
+                        <span>Contagem de Refeições ({reportData.totalMealItems})</span>
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="text-xs sm:text-sm pt-2">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        {sortedItemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
+                            <div key={`${name}-salao`} className="flex justify-between"><span>{count.salao}x {name}</span><span className="text-muted-foreground">Salão</span></div>
+                        ))}
+                        {sortedItemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
+                            <div key={`${name}-rua`} className="flex justify-between"><span>{count.rua}x {name}</span><span className="text-muted-foreground">Rua</span></div>
+                        ))}
                     </div>
-                     <Separator />
-                     <div className="space-y-2 text-xs sm:text-sm">
-                        <div className="flex justify-between font-bold">
-                            <span>Total Refeições:</span>
-                            <span className="font-mono">{formatCurrency(reportData.totalMealValue)}</span>
-                        </div>
-                         <div className="flex justify-between font-bold">
-                            <span>Total Bomboniere:</span>
-                            <span className="font-mono">{formatCurrency(reportData.totalBomboniereValue)}</span>
-                        </div>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <span>Contagem de Bomboniere ({reportData.totalBomboniereQuantity})</span>
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="text-xs sm:text-sm pt-2">
+                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        {sortedBomboniereCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
+                             <div key={`${name}-salao`} className="flex justify-between"><span>{data.salao_qty}x {name}</span><span className="text-muted-foreground">Salão</span></div>
+                        ))}
+                         {sortedBomboniereCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
+                             <div key={`${name}-rua`} className="flex justify-between"><span>{data.rua_qty}x {name}</span><span className="text-muted-foreground">Rua</span></div>
+                        ))}
                     </div>
-                     <Separator />
-                      <div className="space-y-2 text-xs sm:text-sm">
-                        {reportData.totalSalao !== undefined ? (
-                            <div className="flex justify-between font-bold">
-                                <span>Total Salão:</span>
-                                <span className="font-mono">{formatCurrency(reportData.totalSalao)}</span>
-                            </div>
-                        ) : null}
-                        {reportData.totalRua !== undefined ? (
-                            <div className="flex justify-between font-bold">
-                                <span>Total Rua:</span>
-                                <span className="font-mono">{formatCurrency(reportData.totalRua)}</span>
-                            </div>
-                        ): null}
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap justify-around items-start gap-4">
-                  {faturamentoByGroupData.length > 0 && renderPieChart(faturamentoByGroupData, 'Faturamento por Grupo')}
-                  {salesProportionData.length > 0 && renderPieChart(salesProportionData, 'Proporção de Vendas')}
-                  {itemsCountData.length > 0 && renderPieChart(itemsCountData, 'Contagem de Itens')}
-                </div>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+        </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base sm:text-lg">Contagem de Refeições</CardTitle>
-                </CardHeader>
-                <CardContent className="text-xs sm:text-sm">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <h4 className="font-semibold mb-1 border-b pb-1">Salão</h4>
-                            <ul className="space-y-1 mt-2">
-                                {sortedItemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
-                                    <li key={`${name}-salao`}>{count.salao}x {name}</li>
-                                ))}
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold mb-1 border-b pb-1">Rua</h4>
-                            <ul className="space-y-1 mt-2">
-                                {sortedItemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
-                                    <li key={`${name}-rua`}>{count.rua}x {name}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-            <Card>
-                 <CardHeader>
-                    <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
-                </CardHeader>
-                <CardContent className="text-xs sm:text-sm">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <h4 className="font-semibold mb-1 border-b pb-1">Salão</h4>
-                            <ul className="space-y-1 mt-2">
-                                {sortedBomboniereCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
-                                    <li key={`${name}-salao`}>{data.salao_qty}x {name}</li>
-                                ))}
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold mb-1 border-b pb-1">Rua</h4>
-                            <ul className="space-y-1 mt-2">
-                                {sortedBomboniereCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
-                                    <li key={`${name}-rua`}>{data.rua_qty}x {name}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+        <div>
+            <h3 className="font-semibold text-base mb-2">Ações</h3>
+            <div className="flex flex-col sm:flex-row gap-2">
+                 <Button variant="outline" className="flex-1 text-xs">
+                    <Share className="mr-2 h-4 w-4" />
+                    Enviar via WhatsApp
+                 </Button>
+                 <Button variant="outline" className="flex-1 text-xs">
+                     <FileText className="mr-2 h-4 w-4" />
+                     Exportar para WPS
+                 </Button>
+                 <Button variant="outline" className="flex-1 text-xs">
+                    <BrainCircuit className="mr-2 h-4 w-4" />
+                    Analisar com IA
+                 </Button>
+            </div>
         </div>
     </div>
   );
 }
-
-    
