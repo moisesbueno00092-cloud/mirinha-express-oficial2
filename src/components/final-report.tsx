@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { Share, FileText, BrainCircuit, Save, History, Trash2 } from "lucide-react";
+import { Share, FileText, BrainCircuit, Save, History, Trash2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFirestore } from "@/firebase";
 import { doc } from "firebase/firestore";
@@ -88,6 +88,8 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     let deliveryCount = 0;
     let totalDeliveryFee = 0;
 
+    const favoriteClientsFiado: Record<string, { name: string; total: number; items: number }> = {};
+
     items.forEach((item) => {
       totalsByGroup[item.group] += item.total;
       
@@ -97,6 +99,15 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
       }
       
       const isRua = item.group.includes('rua');
+
+      // Aggregate favorite client fiado data
+      if (item.group.includes('Fiados') && item.customerId && item.customerName) {
+        if (!favoriteClientsFiado[item.customerId]) {
+          favoriteClientsFiado[item.customerId] = { name: item.customerName, total: 0, items: 0 };
+        }
+        favoriteClientsFiado[item.customerId].total += item.total;
+        favoriteClientsFiado[item.customerId].items += 1;
+      }
 
       if(item.bomboniereItems){
         item.bomboniereItems.forEach(bItem => {
@@ -180,6 +191,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
 
     const sortedItemCounts = Object.entries(itemCounts).sort(([, a], [, b]) => b.total - a.total);
     const sortedBomboniereCounts = Object.entries(bomboniereItemCounts).sort(([, a], [, b]) => b.total - a.total);
+    const sortedFavoriteClients = Object.values(favoriteClientsFiado).sort((a,b) => b.total - a.total);
 
     return { 
         reportDate,
@@ -199,6 +211,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         itemsCountData: itemsCountDataWithPercent,
         totalBomboniereValue,
         totalMealValue,
+        favoriteClientsFiado: sortedFavoriteClients,
     };
   }, [items]);
   
@@ -419,6 +432,37 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
             </CardContent>
         </Card>
         
+        {reportData.favoriteClientsFiado.length > 0 && (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base sm:text-lg">Fechamento de Clientes Fiado</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">Resumo do período para clientes favoritos.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {reportData.favoriteClientsFiado.map(client => (
+                        <Card key={client.name} className="bg-muted/30">
+                            <CardHeader className="p-4">
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <User className="h-4 w-4 text-muted-foreground" />
+                                    {client.name}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 pt-0 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Itens:</span>
+                                    <span className="font-mono font-medium">{client.items}</span>
+                                </div>
+                                <div className="flex justify-between font-semibold mt-1">
+                                    <span className="text-destructive">Total a Pagar:</span>
+                                    <span className="font-mono text-destructive">{formatCurrency(client.total)}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </CardContent>
+            </Card>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <Card>
                 <CardHeader>
