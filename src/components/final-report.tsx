@@ -486,21 +486,11 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     <CardTitle className="text-base sm:text-lg">Contagem de Refeições</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                    <div className="grid grid-cols-3 font-semibold mb-2 border-b pb-2">
-                        <span>Total</span>
+                    <div className="grid grid-cols-2 font-semibold mb-2 border-b pb-2">
                         <span>Salão</span>
                         <span>Rua</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-x-4">
-                        <ul className="space-y-1">
-                            {reportData.itemCounts.map(([name, count]) => (
-                                <li key={`${name}-total`}>
-                                   <div className="flex justify-between items-center">
-                                      <span>{count.total > 1 && `${count.total}x `}{name}</span>
-                                   </div>
-                                </li>
-                            ))}
-                        </ul>
+                    <div className="grid grid-cols-2 gap-x-4">
                         <ul className="space-y-1">
                             {reportData.itemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
                                 <li key={`${name}-salao`}>
@@ -527,39 +517,24 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                    <div className="grid grid-cols-3 font-semibold mb-2 border-b pb-2">
-                        <span>Total</span>
+                    <div className="grid grid-cols-2 font-semibold mb-2 border-b pb-2">
                         <span>Salão</span>
                         <span>Rua</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-x-4">
-                        <ul className="space-y-1">
-                            {reportData.bomboniereItemCounts.map(([name, data]) => (
-                                <li key={`${name}-total`}>
-                                  <div className="flex justify-between items-center">
-                                    <span>{data.quantity > 1 && `${data.quantity}x `}{name}</span>
-                                    <span className="font-mono">{formatCurrency(data.totalValue)}</span>
-                                  </div>
-                                </li>
-                            ))}
-                        </ul>
+                    <div className="grid grid-cols-2 gap-x-4">
                         <ul className="space-y-1">
                             {reportData.bomboniereItemCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
-                                <li key={`${name}-salao`}>
-                                  <div className="flex justify-between items-center">
+                                <li key={`${name}-salao`} className="flex justify-between items-center">
                                     <span>{data.salao_qty > 1 && `${data.salao_qty}x `}{name}</span>
                                     <span className="font-mono">{formatCurrency((data.totalValue / data.quantity) * data.salao_qty)}</span>
-                                  </div>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
-                            {reportData.bomboniereItemCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
-                                <li key={`${name}-rua`}>
-                                  <div className="flex justify-between items-center">
+                           {reportData.bomboniereItemCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
+                                <li key={`${name}-rua`} className="flex justify-between items-center">
                                      <span>{data.rua_qty > 1 && `${data.rua_qty}x `}{name}</span>
                                      <span className="font-mono">{formatCurrency((data.totalValue / data.quantity) * data.rua_qty)}</span>
-                                  </div>
                                 </li>
                             ))}
                         </ul>
