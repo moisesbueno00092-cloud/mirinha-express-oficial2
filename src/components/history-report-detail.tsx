@@ -258,10 +258,10 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
                             {Object.entries(reportData.bomboniereItemCounts).map(([name, data]) => (
-                                <li key={name} className="flex flex-col items-start gap-0">
-                                    <div className="flex items-baseline gap-2">
+                                <li key={name} className="flex justify-between items-center">
+                                    <div>
                                         <span className="font-medium">{data.quantity}x</span>
-                                        <span>{name}</span>
+                                        <span className="ml-1">{name}</span>
                                     </div>
                                     <span className="font-mono text-muted-foreground">{formatCurrency(data.total)}</span>
                                 </li>

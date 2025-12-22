@@ -3,7 +3,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Item, Group } from "@/types";
+import type { Item, Group, DailyReport } from "@/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -257,7 +257,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     const itemCountsAsObject = Object.fromEntries(reportData.itemCounts);
     const bomboniereItemCountsAsObject = Object.fromEntries(reportData.bomboniereItemCounts);
 
-    const reportToSave = {
+    const reportToSave: Omit<DailyReport, 'rawItems'> & { rawItems: Item[] } = {
       id: reportId,
       timestamp: reportTimestamp,
       reportData: {
@@ -533,10 +533,10 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
                             {reportData.bomboniereItemCounts.map(([name, data]) => (
-                                <li key={name} className="flex flex-col items-start gap-0">
-                                    <div className="flex items-baseline gap-2">
+                                <li key={name} className="flex justify-between items-center">
+                                    <div>
                                         <span className="font-medium">{data.quantity}x</span>
-                                        <span>{name}</span>
+                                        <span className="ml-1">{name}</span>
                                     </div>
                                     <span className="font-mono text-muted-foreground">{formatCurrency(data.total)}</span>
                                 </li>
