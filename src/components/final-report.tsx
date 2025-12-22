@@ -226,8 +226,8 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         totalFaturamento,
         totalAVista,
         totalFiado,
-        totalSalao,
-        totalRua,
+        totalSalao, // Added for return
+        totalRua,   // Added for return
         deliveryCount,
         totalDeliveryFee,
         totalMealItems,
@@ -264,8 +264,8 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         totalFaturamento: reportData.totalFaturamento,
         totalAVista: reportData.totalAVista,
         totalFiado: reportData.totalFiado,
-        totalSalao: reportData.totalSalao,
-        totalRua: reportData.totalRua,
+        totalSalao: reportData.totalSalao, // Ensure this is saved
+        totalRua: reportData.totalRua,     // Ensure this is saved
         deliveryCount: reportData.deliveryCount,
         totalDeliveryFee: reportData.totalDeliveryFee,
         totalMealItems: reportData.totalMealItems,
@@ -487,7 +487,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     <CardTitle className="text-base sm:text-lg">Contagem de Refeições</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm space-y-2">
-                    <div className="grid grid-cols-3 gap-x-4 font-medium mb-1 border-b pb-1">
+                    <div className="grid grid-cols-3 gap-x-4 font-semibold mb-2 border-b pb-2">
                         <h4 className="text-left">Total</h4>
                         <h4 className="text-left">Salão</h4>
                         <h4 className="text-left">Rua</h4>
@@ -495,31 +495,25 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
                             {reportData.itemCounts.map(([name, count]) => (
-                                <li key={name} className="flex items-baseline justify-between gap-2">
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="font-medium">{name}:</span>
-                                        <span className="font-mono">{count.total}</span>
-                                    </div>
+                                <li key={name} className="flex items-baseline gap-2">
+                                    <span className="font-medium">{name}:</span>
+                                    <span className="font-mono">{count.total}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
                             {reportData.itemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
-                                <li key={name} className="flex items-baseline justify-between gap-2">
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="font-medium">{name}:</span>
-                                        <span className="font-mono">{count.salao}</span>
-                                    </div>
+                                <li key={name} className="flex items-baseline gap-2">
+                                    <span className="font-medium">{name}:</span>
+                                    <span className="font-mono">{count.salao}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
                             {reportData.itemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
-                                <li key={name} className="flex items-baseline justify-between gap-2">
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="font-medium">{name}:</span>
-                                        <span className="font-mono">{count.rua}</span>
-                                    </div>
+                                <li key={name} className="flex items-baseline gap-2">
+                                    <span className="font-medium">{name}:</span>
+                                    <span className="font-mono">{count.rua}</span>
                                 </li>
                             ))}
                         </ul>
@@ -531,7 +525,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm space-y-2">
-                    <div className="grid grid-cols-3 gap-x-4 font-medium mb-1 border-b pb-1">
+                    <div className="grid grid-cols-3 gap-x-4 font-semibold mb-2 border-b pb-2">
                         <h4 className="text-left">Total</h4>
                         <h4 className="text-left">Salão</h4>
                         <h4 className="text-left">Rua</h4>
@@ -539,32 +533,28 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
                             {reportData.bomboniereItemCounts.map(([name, data]) => (
-                                <li key={name} className="flex items-baseline justify-between gap-2">
+                                <li key={name} className="flex flex-col items-start gap-0">
                                     <div className="flex items-baseline gap-2">
                                         <span className="font-medium">{data.quantity}x</span>
                                         <span>{name}</span>
                                     </div>
-                                    <span className="font-mono">{formatCurrency(data.total)}</span>
+                                    <span className="font-mono text-muted-foreground">{formatCurrency(data.total)}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
                             {reportData.bomboniereItemCounts.filter(([, data]) => data.salao > 0).map(([name, data]) => (
-                                <li key={name} className="flex items-baseline justify-between gap-2">
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="font-medium">{data.salao}x</span>
-                                        <span>{name}</span>
-                                    </div>
+                                <li key={name} className="flex items-baseline gap-2">
+                                    <span className="font-medium">{data.salao}x</span>
+                                    <span>{name}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
                             {reportData.bomboniereItemCounts.filter(([, data]) => data.rua > 0).map(([name, data]) => (
-                                <li key={name} className="flex items-baseline justify-between gap-2">
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="font-medium">{data.rua}x</span>
-                                        <span>{name}</span>
-                                    </div>
+                                <li key={name} className="flex items-baseline gap-2">
+                                    <span className="font-medium">{data.rua}x</span>
+                                    <span>{name}</span>
                                 </li>
                             ))}
                         </ul>
