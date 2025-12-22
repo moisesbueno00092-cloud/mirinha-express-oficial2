@@ -477,7 +477,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                         <Separator />
                         <div className="flex justify-between font-bold"><span>Total Salão:</span> <span className="font-mono">{formatCurrency(reportData.totalSalao)}</span></div>
                         <div className="flex justify-between font-bold"><span>Total Rua:</span> <span className="font-mono">{formatCurrency(reportData.totalRua)}</span></div>
-                         <Separator />
+                        <Separator />
                         <div className="flex justify-between font-bold text-primary text-base"><span>Faturamento Total:</span> <span className="font-mono">{formatCurrency(reportData.totalFaturamento)}</span></div>
                     </CardContent>
                 </Card>
