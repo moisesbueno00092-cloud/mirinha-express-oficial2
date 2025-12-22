@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DailyReport, Group } from '@/types';
@@ -267,5 +266,3 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
     </div>
   );
 }
-
-    
