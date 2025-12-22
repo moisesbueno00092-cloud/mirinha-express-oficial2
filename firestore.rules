@@ -36,15 +36,11 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows public access to individual documents within the client_accounts collection.
+     * @description Allows public read, write, and delete on individual account entries.
      * @path        /client_accounts/{clientAccountId}
      * @principle   Separates document-level access from collection-level access.
      */
     match /client_accounts/{clientAccountId} {
-        /**
-         * @description Allows public read, write, and delete on individual account entries.
-         * @allow       (read, write, delete) Any client can manage individual entries.
-         */
         allow read, write, delete: if true;
     }
 
