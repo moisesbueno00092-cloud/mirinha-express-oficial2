@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DailyReport, Group } from '@/types';
@@ -212,22 +213,24 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                 <CardHeader>
                     <CardTitle className="text-base sm:text-lg">Contagem de Refeições</CardTitle>
                 </CardHeader>
-                <CardContent className="text-xs sm:text-sm space-y-2">
-                    <div>
-                        <h4 className="font-semibold mb-1 border-b pb-1">Salão</h4>
-                        <ul className="space-y-1 mt-2">
-                            {sortedItemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
-                                <li key={`${name}-salao`}>{count.salao}x {name}</li>
-                            ))}
-                        </ul>
-                    </div>
-                    <div>
-                        <h4 className="font-semibold mb-1 border-b pb-1 pt-2">Rua</h4>
-                        <ul className="space-y-1 mt-2">
-                            {sortedItemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
-                                <li key={`${name}-rua`}>{count.rua}x {name}</li>
-                            ))}
-                        </ul>
+                <CardContent className="text-xs sm:text-sm">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <h4 className="font-semibold mb-1 border-b pb-1">Salão</h4>
+                            <ul className="space-y-1 mt-2">
+                                {sortedItemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
+                                    <li key={`${name}-salao`}>{count.salao}x {name}</li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold mb-1 border-b pb-1">Rua</h4>
+                            <ul className="space-y-1 mt-2">
+                                {sortedItemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
+                                    <li key={`${name}-rua`}>{count.rua}x {name}</li>
+                                ))}
+                            </ul>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -260,3 +263,5 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
     </div>
   );
 }
+
+    
