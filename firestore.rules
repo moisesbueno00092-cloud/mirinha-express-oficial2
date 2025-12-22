@@ -11,14 +11,8 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Rule for listing the entire collection
-    match /client_accounts {
-      allow list: if true;
-    }
-
-    // Rule for individual document operations
-    match /client_accounts/{clientAccountId} {
-      allow read, write, delete: if true;
+    match /client_accounts/{document=**} {
+      allow read, write: if true;
     }
 
     match /bomboniere_items/{docId} {
