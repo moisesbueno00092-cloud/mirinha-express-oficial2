@@ -33,13 +33,7 @@ const getStockColor = (stock: number) => {
     return 'text-muted-foreground';
 };
 
-const PASSWORD = "mirinha123";
-
 export default function StockPage() {
-    const [isUnlocked, setIsUnlocked] = useState(false);
-    const [passwordInput, setPasswordInput] = useState('');
-    const [isChecking, setIsChecking] = useState(false);
-
     const firestore = useFirestore();
     const { toast } = useToast();
     
@@ -52,19 +46,6 @@ export default function StockPage() {
     const [newItemName, setNewItemName] = useState('');
     const [newItemPrice, setNewItemPrice] = useState('');
     const [newItemStock, setNewItemStock] = useState('');
-
-    const handlePasswordCheck = (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsChecking(true);
-        if (passwordInput === PASSWORD) {
-            setIsUnlocked(true);
-            toast({ title: 'Acesso liberado!' });
-        } else {
-            toast({ variant: 'destructive', title: 'Senha incorreta!' });
-            setPasswordInput('');
-        }
-        setIsChecking(false);
-    };
 
     const handleInputChange = (id: string, field: 'name' | 'price' | 'stock', value: string) => {
         setEditValues(prev => ({
@@ -149,39 +130,6 @@ export default function StockPage() {
         toast({ title: 'Item Removido', description: 'O item foi removido permanentemente.' });
         setItemToDelete(null);
     };
-
-    if (!isUnlocked) {
-        return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-                <div className="absolute top-8 text-center">
-                    <MirinhaLogo className="w-80 h-auto text-primary" />
-                </div>
-                <Card className="w-full max-w-sm">
-                    <CardHeader>
-                        <CardTitle>Acesso Restrito</CardTitle>
-                        <CardContent className="pt-6">
-                            <form onSubmit={handlePasswordCheck} className="space-y-4">
-                                <Input
-                                    type="password"
-                                    placeholder="Senha de edição"
-                                    value={passwordInput}
-                                    onChange={(e) => setPasswordInput(e.target.value)}
-                                    disabled={isChecking}
-                                    autoFocus
-                                />
-                                <Button type="submit" className="w-full" disabled={isChecking || !passwordInput}>
-                                    {isChecking ? <Loader2 className="animate-spin" /> : 'Desbloquear Edição'}
-                                </Button>
-                                <Link href="/" passHref className="w-full">
-                                    <Button variant="outline" className="w-full">Voltar</Button>
-                                </Link>
-                            </form>
-                        </CardContent>
-                    </CardHeader>
-                </Card>
-            </div>
-        )
-    }
 
      if (isLoading) {
         return (

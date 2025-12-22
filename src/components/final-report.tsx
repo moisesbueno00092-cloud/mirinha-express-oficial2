@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useMemo, useState } from "react";
@@ -32,8 +33,6 @@ interface FinalReportProps {
   items: Item[];
   onClearData: () => void;
 }
-
-const PASSWORD = "mirinha123";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -74,9 +73,6 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [isChecking, setIsChecking] = useState(false);
 
   const reportData = useMemo(() => {
     if (items.length === 0) return null;
@@ -233,20 +229,6 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     };
   }, [items]);
   
-  const handlePasswordCheck = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsChecking(true);
-    if (passwordInput === PASSWORD) {
-        toast({ title: 'Acesso liberado!' });
-        setIsPasswordModalOpen(false);
-        setPasswordInput('');
-        router.push('/accounts');
-    } else {
-        toast({ variant: 'destructive', title: 'Senha incorreta!' });
-        setPasswordInput('');
-    }
-    setIsChecking(false);
-};
 
   const handleSaveAndClear = async () => {
     if (!firestore || !reportData) return;
@@ -377,36 +359,6 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
 
   return (
     <>
-      <AlertDialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
-            <AlertDialogContent>
-              <form onSubmit={handlePasswordCheck}>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Acesso Restrito</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Insira a senha para ver o detalhamento das contas de clientes.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div className="py-4">
-                <Input
-                    type="password"
-                    placeholder="Senha de acesso"
-                    value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                    disabled={isChecking}
-                    autoFocus
-                />
-              </div>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <Button type="submit" disabled={isChecking || !passwordInput}>
-                    {isChecking ? <Loader2 className="animate-spin" /> : 'Acessar'}
-                </Button>
-              </AlertDialogFooter>
-              </form>
-            </AlertDialogContent>
-        </AlertDialog>
-
-
       <div className="bg-card text-card-foreground rounded-lg p-2 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex flex-wrap gap-2 justify-between items-center">
             <div>
@@ -503,7 +455,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                             <CardTitle className="text-base sm:text-lg">Fechamento de Clientes Fiado</CardTitle>
                             <CardDescription className="text-xs sm:text-sm">Resumo do período para clientes favoritos.</CardDescription>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => setIsPasswordModalOpen(true)}>
+                        <Button variant="outline" size="sm" onClick={() => router.push('/accounts')}>
                             <KeyRound className="mr-2 h-4 w-4" />
                             Ver Detalhes
                         </Button>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -6,7 +7,6 @@ import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import type { ClientAccountEntry } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Loader2, ArrowLeft, Trash2, User } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -21,10 +21,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from "@/hooks/use-toast";
-import MirinhaLogo from '@/components/mirinha-logo';
-
-const PASSWORD = "mirinha123";
-
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -168,11 +164,6 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
 }
 
 export default function AccountsPage() {
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [isChecking, setIsChecking] = useState(false);
-  const { toast } = useToast();
-
   const firestore = useFirestore();
   const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
   
@@ -201,53 +192,6 @@ export default function AccountsPage() {
     return Object.values(accountsByCustomer).sort((a,b) => a.name.localeCompare(b.name));
 
   }, [allAccountEntries]);
-
-  const handlePasswordCheck = (e: React.FormEvent) => {
-      e.preventDefault();
-      setIsChecking(true);
-      if (passwordInput === PASSWORD) {
-          setIsUnlocked(true);
-          toast({ title: 'Acesso liberado!' });
-      } else {
-          toast({ variant: 'destructive', title: 'Senha incorreta!' });
-          setPasswordInput('');
-      }
-      setIsChecking(false);
-  };
-
-
-  if (!isUnlocked) {
-      return (
-          <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-              <div className="absolute top-8 text-center">
-                  <MirinhaLogo className="w-80 h-auto text-primary" />
-              </div>
-              <Card className="w-full max-w-sm">
-                  <CardHeader>
-                      <CardTitle>Acesso Restrito</CardTitle>
-                      <CardContent className="pt-6">
-                          <form onSubmit={handlePasswordCheck} className="space-y-4">
-                              <Input
-                                  type="password"
-                                  placeholder="Senha de acesso"
-                                  value={passwordInput}
-                                  onChange={(e) => setPasswordInput(e.target.value)}
-                                  disabled={isChecking}
-                                  autoFocus
-                              />
-                              <Button type="submit" className="w-full" disabled={isChecking || !passwordInput}>
-                                  {isChecking ? <Loader2 className="animate-spin" /> : 'Acessar Caderneta'}
-                              </Button>
-                              <Link href="/" passHref className="w-full">
-                                  <Button variant="outline" className="w-full">Voltar</Button>
-                              </Link>
-                          </form>
-                      </CardContent>
-                  </CardHeader>
-              </Card>
-          </div>
-      )
-  }
 
   if (selectedClient) {
     return <ClientDetail 
