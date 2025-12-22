@@ -2,9 +2,22 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // This ruleset is completely public.
-    // Any client can read and write data.
-    match /{document=**} {
+    match /order_items/{orderItemId} {
+      allow read, write: if true;
+    }
+    match /daily_reports/{reportId} {
+      allow read, write: if true;
+    }
+    match /client_accounts/{clientAccountId} {
+      allow read, write, delete: if true;
+    }
+    match /client_accounts {
+      allow list: if true;
+    }
+    match /bomboniere_items/{bomboniereItemId} {
+      allow read, write: if true;
+    }
+    match /favorite_clients/{favoriteClientId} {
       allow read, write: if true;
     }
   }
