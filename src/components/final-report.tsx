@@ -1,25 +1,39 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Item, Group } from "@/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { Share, FileText, BrainCircuit, Save, History, Trash2, User } from "lucide-react";
+import { Share, FileText, BrainCircuit, Save, History, Trash2, User, KeyRound, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFirestore } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useRouter } from 'next/navigation';
 
 
 interface FinalReportProps {
   items: Item[];
   onClearData: () => void;
 }
+
+const PASSWORD = "mirinha123";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -59,6 +73,10 @@ const PIE_CHART_COLORS: Record<string, string> = {
 export default function FinalReport({ items, onClearData }: FinalReportProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [isChecking, setIsChecking] = useState(false);
 
   const reportData = useMemo(() => {
     if (items.length === 0) return null;
@@ -215,6 +233,20 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     };
   }, [items]);
   
+  const handlePasswordCheck = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsChecking(true);
+    if (passwordInput === PASSWORD) {
+        toast({ title: 'Acesso liberado!' });
+        setIsPasswordModalOpen(false);
+        setPasswordInput('');
+        router.push('/accounts');
+    } else {
+        toast({ variant: 'destructive', title: 'Senha incorreta!' });
+        setPasswordInput('');
+    }
+    setIsChecking(false);
+};
 
   const handleSaveAndClear = async () => {
     if (!firestore || !reportData) return;
@@ -344,7 +376,38 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
   );
 
   return (
-    <div className="bg-card text-card-foreground rounded-lg p-2 sm:p-6 space-y-4 sm:space-y-6">
+    <>
+      <AlertDialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
+            <AlertDialogContent>
+              <form onSubmit={handlePasswordCheck}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Acesso Restrito</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Insira a senha para ver o detalhamento das contas de clientes.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="py-4">
+                <Input
+                    type="password"
+                    placeholder="Senha de acesso"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    disabled={isChecking}
+                    autoFocus
+                />
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <Button type="submit" disabled={isChecking || !passwordInput}>
+                    {isChecking ? <Loader2 className="animate-spin" /> : 'Acessar'}
+                </Button>
+              </AlertDialogFooter>
+              </form>
+            </AlertDialogContent>
+        </AlertDialog>
+
+
+      <div className="bg-card text-card-foreground rounded-lg p-2 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex flex-wrap gap-2 justify-between items-center">
             <div>
                 <h2 className="text-xl sm:text-2xl font-bold">Relatório do Dia</h2>
@@ -435,31 +498,17 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         {reportData.favoriteClientsFiado.length > 0 && (
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base sm:text-lg">Fechamento de Clientes Fiado</CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Resumo do período para clientes favoritos.</CardDescription>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle className="text-base sm:text-lg">Fechamento de Clientes Fiado</CardTitle>
+                            <CardDescription className="text-xs sm:text-sm">Resumo do período para clientes favoritos.</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => setIsPasswordModalOpen(true)}>
+                            <KeyRound className="mr-2 h-4 w-4" />
+                            Ver Detalhes
+                        </Button>
+                    </div>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {reportData.favoriteClientsFiado.map(client => (
-                        <Card key={client.name} className="bg-muted/30">
-                            <CardHeader className="p-4">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                    <User className="h-4 w-4 text-muted-foreground" />
-                                    {client.name}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-4 pt-0 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Itens:</span>
-                                    <span className="font-mono font-medium">{client.items}</span>
-                                </div>
-                                <div className="flex justify-between font-semibold mt-1">
-                                    <span className="text-destructive">Total a Pagar:</span>
-                                    <span className="font-mono text-destructive">{formatCurrency(client.total)}</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </CardContent>
             </Card>
         )}
 
@@ -554,5 +603,6 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
             </div>
         </div>
     </div>
+    </>
   );
 }
