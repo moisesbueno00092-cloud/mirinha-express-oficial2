@@ -161,10 +161,10 @@ export default function HistoryPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm text-muted-foreground grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <p>À Vista: <span className="font-mono text-foreground">{formatCurrency(reportData.totalAVista)}</span></p>
-                  <p>Fiado: <span className="font-mono text-destructive">{formatCurrency(reportData.totalFiado)}</span></p>
-                  <p>Refeições: <span className="font-mono text-foreground">{reportData.totalMealItems}</span></p>
-                  <p>Bomboniere: <span className="font-mono text-foreground">{formatCurrency(reportData.totalBomboniereValue)}</span></p>
+                  <p>À Vista: <span className="font-mono text-foreground">{formatCurrency(report.reportData.totalAVista)}</span></p>
+                  <p>Fiado: <span className="font-mono text-destructive">{formatCurrency(report.reportData.totalFiado)}</span></p>
+                  <p>Refeições: <span className="font-mono text-foreground">{report.reportData.totalMealItems}</span></p>
+                  <p>Bomboniere: <span className="font-mono text-foreground">{formatCurrency(report.reportData.totalBomboniereValue)}</span></p>
                 </CardContent>
               </Card>
             ))}
