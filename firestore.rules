@@ -36,9 +36,17 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows public access to the client_accounts collection.
-     * @path        /client_accounts
-     * @principle   Separates collection-level access from document-level access.
+     * @description Allows public list access to the entire client_accounts collection.
+     * @allow       (list) Necessary for the main accounts page to display all clients.
+     */
+    match /client_accounts {
+      allow list: if true;
+    }
+    
+    /**
+     * @description Allows public access to individual documents within the client_accounts collection.
+     * @path        /client_accounts/{clientAccountId}
+     * @principle   Separates document-level access from collection-level access.
      */
     match /client_accounts/{clientAccountId} {
         /**
@@ -46,14 +54,6 @@ service cloud.firestore {
          * @allow       (read, write, delete) Any client can manage individual entries.
          */
         allow read, write, delete: if true;
-    }
-    
-    /**
-     * @description Allows public list access to the entire client_accounts collection.
-     * @allow       (list) Necessary for the main accounts page to display all clients.
-     */
-    match /client_accounts {
-      allow list: if true;
     }
 
     /**
