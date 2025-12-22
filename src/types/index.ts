@@ -71,7 +71,7 @@ export interface DailyReport {
     totalMealItems: number;
     totalBomboniereValue: number;
     totalBomboniereQuantity: number;
-tota    totalsByGroup: Record<Group, number>;
+    totalsByGroup: Record<Group, number>;
     itemCounts: Record<string, { total: number; rua: number; salao: number }>;
     bomboniereItemCounts: Record<string, { quantity: number; total: number; rua: number; salao: number }>;
     totalMealValue: number;
