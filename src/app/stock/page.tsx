@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, ArrowLeft, Save, Trash2, Plus } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Trash2, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import {
   AlertDialog,
@@ -24,7 +24,9 @@ import {
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import MirinhaLogo from '@/components/mirinha-logo';
+import usePersistentState from '@/hooks/use-persistent-state';
+
+const STOCK_PASSWORD = "mirinha123";
 
 const getStockColor = (stock: number) => {
     if (stock <= 5) return 'text-destructive';
@@ -46,6 +48,31 @@ export default function StockPage() {
     const [newItemName, setNewItemName] = useState('');
     const [newItemPrice, setNewItemPrice] = useState('');
     const [newItemStock, setNewItemStock] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    
+    // Auth state
+    const [isAuthenticated, setIsAuthenticated] = usePersistentState('stock-auth', false);
+    const [password, setPassword] = useState('');
+    const [authError, setAuthError] = useState('');
+
+    const handleLogin = (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (password === STOCK_PASSWORD) {
+            setIsAuthenticated(true);
+            setAuthError('');
+            setPassword('');
+        } else {
+            setAuthError('Senha incorreta.');
+        }
+    };
+    
+    const filteredItems = useMemo(() => {
+        if (!bomboniereItems) return [];
+        return bomboniereItems.filter(item => 
+            item.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [bomboniereItems, searchTerm]);
+
 
     const handleInputChange = (id: string, field: 'name' | 'price' | 'stock', value: string) => {
         setEditValues(prev => ({
@@ -131,6 +158,36 @@ export default function StockPage() {
         setItemToDelete(null);
     };
 
+     if (!isAuthenticated) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-background p-4">
+                <div className="w-full max-w-sm">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-center text-xl">Controle de Estoque</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <Input
+                                    type="password"
+                                    placeholder="Digite a senha"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    autoFocus
+                                />
+                                {authError && <p className="text-sm text-destructive">{authError}</p>}
+                                <Button type="submit" className="w-full">Entrar</Button>
+                                 <Link href="/" passHref className="block text-center">
+                                    <Button variant="link" className="w-full">Voltar</Button>
+                                </Link>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        );
+    }
+
      if (isLoading) {
         return (
           <div className="flex h-screen items-center justify-center">
@@ -175,12 +232,27 @@ export default function StockPage() {
             <div className="container mx-auto max-w-2xl p-4 sm:p-8">
                 <div className="flex items-center justify-between mb-6">
                     <h1 className="text-2xl sm:text-3xl font-bold">Controle de Estoque</h1>
-                    <Link href="/" passHref>
-                        <Button variant="outline">
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Voltar
-                        </Button>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                         <Button variant="ghost" size="sm" onClick={() => setIsAuthenticated(false)}>Sair</Button>
+                        <Link href="/" passHref>
+                            <Button variant="outline">
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Voltar
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+
+                <div className="mb-4">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input 
+                           placeholder="Buscar item..."
+                           value={searchTerm}
+                           onChange={e => setSearchTerm(e.target.value)}
+                           className="pl-10"
+                        />
+                    </div>
                 </div>
                 
                 <div className="mb-6">
@@ -218,10 +290,10 @@ export default function StockPage() {
                     )}
                 </div>
 
-                <ScrollArea className="h-[calc(100vh-20rem)]">
-                    {bomboniereItems && bomboniereItems.length > 0 ? (
+                <ScrollArea className="h-[calc(100vh-22rem)]">
+                    {filteredItems && filteredItems.length > 0 ? (
                         <div className="space-y-3 pr-4">
-                            {bomboniereItems.map(item => {
+                            {filteredItems.map(item => {
                                 const isEditing = !!editValues[item.id];
                                 return (
                                 <Card key={item.id}>
@@ -261,8 +333,8 @@ export default function StockPage() {
                         </div>
                     ) : (
                         <div className="text-center text-muted-foreground py-16">
-                            <p>Nenhum item na bomboniere.</p>
-                            <p className="text-sm mt-1">Adicione itens para começar a controlar o estoque.</p>
+                             <p>{searchTerm ? "Nenhum item encontrado." : "Nenhum item na bomboniere."}</p>
+                            {!searchTerm && <p className="text-sm mt-1">Adicione itens para começar a controlar o estoque.</p>}
                         </div>
                     )}
                 </ScrollArea>
@@ -270,3 +342,5 @@ export default function StockPage() {
         </>
     );
 }
+
+    
