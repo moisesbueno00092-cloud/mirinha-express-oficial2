@@ -12,7 +12,7 @@ service cloud.firestore {
       allow read, write, delete: if true;
     }
     match /client_accounts {
-      allow list: if true;
+       allow list: if true;
     }
     match /bomboniere_items/{bomboniereItemId} {
       allow read, write: if true;
