@@ -223,22 +223,22 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
                             {sortedItemCounts.map(([name, count]) => (
-                                <li key={`${name}-total`} className="flex items-baseline justify-between gap-2">
-                                    <span className="font-medium truncate">{count.total > 1 && `${count.total}x `}{name}</span>
+                                <li key={`${name}-total`} className="flex justify-between items-center">
+                                    <span className="font-medium truncate pr-2">{count.total > 1 && `${count.total}x `}{name}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
                             {sortedItemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
-                                <li key={`${name}-salao`} className="flex items-baseline justify-between gap-2">
-                                    <span className="font-medium truncate">{count.salao > 1 && `${count.salao}x `}{name}</span>
+                                <li key={`${name}-salao`} className="flex justify-between items-center">
+                                    <span className="font-medium truncate pr-2">{count.salao > 1 && `${count.salao}x `}{name}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
                             {sortedItemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
-                                <li key={`${name}-rua`} className="flex items-baseline justify-between gap-2">
-                                   <span className="font-medium truncate">{count.rua > 1 && `${count.rua}x `}{name}</span>
+                                <li key={`${name}-rua`} className="flex justify-between items-center">
+                                   <span className="font-medium truncate pr-2">{count.rua > 1 && `${count.rua}x `}{name}</span>
                                 </li>
                             ))}
                         </ul>
@@ -262,8 +262,8 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                                 .map(([name, data]) => (
                                     <li key={`${name}-salao-bomboniere`} className="flex justify-between items-center">
                                         <span className="truncate pr-2">
-                                            {data.salao_qty > 1 && <span className="font-medium">{`${data.salao_qty}x`}</span>}
-                                            <span className="ml-1">{name}</span>
+                                            {data.salao_qty > 1 && <span className="font-medium">{`${data.salao_qty}x `}</span>}
+                                            <span>{name}</span>
                                         </span>
                                         <span className="font-mono text-muted-foreground">
                                             {formatCurrency((data.totalValue / data.quantity) * data.salao_qty)}
@@ -278,8 +278,8 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                                 .map(([name, data]) => (
                                     <li key={`${name}-rua-bomboniere`} className="flex justify-between items-center">
                                         <span className="truncate pr-2">
-                                            {data.rua_qty > 1 && <span className="font-medium">{`${data.rua_qty}x`}</span>}
-                                            <span className="ml-1">{name}</span>
+                                            {data.rua_qty > 1 && <span className="font-medium">{`${data.rua_qty}x `}</span>}
+                                            <span>{name}</span>
                                         </span>
                                         <span className="font-mono text-muted-foreground">
                                             {formatCurrency((data.totalValue / data.quantity) * data.rua_qty)}
