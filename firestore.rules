@@ -36,23 +36,13 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows public read/write/delete access to individual client account entries.
-     * @path        /client_accounts/{clientAccountId}
-     * @allow       (read, write, delete) Any client can operate on individual documents.
-     * @principle   Provides open access for a simple, single-user application.
-     */
-    match /client_accounts/{clientAccountId} {
-      allow read, write, delete: if true;
-    }
-
-    /**
      * @description Allows public list access to the client accounts collection.
      * @path        /client_accounts
      * @allow       (list) Allows any client to list the entire collection.
      * @principle   Necessary for the main accounts page to display all clients with debts.
      */
-    match /client_accounts {
-      allow list: if true;
+    match /client_accounts/{clientAccountId} {
+        allow read, write, delete: if true;
     }
 
     /**
