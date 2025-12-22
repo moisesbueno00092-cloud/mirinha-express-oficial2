@@ -3,8 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Rule for a specific collection path.
-    // This allows anyone to read or write to this collection.
     match /order_items/{docId} {
       allow read, write: if true;
     }
@@ -13,13 +11,9 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    match /client_accounts/{docId} {
-       allow read, write, delete: if true;
+    match /client_accounts/{clientAccountId} {
+      allow read, write, delete, list: if true;
     }
-     match /client_accounts {
-        allow list: if true;
-    }
-
 
     match /bomboniere_items/{docId} {
       allow read, write: if true;
