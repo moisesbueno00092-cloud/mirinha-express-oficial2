@@ -35,6 +35,9 @@ interface FinalReportProps {
 }
 
 const formatCurrency = (value: number) => {
+    if (typeof value !== 'number' || isNaN(value)) {
+        return 'R$ --,--';
+    }
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
@@ -516,7 +519,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                 </CardContent>
             </Card>
             <Card>
-                 <CardHeader>
+                <CardHeader>
                     <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
