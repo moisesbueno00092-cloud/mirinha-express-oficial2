@@ -262,3 +262,5 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
     </div>
   );
 }
+
+    
