@@ -530,7 +530,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                              {reportData.bomboniereItemCounts.map(([name, data]) => (
                                 <li key={name} className="flex justify-between items-center">
                                     <span className="truncate pr-2">
-                                        <span className="font-medium">{data.quantity}x</span>
+                                        <span className="font-medium">{data.quantity > 1 ? `${data.quantity}x` : ''}</span>
                                         <span className="ml-1">{name}</span>
                                     </span>
                                     <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue)}</span>
@@ -541,10 +541,10 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                              {reportData.bomboniereItemCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
                                 <li key={name} className="flex justify-between items-center">
                                    <span className="truncate pr-2">
-                                     <span className="font-medium">{data.salao_qty}x</span>
+                                     <span className="font-medium">{data.salao_qty > 1 ? `${data.salao_qty}x` : ''}</span>
                                      <span className="ml-1">{name}</span>
                                    </span>
-                                   <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue / data.quantity * data.salao_qty)}</span>
+                                   <span className="font-mono text-muted-foreground">{formatCurrency((data.totalValue / data.quantity) * data.salao_qty)}</span>
                                 </li>
                             ))}
                         </ul>
@@ -552,10 +552,10 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                              {reportData.bomboniereItemCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
                                 <li key={name} className="flex justify-between items-center">
                                     <span className="truncate pr-2">
-                                        <span className="font-medium">{data.rua_qty}x</span>
+                                        <span className="font-medium">{data.rua_qty > 1 ? `${data.rua_qty}x` : ''}</span>
                                         <span className="ml-1">{name}</span>
                                     </span>
-                                    <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue / data.quantity * data.rua_qty)}</span>
+                                    <span className="font-mono text-muted-foreground">{formatCurrency((data.totalValue / data.quantity) * data.rua_qty)}</span>
                                 </li>
                             ))}
                         </ul>
