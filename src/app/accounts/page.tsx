@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
-import type { ClientAccountEntry, FavoriteClient } from '@/types';
+import type { ClientAccountEntry } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Loader2, ArrowLeft, Trash2, User } from 'lucide-react';
@@ -21,8 +21,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
 
 
 const formatCurrency = (value: number) => {
@@ -167,15 +165,6 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
 }
 
 export default function AccountsPage() {
-  const { isAuthenticated } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (isAuthenticated === false) { // Use explicit false to wait for initial check
-      router.push('/login');
-    }
-  }, [isAuthenticated, router]);
-
   const firestore = useFirestore();
   const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
   
@@ -204,14 +193,6 @@ export default function AccountsPage() {
     return Object.values(accountsByCustomer).sort((a,b) => a.name.localeCompare(b.name));
 
   }, [allAccountEntries]);
-
-  if (isAuthenticated === undefined || isAuthenticated === false) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   if (selectedClient) {
     return <ClientDetail 
@@ -272,5 +253,3 @@ export default function AccountsPage() {
     </div>
   );
 }
-
-    

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
 import type { BomboniereItem } from '@/types';
@@ -24,9 +24,7 @@ import {
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-
+import MirinhaLogo from '@/components/mirinha-logo';
 
 const getStockColor = (stock: number) => {
     if (stock <= 5) return 'text-destructive';
@@ -35,17 +33,13 @@ const getStockColor = (stock: number) => {
     return 'text-muted-foreground';
 };
 
+const PASSWORD = "mirinha123";
 
 export default function StockPage() {
-    const { isAuthenticated } = useAuth();
-    const router = useRouter();
+    const [isUnlocked, setIsUnlocked] = useState(false);
+    const [passwordInput, setPasswordInput] = useState('');
+    const [isChecking, setIsChecking] = useState(false);
 
-    useEffect(() => {
-        if (isAuthenticated === false) { // Use explicit false to wait for initial check
-            router.push('/login');
-        }
-    }, [isAuthenticated, router]);
-    
     const firestore = useFirestore();
     const { toast } = useToast();
     
@@ -58,6 +52,19 @@ export default function StockPage() {
     const [newItemName, setNewItemName] = useState('');
     const [newItemPrice, setNewItemPrice] = useState('');
     const [newItemStock, setNewItemStock] = useState('');
+
+    const handlePasswordCheck = (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsChecking(true);
+        if (passwordInput === PASSWORD) {
+            setIsUnlocked(true);
+            toast({ title: 'Acesso liberado!' });
+        } else {
+            toast({ variant: 'destructive', title: 'Senha incorreta!' });
+            setPasswordInput('');
+        }
+        setIsChecking(false);
+    };
 
     const handleInputChange = (id: string, field: 'name' | 'price' | 'stock', value: string) => {
         setEditValues(prev => ({
@@ -116,7 +123,6 @@ export default function StockPage() {
             return;
         }
         
-        // bomboniereItemsQuery can be a query or a collection ref, so we need to get the collection ref
         const collectionRef = bomboniereItemsQuery.type === 'collection' ? bomboniereItemsQuery : bomboniereItemsQuery.converter ? bomboniereItemsQuery.withConverter(null) : bomboniereItemsQuery;
 
 
@@ -129,7 +135,6 @@ export default function StockPage() {
         addDocumentNonBlocking(collectionRef, newItem);
         toast({ title: 'Sucesso!', description: `${newItem.name} foi adicionado.` });
 
-        // Reset form
         setIsAdding(false);
         setNewItemName('');
         setNewItemPrice('');
@@ -145,7 +150,40 @@ export default function StockPage() {
         setItemToDelete(null);
     };
 
-     if (isAuthenticated === undefined || isAuthenticated === false || isLoading) {
+    if (!isUnlocked) {
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+                <div className="absolute top-8 text-center">
+                    <MirinhaLogo className="w-80 h-auto text-primary" />
+                </div>
+                <Card className="w-full max-w-sm">
+                    <CardHeader>
+                        <CardTitle>Acesso Restrito</CardTitle>
+                        <CardContent className="pt-6">
+                            <form onSubmit={handlePasswordCheck} className="space-y-4">
+                                <Input
+                                    type="password"
+                                    placeholder="Senha de edição"
+                                    value={passwordInput}
+                                    onChange={(e) => setPasswordInput(e.target.value)}
+                                    disabled={isChecking}
+                                    autoFocus
+                                />
+                                <Button type="submit" className="w-full" disabled={isChecking || !passwordInput}>
+                                    {isChecking ? <Loader2 className="animate-spin" /> : 'Desbloquear Edição'}
+                                </Button>
+                                <Link href="/" passHref className="w-full">
+                                    <Button variant="outline" className="w-full">Voltar</Button>
+                                </Link>
+                            </form>
+                        </CardContent>
+                    </CardHeader>
+                </Card>
+            </div>
+        )
+    }
+
+     if (isLoading) {
         return (
           <div className="flex h-screen items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -284,6 +322,3 @@ export default function StockPage() {
         </>
     );
 }
-
-
-    

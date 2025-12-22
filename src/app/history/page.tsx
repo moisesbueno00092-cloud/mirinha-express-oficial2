@@ -22,20 +22,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
 
 
 export default function HistoryPage() {
-  const { isAuthenticated } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (isAuthenticated === false) { // Use explicit false to wait for initial check
-      router.push('/login');
-    }
-  }, [isAuthenticated, router]);
-
   const firestore = useFirestore();
   const { toast } = useToast();
   const reportsRef = useMemoFirebase(
@@ -85,7 +74,7 @@ export default function HistoryPage() {
     setReportToDelete(null);
   };
 
-  if (isAuthenticated === undefined || isAuthenticated === false || isLoading) {
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -172,10 +161,10 @@ export default function HistoryPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm text-muted-foreground grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <p>À Vista: <span className="font-mono text-foreground">{formatCurrency(report.reportData.totalAVista)}</span></p>
-                  <p>Fiado: <span className="font-mono text-destructive">{formatCurrency(report.reportData.totalFiado)}</span></p>
-                  <p>Refeições: <span className="font-mono text-foreground">{report.reportData.totalMealItems}</span></p>
-                  <p>Bomboniere: <span className="font-mono text-foreground">{formatCurrency(report.reportData.totalBomboniereValue)}</span></p>
+                  <p>À Vista: <span className="font-mono text-foreground">{formatCurrency(reportData.totalAVista)}</span></p>
+                  <p>Fiado: <span className="font-mono text-destructive">{formatCurrency(reportData.totalFiado)}</span></p>
+                  <p>Refeições: <span className="font-mono text-foreground">{reportData.totalMealItems}</span></p>
+                  <p>Bomboniere: <span className="font-mono text-foreground">{formatCurrency(reportData.totalBomboniereValue)}</span></p>
                 </CardContent>
               </Card>
             ))}
@@ -189,5 +178,3 @@ export default function HistoryPage() {
     </>
   );
 }
-
-    
