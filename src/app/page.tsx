@@ -34,7 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star, Users, Package, LogOut } from "lucide-react";
+import { Trash2, Save, History, Star, Users, Package, LogOut, Loader2 } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -610,13 +610,6 @@ export default function Home() {
 
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-48">
         <header className="mb-6 flex flex-col items-center justify-center text-center relative">
-            <div className="absolute top-0 right-0 flex items-center gap-2">
-                <Link href="/stock" passHref>
-                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Controle de Estoque">
-                        <Package />
-                    </Button>
-                </Link>
-            </div>
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
           <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
         </header>
