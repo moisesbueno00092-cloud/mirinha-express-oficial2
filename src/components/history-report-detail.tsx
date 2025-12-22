@@ -206,9 +206,9 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm space-y-2">
                     <div className="grid grid-cols-3 gap-x-4 font-medium mb-1 border-b pb-1">
-                        <h4>Total</h4>
-                        <h4>Salão</h4>
-                        <h4>Rua</h4>
+                        <h4 className="text-left">Total</h4>
+                        <h4 className="text-left">Salão</h4>
+                        <h4 className="text-left">Rua</h4>
                     </div>
                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
@@ -250,9 +250,9 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm space-y-2">
                     <div className="grid grid-cols-3 gap-x-4 font-medium mb-1 border-b pb-1">
-                        <h4>Total</h4>
-                        <h4>Salão</h4>
-                        <h4>Rua</h4>
+                        <h4 className="text-left">Total</h4>
+                        <h4 className="text-left">Salão</h4>
+                        <h4 className="text-left">Rua</h4>
                     </div>
                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
