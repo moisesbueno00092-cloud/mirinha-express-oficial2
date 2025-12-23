@@ -56,8 +56,6 @@ service cloud.firestore {
      *   users to enable stock updates from the main app and stock page.
      * @path
      *   /bomboniere_items/{itemId}
-     * @allow
-     *   Any authenticated user can read or write bomboniere items.
      */
     match /bomboniere_items/{itemId} {
         allow read, write: if isSignedIn();
