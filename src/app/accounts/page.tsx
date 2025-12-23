@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -222,7 +223,7 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
 
 export default function AccountsPage() {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
   
   const userOrderItemsRef = useMemoFirebase(
@@ -257,6 +258,14 @@ export default function AccountsPage() {
     return Object.values(accountsByCustomer).sort((a,b) => a.name.localeCompare(b.name));
 
   }, [allFiadoEntries]);
+
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (selectedClient) {
     return <ClientDetail 
@@ -316,3 +325,5 @@ export default function AccountsPage() {
     </div>
   );
 }
+
+    

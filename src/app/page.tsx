@@ -89,7 +89,7 @@ export default function Home() {
     [firestore, user]
   );
   
-  const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
+  const bomboniereItemsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore, user]);
   
   const favoriteClientsRef = useMemoFirebase(
     () => (firestore && user ? collection(firestore, `users/${user.uid}/favorite_clients`) : null),
