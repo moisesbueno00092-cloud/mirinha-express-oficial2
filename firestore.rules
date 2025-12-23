@@ -37,26 +37,36 @@ service cloud.firestore {
 
     /**
      * @description
-     *   Manages user-specific order items. Grants full create, read, update,
-     *   and delete permissions exclusively to the user who owns the data.
+     *   Manages user-specific data. This rule block secures all sub-collections
+     *   under a user's document, such as order_items and favorite_clients.
      * @path
-     *   /users/{userId}/order_items/{orderItemId}
+     *   /users/{userId}
      */
-    match /users/{userId}/order_items/{orderItemId} {
-      allow list, get: if isOwner(userId);
-      allow create, update, delete: if isOwner(userId);
-    }
+    match /users/{userId} {
+      /**
+       * @description
+       *   Grants full create, read, update, and delete permissions exclusively
+       *   to the user who owns the data. This rule explicitly allows `list`
+       *   operations on the collection.
+       * @path
+       *   /users/{userId}/order_items/{orderItemId}
+       */
+      match /order_items/{orderItemId} {
+        allow list, get: if isOwner(userId);
+        allow create, update, delete: if isOwner(userId);
+      }
 
-    /**
-     * @description
-     *   Manages the list of favorite clients saved by a user.
-     *   Grants full permissions to the user who owns the data.
-     * @path
-     *   /users/{userId}/favorite_clients/{clientId}
-     */
-    match /users/{userId}/favorite_clients/{clientId} {
-      allow list, get: if isOwner(userId);
-      allow create, update, delete: if isOwner(userId);
+      /**
+       * @description
+       *   Manages the list of favorite clients saved by a user.
+       *   Grants full permissions to the user who owns the data.
+       * @path
+       *   /users/{userId}/favorite_clients/{clientId}
+       */
+      match /favorite_clients/{clientId} {
+        allow list, get: if isOwner(userId);
+        allow create, update, delete: if isOwner(userId);
+      }
     }
     
     /**
