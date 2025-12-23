@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -8,12 +9,6 @@ service cloud.firestore {
     }
 
     match /daily_reports/{docId} {
-      allow read, write: if true;
-    }
-
-    // Allow full public access to client accounts.
-    // This rule is intentionally open for the app's functionality.
-    match /client_accounts/{clientAccountId} {
       allow read, write: if true;
     }
 

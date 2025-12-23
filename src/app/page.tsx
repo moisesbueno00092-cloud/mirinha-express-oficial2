@@ -59,8 +59,6 @@ export default function Home() {
   const orderItemsRef = useMemoFirebase(() => (firestore ? collection(firestore, "order_items") : null), [firestore]);
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   const favoriteClientsRef = useMemoFirebase(() => (firestore ? collection(firestore, "favorite_clients") : null), [firestore]);
-  const clientAccountsRef = useMemoFirebase(() => (firestore ? collection(firestore, "client_accounts") : null), [firestore]);
-
 
   const { data: items, isLoading, error: firestoreError } = useCollection<Item>(orderItemsRef);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -314,21 +312,6 @@ export default function Home() {
             const newItem = { ...finalItem, total };
             addDocumentNonBlocking(orderItemsRef, newItem);
 
-            // Se for fiado para um cliente, adicionar na caderneta
-            if (group.startsWith('Fiados') && favoriteClient?.id && customerName && clientAccountsRef) {
-                const accountEntry: Omit<ClientAccountEntry, 'id'> = {
-                    customerId: favoriteClient.id,
-                    customerName: customerName,
-                    description: consolidatedName,
-                    price: total,
-                    timestamp: timestamp,
-                    ...(deliveryFee > 0 && { deliveryFee }),
-                    ...(individualPrices.length > 0 && { individualPrices }),
-                    ...(predefinedItems.length > 0 && { predefinedItems }),
-                    ...(processedBomboniereItems.length > 0 && { bomboniereItems: processedBomboniereItems }),
-                };
-                addDocumentNonBlocking(clientAccountsRef, accountEntry);
-            }
             toast({ title: "Sucesso", description: "Lançamento adicionado." });
         }
         
@@ -616,14 +599,6 @@ export default function Home() {
         <header className="mb-6 flex flex-col items-center justify-center text-center relative">
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
           <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
-          <div className="absolute top-0 right-0">
-             <Link href="/accounts" passHref>
-                <Button variant="ghost">
-                    <Users className="mr-2 h-4 w-4" />
-                    Caderneta
-                </Button>
-            </Link>
-          </div>
         </header>
 
         <main className="space-y-6">
@@ -693,5 +668,3 @@ export default function Home() {
     </>
   );
 }
-
-    
