@@ -8,8 +8,8 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { Share, FileText, BrainCircuit, Save, History, Trash2, User, KeyRound, Loader2, AlertTriangle, TrendingUp, ShoppingCart, Users, Coins, Utensils, Package, Truck } from "lucide-react";
-import { useFirestore } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { useAuth, useFirestore } from "@/firebase";
+import { doc, getDoc, collection } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
@@ -71,6 +71,7 @@ const PIE_CHART_COLORS: Record<string, string> = {
 
 export default function FinalReport({ items, onClearData }: FinalReportProps) {
   const firestore = useFirestore();
+  const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
@@ -254,7 +255,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
   }, [items]);
   
   const proceedWithSaveAndClear = () => {
-    if (!firestore || !reportData) return;
+    if (!firestore || !reportData || !user) return;
     
     setIsSaving(true);
     setShowOverwriteConfirm(false);
@@ -292,8 +293,9 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     setDocumentNonBlocking(reportDocRef, { ...reportToSave, id: reportId }, { merge: true });
 
     try {
+      const userOrderItemsRef = collection(firestore, `users/${user.uid}/order_items`);
       items.forEach(item => {
-        const docRef = doc(firestore, "order_items", item.id);
+        const docRef = doc(userOrderItemsRef, item.id);
         deleteDocumentNonBlocking(docRef);
       });
       toast({
@@ -605,3 +607,5 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     </>
   );
 }
+
+    
