@@ -4,7 +4,7 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, doc, query, where, orderBy } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import Link from 'next/link';
@@ -56,11 +56,17 @@ const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && 
 
 export default function Home() {
   const firestore = useFirestore();
-  const orderItemsRef = useMemoFirebase(() => (firestore ? collection(firestore, "order_items") : null), [firestore]);
+  const { user } = useUser();
+  
+  const userOrderItemsRef = useMemoFirebase(
+    () => (firestore && user ? collection(firestore, `users/${user.uid}/order_items`) : null),
+    [firestore, user]
+  );
+  
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   const favoriteClientsRef = useMemoFirebase(() => (firestore ? collection(firestore, "favorite_clients") : null), [firestore]);
 
-  const { data: items, isLoading, error: firestoreError } = useCollection<Item>(orderItemsRef);
+  const { data: items, isLoading, error: firestoreError } = useCollection<Item>(userOrderItemsRef);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   const { data: favoriteClients } = useCollection<FavoriteClient>(favoriteClientsRef);
   
@@ -304,13 +310,14 @@ export default function Home() {
 
 
         if (currentItem?.id) {
-            const docRef = doc(firestore, "order_items", currentItem.id);
+            if (!userOrderItemsRef) return;
+            const docRef = doc(userOrderItemsRef, currentItem.id);
             setDocumentNonBlocking(docRef, { ...finalItem, total }, { merge: true });
             toast({ title: "Sucesso", description: "Lançamento atualizado." });
         } else {
-            if (!firestore || !orderItemsRef) return;
+            if (!userOrderItemsRef) return;
             const newItem = { ...finalItem, total };
-            addDocumentNonBlocking(orderItemsRef, newItem);
+            addDocumentNonBlocking(userOrderItemsRef, newItem);
 
             toast({ title: "Sucesso", description: "Lançamento adicionado." });
         }
@@ -339,10 +346,10 @@ export default function Home() {
   };
 
   const confirmClearData = () => {
-    if (!items || !firestore) return;
+    if (!items || !userOrderItemsRef) return;
     try {
       items.forEach(item => {
-        const docRef = doc(firestore, "order_items", item.id);
+        const docRef = doc(userOrderItemsRef, item.id);
         deleteDocumentNonBlocking(docRef);
       });
       toast({
@@ -377,8 +384,8 @@ export default function Home() {
   };
   
   const confirmDelete = () => {
-    if(!firestore || !itemToDelete) return;
-    deleteDocumentNonBlocking(doc(firestore, "order_items", itemToDelete));
+    if(!userOrderItemsRef || !itemToDelete) return;
+    deleteDocumentNonBlocking(doc(userOrderItemsRef, itemToDelete));
     toast({
       title: "Sucesso",
       description: "Item removido.",

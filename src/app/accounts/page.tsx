@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import type { Item as ClientAccountEntry, PredefinedItem, SelectedBomboniereItem } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -38,11 +39,6 @@ const formatDate = (dateString: string) => {
       minute: '2-digit'
     });
 };
-
-// Simplified non-blocking delete for this page
-const deleteDocumentNonBlocking = (docRef: any) => {
-    deleteDoc(docRef).catch(err => console.error("Failed to delete doc", err));
-}
 
 
 function EntryItems({ entry }: { entry: ClientAccountEntry }) {
@@ -86,27 +82,33 @@ function EntryItems({ entry }: { entry: ClientAccountEntry }) {
 
 function ClientDetail({ client, onBack, onClear }: { client: { id: string; name: string }, onBack: () => void, onClear: (clientId: string) => void }) {
     const firestore = useFirestore();
+    const { user } = useUser();
     const { toast } = useToast();
     const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
 
+    const userOrderItemsRef = useMemoFirebase(
+      () => (firestore && user ? collection(firestore, `users/${user.uid}/order_items`) : null),
+      [firestore, user]
+    );
+
     const accountEntriesQuery = useMemoFirebase(
-        () => (firestore ? query(
-            collection(firestore, 'order_items'),
+        () => (userOrderItemsRef ? query(
+            userOrderItemsRef,
             where('customerId', '==', client.id),
             where('group', 'in', ['Fiados salão', 'Fiados rua']),
             orderBy('timestamp', 'desc')
         ) : null),
-        [firestore, client.id]
+        [userOrderItemsRef, client.id]
     );
     const { data: entries, isLoading, error } = useCollection<ClientAccountEntry>(accountEntriesQuery);
 
     const totalDebt = useMemo(() => entries?.reduce((sum, entry) => sum + entry.total, 0) || 0, [entries]);
     
     const handleClearConfirm = () => {
-        if (!entries || !firestore) return;
+        if (!entries || !userOrderItemsRef) return;
         
         entries.forEach(entry => {
-            const docRef = doc(firestore, 'order_items', entry.id);
+            const docRef = doc(userOrderItemsRef, entry.id);
             deleteDocumentNonBlocking(docRef);
         });
 
@@ -220,11 +222,17 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
 
 export default function AccountsPage() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
   
+  const userOrderItemsRef = useMemoFirebase(
+    () => (firestore && user ? collection(firestore, `users/${user.uid}/order_items`) : null),
+    [firestore, user]
+  );
+  
   const fiadoItemsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'order_items'), where('group', 'in', ['Fiados salão', 'Fiados rua'])) : null),
-    [firestore]
+    () => (userOrderItemsRef ? query(userOrderItemsRef, where('group', 'in', ['Fiados salão', 'Fiados rua'])) : null),
+    [userOrderItemsRef]
   );
   
   const { data: allFiadoEntries, isLoading } = useCollection<ClientAccountEntry>(fiadoItemsQuery);
@@ -255,7 +263,7 @@ export default function AccountsPage() {
         client={selectedClient} 
         onBack={() => setSelectedClient(null)} 
         onClear={(clearedId) => {
-            if (selectedClient.id === clearedId) {
+            if (selectedClient?.id === clearedId) {
                 setSelectedClient(null);
             }
         }}
