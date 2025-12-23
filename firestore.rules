@@ -1,23 +1,79 @@
-
 rules_version = '2';
 
+/**
+ * # Firestore Security Rules
+ *
+ * ## Core Philosophy
+ * This ruleset enforces a strict user-ownership model. All data is segregated
+ * into user-specific collections, ensuring that users can only access their
+ * own information. This approach is inherently secure and prevents data leakage
+ * between users. The default security posture is to deny all access unless
+ * explicitly granted to the document owner.
+ *
+ * ## Data Structure
+ * All mutable application data is stored under a user-specific path:
+ * `/users/{userId}/...`. For example, a user's order items are located at
+ * `/users/{userId}/order_items/{orderItemId}`. This hierarchical structure is
+ * the foundation of our security model.
+ *
+ * ## Key Security Decisions
+ * - **No Public Listing:** Users cannot list the contents of the top-level
+ *   `users` collection, protecting user privacy.
+ * - **Path-Based Security:** Authorization is determined by matching the
+ *   authenticated user's UID (`request.auth.uid`) with the `userId` wildcard
+ *   in the document path. This is a highly performant and secure pattern.
+ * - **Owner-Only Access:** All create, read, update, and delete operations
+ *   are restricted to the owner of the data tree.
+ *
+ * ## Denormalization for Authorization
+ * This ruleset relies on path segregation for authorization, which is a form
+ * of structural denormalization. By placing a user's data in their own
+ * subcollection (`/users/{userId}/order_items`), we avoid the need for costly
+ * `get()` calls or complex queries to check for ownership. This makes rules
+ * simpler, faster, and more secure, especially for list operations.
+ *
+ */
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    match /order_items/{docId} {
-      allow read, write: if true;
+
+    // Helper functions for reusable logic
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    match /daily_reports/{docId} {
-      allow read, write: if true;
+    // Checks if the requesting user is the owner of the document based on the path.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    match /bomboniere_items/{docId} {
-      allow read, write: if true;
+    // Checks for ownership on an existing document for update/delete operations.
+    // This prevents modifying or deleting documents that do not exist.
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
     }
 
-    match /favorite_clients/{docId} {
-      allow read, write: if true;
+    /**
+     * @description
+     *   Manages user-specific order items. Grants full create, read, update,
+     *   and delete permissions exclusively to the user who owns the data.
+     * @path
+     *   /users/{userId}/order_items/{orderItemId}
+     * @allow
+     *   A user (auth.uid: 'user123') can (list) their own order items at
+     *   `/users/user123/order_items`.
+     * @deny
+     *   A user (auth.uid: 'user456') cannot (get) an order item from another
+     *   user at `/users/user123/order_items/abc`.
+     * @principle
+     *   Restricts access to a user's own data tree. This path-based security
+     *   is crucial for safely enabling list operations.
+     */
+    match /users/{userId}/order_items/{orderItemId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
   }
 }

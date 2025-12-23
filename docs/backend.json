@@ -1,11 +1,10 @@
-
 {
   "entities": {
     "OrderItem": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "OrderItem",
       "type": "object",
-      "description": "Represents an individual item ordered within the Mirinha's Tracker app.",
+      "description": "Represents an individual item ordered at Mirinha's Restaurant.",
       "properties": {
         "id": {
           "type": "string",
@@ -18,108 +17,31 @@
         "itemPrice": {
           "type": "number",
           "description": "The price of the item.",
-          "format": "float"
+          "format": "number"
+        },
+        "itemGroup": {
+          "type": "string",
+          "description": "The group the item belongs to (Fiados salão, Fiados rua, Vendas rua, Vendas salão)."
         },
         "quantity": {
           "type": "number",
           "description": "The quantity of the item ordered. Defaults to 1 if not specified.",
-          "format": "integer"
+          "format": "number"
         },
         "orderDateTime": {
           "type": "string",
-          "description": "The date and time when the item was ordered.",
+          "description": "The date and time the item was ordered.",
           "format": "date-time"
-        },
-        "itemGroup": {
-          "type": "string",
-          "description": "The group to which the item belongs (e.g., Fiados salão, Fiados rua, Vendas rua, Vendas salão)."
-        },
-        "extrasValue": {
-          "type": "number",
-          "description": "The value of the 'EXTRAS' item, tracked separately.",
-          "format": "float"
         }
       },
       "required": [
         "id",
         "itemName",
         "itemPrice",
+        "itemGroup",
         "quantity",
-        "orderDateTime",
-        "itemGroup"
+        "orderDateTime"
       ]
-    },
-    "DailyReport": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "DailyReport",
-      "type": "object",
-      "description": "Represents a summarized report for a single day of sales.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the report, in YYYY-MM-DD format."
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "The date and time when the report was saved.",
-          "format": "date-time"
-        },
-        "reportData": {
-          "type": "object",
-          "description": "The summarized data for the report."
-        },
-        "rawItems": {
-          "type": "array",
-          "description": "A complete list of all individual order items for that day."
-        }
-      },
-      "required": ["id", "timestamp", "reportData", "rawItems"]
-    },
-    "BomboniereItem": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "BomboniereItem",
-      "type": "object",
-      "description": "Represents an item available for sale in the bomboniere.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the bomboniere item."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the item."
-        },
-        "price": {
-          "type": "number",
-          "description": "The price of the item."
-        },
-        "stock": {
-          "type": "number",
-          "description": "The current stock quantity of the item."
-        }
-      },
-      "required": ["id", "name", "price", "stock"]
-    },
-    "FavoriteClient": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FavoriteClient",
-      "type": "object",
-      "description": "Represents a favorite client with a predefined order for quick entry.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the favorite client."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the client."
-        },
-        "command": {
-          "type": "string",
-          "description": "The raw command string representing the client's usual order (e.g., 'PF coquinha')."
-        }
-      },
-      "required": ["id", "name", "command"]
     }
   },
   "auth": {
@@ -131,70 +53,26 @@
   "firestore": {
     "structure": [
       {
-        "path": "/order_items/{orderItemId}",
+        "path": "/users/{userId}/order_items/{orderItemId}",
         "definition": {
           "entityName": "OrderItem",
           "schema": {
             "$ref": "#/backend/entities/OrderItem"
           },
-          "description": "Stores details about each order item, including name, price, quantity, date/time, item group, and extras value.",
+          "description": "Stores order items specific to a user.  Allows each user to only access their own order items. Path based ownership: `/users/{userId}/order_items/{orderItemId}` enables secure `list` operations based on `request.auth.uid == userId`.",
           "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
             {
               "name": "orderItemId",
-              "description": "Unique identifier for the order item."
-            }
-          ]
-        }
-      },
-       {
-        "path": "/daily_reports/{reportId}",
-        "definition": {
-          "entityName": "DailyReport",
-          "schema": {
-            "$ref": "#/backend/entities/DailyReport"
-          },
-          "description": "Stores the final summarized report for each day.",
-          "params": [
-            {
-              "name": "reportId",
-              "description": "Unique identifier for the daily report (YYYY-MM-DD)."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/bomboniere_items/{bomboniereItemId}",
-        "definition": {
-          "entityName": "BomboniereItem",
-          "schema": {
-            "$ref": "#/backend/entities/BomboniereItem"
-          },
-          "description": "Stores the list of all available bomboniere items, their prices, and stock.",
-          "params": [
-            {
-              "name": "bomboniereItemId",
-              "description": "Unique identifier for the bomboniere item."
-            }
-          ]
-        }
-      },
-       {
-        "path": "/favorite_clients/{favoriteClientId}",
-        "definition": {
-          "entityName": "FavoriteClient",
-          "schema": {
-            "$ref": "#/backend/entities/FavoriteClient"
-          },
-          "description": "Stores the list of favorite clients for quick order entries.",
-          "params": [
-            {
-              "name": "favoriteClientId",
-              "description": "Unique identifier for the favorite client."
+              "description": "The unique identifier of the order item."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support Mirinha's Tracker app, focusing on real-time access and data persistence. The primary entity `OrderItem` stores details of each order. A `daily_reports` collection stores historical end-of-day summaries. A `bomboniere_items` collection stores the list of bomboniere items. Finally, a `favorite_clients` collection is added to store the list of favorite clients and their predefined orders, ensuring all app data is synchronized across all devices. This allows for long-term analysis without needing to query the entire `order_items` collection. To ensure authorization independence (CRITICAL), we rely solely on `request.auth.uid` and do not use `get()` calls in our security rules. This simplifies security and enables atomic operations.\n\nStructural Segregation (Homogeneous Security Posture):  All documents in the `order_items`, `daily_reports`, `bomboniere_items` and `favorite_clients` collections share the same public security requirements. This ensures we can use simple rules without needing to filter data based on its content.\n\nData Clarity and Predictability: Each document schema is clear and explicit.\n\nQAPs (Rules are not Filters): Since we are using a flat collection structure with all documents having the same security requirements, listing operations are inherently secure."
+    "reasoning": "The Firestore structure is designed to address the 'Missing or insufficient permissions' error by ensuring clear ownership and appropriate data segregation.  The core issue is the 'list' operation on `/order_items` failing, indicating a lack of read access.  Given the provided app requirements, all `order_items` should be associated with a user. To solve the authorization problem and support listing, I'm creating a user-centric data structure where order items are stored under each user's document. This approach inherently limits access to a user's own data, preventing unauthorized listing.\n\n**Authorization Independence:** The structure ensures authorization independence because access control is based on the path (`/users/{userId}/order_items/{orderItemId}`) and the authenticated user's ID. There is no reliance on data from other documents to determine authorization.\n\n**QAPs (Rules are not Filters):** To secure the `list` operation, the structure places order items under a user-specific collection (`/users/{userId}/order_items`). This allows a security rule that grants `list` access only if `request.auth.uid == userId`, effectively ensuring that users can only list their own order items.\n\nThis structure inherently creates the segregation required for secure `list` operations, ensuring rules are not used as filters."
   }
 }
