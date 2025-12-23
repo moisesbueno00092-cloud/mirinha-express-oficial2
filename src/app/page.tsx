@@ -4,13 +4,13 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, doc, query, where, orderBy } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import Link from 'next/link';
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -34,7 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star, Users, Package, LogOut, Loader2, KeyRound, BookUser } from "lucide-react";
+import { Trash2, Save, History, Star, Users, Package, LogOut, Loader2, KeyRound, BookUser, LogIn } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -44,6 +44,7 @@ import FinalReport from "@/components/final-report";
 import BomboniereModal from "@/components/bomboniere-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -54,9 +55,83 @@ const formatCurrency = (value: number) => {
 
 const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
+
+function AuthForm({ onLogin }: { onLogin: () => void }) {
+  const auth = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      if (isSigningUp) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      onLogin();
+    } catch (err: any) {
+      setError(err.message || 'Ocorreu um erro.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle className="text-center text-xl">Restaurante da Mirinha</CardTitle>
+          <p className="text-center text-sm text-muted-foreground">
+            {isSigningUp ? 'Crie uma conta para sincronizar' : 'Faça login para continuar'}
+          </p>
+        </CardHeader>
+        <CardContent as="form" onSubmit={handleAuth} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="seu@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Palavra-passe</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="********"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? <Loader2 className="animate-spin" /> : (isSigningUp ? 'Criar Conta' : 'Entrar')}
+          </Button>
+          <Button variant="link" type="button" className="w-full text-xs" onClick={() => setIsSigningUp(!isSigningUp)}>
+            {isSigningUp ? 'Já tem uma conta? Entrar' : 'Não tem uma conta? Crie uma'}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
 export default function Home() {
   const firestore = useFirestore();
-  const { user } = useUser();
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
   
   const userOrderItemsRef = useMemoFirebase(
     () => (firestore && user ? collection(firestore, `users/${user.uid}/order_items`) : null),
@@ -70,9 +145,9 @@ export default function Home() {
     [firestore, user]
   );
 
-  const { data: items, isLoading, error: firestoreError } = useCollection<Item>(userOrderItemsRef);
+  const { data: items, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsRef);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
-  const { data: favoriteClients } = useCollection<FavoriteClient>(favoriteClientsRef);
+  const { data: favoriteClients, isLoading: isLoadingFavorites } = useCollection<FavoriteClient>(favoriteClientsRef);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -494,6 +569,14 @@ export default function Home() {
     return { total, totalAVista, totalFiado, deliveryCount, totalDeliveryFee };
   }, [items]);
 
+  if (isUserLoading || (!user && !isUserLoading)) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        {isUserLoading ? <Loader2 className="h-12 w-12 animate-spin text-primary" /> : <AuthForm onLogin={() => {}} />}
+      </div>
+    );
+  }
+
   if (firestoreError) {
     return (
       <div className="container mx-auto max-w-4xl p-8 text-center text-destructive">
@@ -612,6 +695,9 @@ export default function Home() {
         <header className="mb-6 flex flex-col items-center justify-center text-center relative">
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
           <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
+           <Button variant="ghost" size="icon" className="absolute top-0 right-0" onClick={() => signOut(auth)}>
+                <LogOut className="h-5 w-5" />
+            </Button>
         </header>
 
         <main className="space-y-6">
@@ -627,6 +713,7 @@ export default function Home() {
               favoriteClients={favoriteClients || []}
               onSelectClient={handleSelectFavorite}
               onDeleteClient={handleDeleteFavoriteRequest}
+              isLoading={isLoadingFavorites}
              />
           </ItemForm>
 
@@ -644,7 +731,7 @@ export default function Home() {
                       items={displayItems}
                       onEdit={handleEditRequest}
                       onDelete={handleDeleteRequest}
-                      isLoading={isLoading}
+                      isLoading={isLoadingItems}
                       onSaveFavorite={handleSaveFavoriteRequest}
                     />
                   </TabsContent>
@@ -683,3 +770,5 @@ export default function Home() {
     </>
   );
 }
+
+    
