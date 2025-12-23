@@ -5,7 +5,7 @@ import { DailyReport, Group } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Trash2, TrendingUp, Coins, Users, Utensils, Package, FileText, BrainCircuit, Share } from 'lucide-react';
+import { ArrowLeft, Trash2, TrendingUp, Coins, Users, Utensils, Package, FileText, BrainCircuit, Share, Truck } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { useRouter } from 'next/navigation';
 
@@ -72,8 +72,8 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
         { name: 'Bomboniere', value: reportData.totalBomboniereQuantity, percent: totalItemsCount > 0 ? (reportData.totalBomboniereQuantity || 0) / totalItemsCount : 0 },
     ].filter(d => d.value > 0);
 
-  const sortedItemCounts = Object.entries(reportData.itemCounts).sort(([, a], [, b]) => b.total - a.total);
-  const sortedBomboniereCounts = Object.entries(reportData.bomboniereItemCounts).sort(([, a], [, b]) => b.totalValue - a.totalValue);
+  const sortedItemCounts = Object.entries(reportData.itemCounts || {}).sort(([, a], [, b]) => b.total - a.total);
+  const sortedBomboniereCounts = Object.entries(reportData.bomboniereItemCounts || {}).sort(([, a], [, b]) => b.totalValue - a.totalValue);
 
 
   const RADIAN = Math.PI / 180;
@@ -171,6 +171,18 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                         <div className="flex justify-between font-bold"><span>Total Rua:</span> <span className="font-mono">{formatCurrency(reportData.totalRua)}</span></div>
                          <Separator />
                         <div className="flex justify-between font-bold text-primary text-base"><span>Faturamento Total:</span> <span className="font-mono">{formatCurrency(reportData.totalFaturamento)}</span></div>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2">
+                           <Truck className="h-4 w-4 text-muted-foreground" />
+                           <span>Resumo de Entregas</span>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm space-y-2">
+                        <div className="flex justify-between"><span>Nº de Entregas:</span> <span className="font-bold">{reportData.deliveryCount}</span></div>
+                        <div className="flex justify-between"><span>Taxa de Entrega Total:</span> <span className="font-mono font-bold">{formatCurrency(reportData.totalDeliveryFee)}</span></div>
                     </CardContent>
                 </Card>
             </div>

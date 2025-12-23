@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { Share, FileText, BrainCircuit, Save, History, Trash2, User, KeyRound, Loader2, AlertTriangle, TrendingUp, ShoppingCart, Users, Coins, Utensils, Package } from "lucide-react";
+import { Share, FileText, BrainCircuit, Save, History, Trash2, User, KeyRound, Loader2, AlertTriangle, TrendingUp, ShoppingCart, Users, Coins, Utensils, Package, Truck } from "lucide-react";
 import { useFirestore } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -481,6 +481,20 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                         <div className="flex justify-between font-bold text-primary text-base"><span>Faturamento Total:</span> <span className="font-mono">{formatCurrency(reportData.totalFaturamento)}</span></div>
                     </CardContent>
                 </Card>
+                
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2">
+                           <Truck className="h-4 w-4 text-muted-foreground" />
+                           <span>Resumo de Entregas</span>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm space-y-2">
+                        <div className="flex justify-between"><span>Nº de Entregas:</span> <span className="font-bold">{reportData.deliveryCount}</span></div>
+                        <div className="flex justify-between"><span>Taxa de Entrega Total:</span> <span className="font-mono font-bold">{formatCurrency(reportData.totalDeliveryFee)}</span></div>
+                    </CardContent>
+                </Card>
+
                  {reportData.favoriteClientsFiado.length > 0 && (
                     <Card>
                         <CardHeader className="flex flex-row justify-between items-center pb-2">
