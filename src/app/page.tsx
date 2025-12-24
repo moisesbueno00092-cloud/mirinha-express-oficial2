@@ -34,7 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star, Users, Package, Loader2, KeyRound, BookUser, LogIn, DollarSign } from "lucide-react";
+import { Trash2, Save, History, Star, Users, Package, Loader2, KeyRound, BookUser, LogIn, DollarSign, UserCog } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -705,6 +705,12 @@ export default function Home() {
                     <Button variant="outline" size="sm">
                        <DollarSign className="mr-2 h-4 w-4" />
                        Despesas
+                    </Button>
+                </Link>
+                 <Link href="/employees" passHref>
+                    <Button variant="outline" size="sm">
+                       <UserCog className="mr-2 h-4 w-4" />
+                       Funcionários
                     </Button>
                 </Link>
             </div>
