@@ -704,7 +704,7 @@ export default function Home() {
                  <Link href="/finance" passHref>
                     <Button variant="outline" size="sm">
                        <DollarSign className="mr-2 h-4 w-4" />
-                       Financeiro
+                       Despesas
                     </Button>
                 </Link>
             </div>
