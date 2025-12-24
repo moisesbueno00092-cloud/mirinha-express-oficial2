@@ -143,6 +143,12 @@
       "type": "object",
       "description": "Represents a salary advance (vale) for an employee.",
       "properties": {
+        "employeeId": {
+            "type": "string"
+        },
+        "employeeName": {
+            "type": "string"
+        },
         "amount": {
           "type": "number"
         },
@@ -151,7 +157,7 @@
           "format": "date-time"
         }
       },
-      "required": ["amount", "date"]
+      "required": ["employeeId", "employeeName", "amount", "date"]
     }
   },
   "auth": {
