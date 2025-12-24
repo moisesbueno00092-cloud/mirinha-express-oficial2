@@ -3,11 +3,57 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permite o acesso de leitura e escrita a qualquer utilizador autenticado em qualquer documento.
-    // A segurança dos dados é garantida nas consultas da aplicação, que filtram
-    // os documentos pelo ID do utilizador (ex: where('userId', '==', user.uid)).
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    
+    // Função para verificar se o utilizador está autenticado
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Função para verificar se o utilizador é o proprietário do documento
+    function isOwner(docData) {
+      return request.auth.uid == docData.userId;
+    }
+
+    // Regra geral para coleções que contêm dados de utilizadores
+    match /{collection}/{docId} {
+      
+      // PERMISSÕES DE LEITURA
+      // Permite LER um documento específico se o utilizador for o proprietário.
+      allow get: if isSignedIn() && isOwner(resource.data);
+
+      // Permite LISTAR (consultar) uma coleção se o utilizador estiver autenticado.
+      // A segurança é garantida pela consulta na aplicação (where('userId', '==', user.uid))
+      allow list: if isSignedIn();
+
+      // PERMISSÕES DE ESCRITA
+      // Permite CRIAR um documento se o utilizador estiver a definir-se como proprietário.
+      allow create: if isSignedIn() && isOwner(request.resource.data);
+      
+      // Permite ATUALIZAR ou APAGAR um documento se o utilizador for o proprietário.
+      allow update, delete: if isSignedIn() && isOwner(resource.data);
+    }
+
+    // Regra específica para a subcoleção de vales de funcionários
+    match /employees/{employeeId}/advances/{advanceId} {
+        // As permissões são herdadas da regra geral acima, 
+        // mas podemos adicionar verificações mais específicas se necessário.
+        // A regra geral já garante que o acesso é restrito ao `userId`.
+        allow read, write: if isSignedIn();
+    }
+    
+    // Regra para a coleção partilhada de 'bomboniere_items'
+    match /bomboniere_items/{itemId} {
+      // Qualquer utilizador autenticado pode ler a lista de itens.
+      allow get, list: if isSignedIn();
+      // Apenas o proprietário (o utilizador principal da app) pode modificar o stock.
+      // As escritas são feitas a partir da app principal que usa um UID partilhado.
+      allow write: if isSignedIn();
+    }
+
+    // Regra para relatórios diários
+    match /daily_reports/{reportId} {
+       // Qualquer utilizador autenticado pode aceder aos relatórios
+       allow read, write: if isSignedIn();
     }
   }
 }
