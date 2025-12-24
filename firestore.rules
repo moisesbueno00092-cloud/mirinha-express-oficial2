@@ -3,24 +3,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    // Acesso geral para utilizadores autenticados.
-    // A segurança é garantida pelas consultas `where('userId', '==', user.uid)` na aplicação.
+    // Permite o acesso de leitura e escrita a qualquer utilizador autenticado em qualquer documento.
+    // A segurança dos dados é garantida nas consultas da aplicação, que filtram
+    // os documentos pelo ID do utilizador (ex: where('userId', '==', user.uid)).
     match /{document=**} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Regra específica para a coleção `users` para garantir que um utilizador só pode gerir o seu próprio perfil.
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if request.auth != null;
     }
   }
 }
