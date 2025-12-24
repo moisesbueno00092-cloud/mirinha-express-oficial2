@@ -40,7 +40,7 @@ service cloud.firestore {
       // Secure the advances subcollection
       match /advances/{advanceId} {
         // Here we must check the parent document's owner
-        allow get, create, update, delete, list: if get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
+        allow read, write: if get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
       }
     }
 
@@ -58,3 +58,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
