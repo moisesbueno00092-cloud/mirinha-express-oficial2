@@ -21,7 +21,8 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is the owner based on a `userId` field.
+    // Helper function to check if the user is the owner based on a `userId` field
+    // on an *existing* document.
     function isDataOwner() {
       return isSignedIn() && request.auth.uid == resource.data.userId;
     }
@@ -40,7 +41,11 @@ service cloud.firestore {
      *   /order_items/{orderItemId}
      */
     match /order_items/{orderItemId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Allow LIST if the query is securely filtered by the user's ID.
+      // Allow GET if the user is the direct owner of the document.
+      allow read: if isSignedIn() && (
+                    (request.query.limit > 0 || request.query.offset > 0) ? request.query.where.get("userId", "") == request.auth.uid : resource.data.userId == request.auth.uid
+                  );
       allow create: if isCreatingOwner();
       allow update, delete: if isDataOwner();
     }
@@ -53,7 +58,11 @@ service cloud.firestore {
      *   /favorite_clients/{clientId}
      */
     match /favorite_clients/{clientId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Allow LIST if the query is securely filtered by the user's ID.
+      // Allow GET if the user is the direct owner of the document.
+      allow read: if isSignedIn() && (
+                    (request.query.limit > 0 || request.query.offset > 0) ? request.query.where.get("userId", "") == request.auth.uid : resource.data.userId == request.auth.uid
+                  );
       allow create: if isCreatingOwner();
       allow update, delete: if isDataOwner();
     }
@@ -61,8 +70,8 @@ service cloud.firestore {
     /**
      * @description
      *   Manages the shared list of bomboniere items (products).
-     *   Allows any authenticated user to read the list. Write access is also
-     *   allowed for authenticated users to enable stock updates.
+     *   Allows any authenticated user to read or write, as stock management
+     *   is handled collaboratively.
      * @path
      *   /bomboniere_items/{itemId}
      */
