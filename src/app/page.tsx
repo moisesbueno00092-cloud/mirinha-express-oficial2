@@ -701,6 +701,12 @@ export default function Home() {
                        Caderneta
                     </Button>
                 </Link>
+                <Link href="/finance" passHref>
+                    <Button variant="outline" size="sm">
+                       <DollarSign className="mr-2 h-4 w-4" />
+                       Despesas
+                    </Button>
+                </Link>
             </div>
             <div className="text-right">
                 <span className="text-muted-foreground">Faturamento Total:</span>
@@ -711,3 +717,5 @@ export default function Home() {
     </>
   );
 }
+
+    
