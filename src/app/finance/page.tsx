@@ -7,7 +7,7 @@ import { collection, query, where, orderBy, doc, deleteDoc, addDoc, updateDoc } 
 import type { Expense, Payable, Employee, EmployeeAdvance } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Trash2, User, Package, Utensils, CalendarDays, ReceiptText, Plus, DollarSign, Briefcase, FileText, Search } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, User, Package, Utensils, CalendarDays, ReceiptText, Plus, DollarSign, Briefcase, FileText, Search, ChevronsUpDown, Check } from 'lucide-react';
 import Link from 'next/link';
 import {
   AlertDialog,
@@ -39,15 +39,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -164,24 +159,7 @@ function ExpensesTab() {
                                     className="h-11 text-base"
                                 />
                            </div>
-                           <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="h-11 w-full sm:w-auto min-w-[150px] justify-start text-left font-normal">
-                                        <span className="truncate">{category || "Categoria"}</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    {existingCategories.map(cat => (
-                                        <DropdownMenuItem key={cat} onSelect={() => setCategory(cat)}>{cat}</DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                           </DropdownMenu>
-                           <Input 
-                                value={category}
-                                onChange={(e) => setCategory(e.target.value)}
-                                placeholder="Ou nova categoria"
-                                className="h-11 w-full sm:w-auto"
-                            />
+                           <CategoryCombobox existingCategories={existingCategories} value={category} setValue={setCategory} />
                            <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className={cn("h-11 w-full sm:w-auto justify-start text-left font-normal", !date && "text-muted-foreground")}>
@@ -206,7 +184,7 @@ function ExpensesTab() {
                 <CardHeader>
                     <CardTitle className="text-lg">Controle de Despesas</CardTitle>
                      <div className="relative pt-2">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground" />
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground -translate-y-1/2" />
                         <Input 
                            placeholder="Buscar por descrição ou categoria..."
                            value={searchTerm}
@@ -255,6 +233,73 @@ function ExpensesTab() {
             </Card>
         </div>
     );
+}
+
+function CategoryCombobox({ existingCategories, value, setValue }: { existingCategories: string[], value: string, setValue: (value: string) => void }) {
+    const [open, setOpen] = useState(false)
+    const [inputValue, setInputValue] = useState("")
+
+    useEffect(() => {
+        setInputValue(value)
+    }, [value])
+
+    const handleSelect = (currentValue: string) => {
+        const newValue = currentValue === value ? "" : currentValue
+        setValue(newValue)
+        setInputValue(newValue)
+        setOpen(false)
+    }
+    
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setInputValue(e.target.value)
+        setValue(e.target.value)
+    }
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="h-11 w-full sm:w-[200px] justify-between"
+                >
+                    <span className="truncate">{value || "Selecionar Fornecedor..."}</span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                    <CommandInput
+                        value={inputValue}
+                        onValueChange={setInputValue}
+                        onBlur={() => setValue(inputValue)}
+                        placeholder="Buscar ou criar categoria..."
+                    />
+                    <CommandList>
+                        <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
+                        <CommandGroup>
+                            {existingCategories.map((category) => (
+                                <CommandItem
+                                    key={category}
+                                    value={category}
+                                    onSelect={handleSelect}
+                                >
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            value === category ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    {category}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    )
 }
 
 // --- Contas a Pagar Component ---
@@ -437,5 +482,3 @@ export default function FinancePage() {
         </div>
     );
 }
-
-    
