@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -92,12 +91,17 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
             collection(firestore, 'order_items'),
             where('userId', '==', user.uid),
             where('customerId', '==', client.id),
-            where('group', 'in', ['Fiados salão', 'Fiados rua']),
-            orderBy('timestamp', 'desc')
+            where('group', 'in', ['Fiados salão', 'Fiados rua'])
         ) : null),
         [firestore, user, client.id]
     );
+
     const { data: entries, isLoading, error } = useCollection<ClientAccountEntry>(accountEntriesQuery);
+
+    const sortedEntries = useMemo(() => {
+        if (!entries) return [];
+        return [...entries].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    }, [entries]);
 
     const totalDebt = useMemo(() => entries?.reduce((sum, entry) => sum + entry.total, 0) || 0, [entries]);
     
@@ -186,9 +190,9 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
             </Card>
 
             <h2 className="text-xl font-semibold mb-4">Lançamentos</h2>
-            {entries && entries.length > 0 ? (
+            {sortedEntries && sortedEntries.length > 0 ? (
                 <div className="space-y-3">
-                    {entries.map(entry => (
+                    {sortedEntries.map(entry => (
                         <Card key={entry.id}>
                              <CardContent className="p-4 space-y-3">
                                 <div className="flex justify-between items-start text-sm">
