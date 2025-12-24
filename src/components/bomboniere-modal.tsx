@@ -1,29 +1,14 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { 
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { PlusCircle, MinusCircle, Plus, Pencil, Trash2, Save, X, Package } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { PlusCircle, MinusCircle, Plus } from 'lucide-react';
 import type { BomboniereItem, SelectedBomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
-import { useFirestore } from '@/firebase';
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, doc } from 'firebase/firestore';
-import Link from 'next/link';
 
 interface BomboniereModalProps {
   isOpen: boolean;
@@ -98,16 +83,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
 
   const renderHeader = () => (
     <DialogHeader>
-        <div className="flex justify-between items-center relative">
-          <div className="flex items-center gap-1 absolute left-0">
-             <Link href="/stock" passHref>
-                <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                    <Pencil className="h-4 w-4" />
-                </Button>
-            </Link>
-          </div>
-          <DialogTitle className="flex-grow text-center">Bomboniere</DialogTitle>
-        </div>
+        <DialogTitle className="flex-grow text-center">Bomboniere</DialogTitle>
     </DialogHeader>
   );
   
@@ -186,5 +162,3 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
     </Dialog>
   );
 }
-
-    
