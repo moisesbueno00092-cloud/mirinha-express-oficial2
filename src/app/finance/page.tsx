@@ -112,9 +112,9 @@ export default function FinancePage() {
   const [isLoadingAdvances, setIsLoadingAdvances] = useState(true);
 
   useEffect(() => {
-    if (!firestore || !employees || isLoadingEmployees) {
-        if(!isLoadingEmployees) setIsLoadingAdvances(false);
-        return () => {};
+    if (!firestore || !employees) {
+        setIsLoadingAdvances(false);
+        return;
     }
     
     setIsLoadingAdvances(true);
@@ -122,12 +122,12 @@ export default function FinancePage() {
     if (employees.length === 0) {
         setAllAdvances([]);
         setIsLoadingAdvances(false);
-        return () => {};
+        return;
     }
 
     const unsubscribers: Unsubscribe[] = [];
-    let allAdvancesData: EmployeeAdvance[] = [];
-    let activeListeners = employees.length;
+    let advancesData: EmployeeAdvance[] = [];
+    let listenersCount = employees.length;
 
     employees.forEach(employee => {
         const advancesQuery = query(collection(firestore, 'employees', employee.id, 'advances'));
@@ -140,47 +140,31 @@ export default function FinancePage() {
                     employeeName: employee.name,
                 } as EmployeeAdvance));
 
-                // Filter out old advances for this employee and add new ones
-                allAdvancesData = allAdvancesData.filter(adv => adv.employeeId !== employee.id).concat(employeeAdvances);
+                // Atomically update the advances for one employee
+                advancesData = advancesData.filter(adv => adv.employeeId !== employee.id).concat(employeeAdvances);
                 
-                // This state update could happen multiple times, but it's okay
-                setAllAdvances(allAdvancesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-            },
-            (error) => {
-                console.error(`Error fetching advances for employee ${employee.id}:`, error);
-                activeListeners--;
-                if (activeListeners === 0) {
+                // Only update state once all listeners have returned their initial data
+                listenersCount--;
+                if(listenersCount === 0) {
+                    setAllAdvances(advancesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
                     setIsLoadingAdvances(false);
                 }
             },
-            () => { // onCompletion
-                activeListeners--;
-                if (activeListeners === 0) {
+            (error) => {
+                console.error(`Error fetching advances for employee ${employee.id}:`, error);
+                listenersCount--;
+                if (listenersCount === 0) {
                     setIsLoadingAdvances(false);
                 }
             }
         );
         unsubscribers.push(unsubscribe);
     });
-    
-    // Initial loading state handle
-    if(employees.length > 0 && activeListeners > 0){
-        // A simple timeout to prevent indefinite loading state if snapshots are slow or fail silently
-        const loadingTimeout = setTimeout(() => {
-            if(activeListeners > 0) {
-                setIsLoadingAdvances(false);
-            }
-        }, 5000); // 5 seconds timeout
-         unsubscribers.push(() => clearTimeout(loadingTimeout));
-    } else {
-        setIsLoadingAdvances(false);
-    }
-
 
     return () => {
         unsubscribers.forEach(unsub => unsub());
     };
-}, [firestore, employees, isLoadingEmployees]);
+}, [firestore, employees]);
 
 
   const filteredData = useMemo(() => {
@@ -502,3 +486,5 @@ export default function FinancePage() {
     </div>
   );
 }
+
+    
