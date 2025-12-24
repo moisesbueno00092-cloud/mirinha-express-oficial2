@@ -83,7 +83,7 @@ service cloud.firestore {
 
     match /payables/{payableId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request-auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /employees/{employeeId} {
