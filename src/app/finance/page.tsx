@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, orderBy, doc, deleteDoc, Timestamp, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, onSnapshot } from 'firebase/firestore';
 import type { Expense, Employee, EmployeeAdvance } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,11 +16,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ArrowLeft, Trash2, Calendar, Search, Filter, Plus, Repeat, Code, TrendingUp, ShoppingBasket, HandCoins, FileText, Banknote, Landmark } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, Calendar, Search, Plus, TrendingUp, ShoppingBasket, HandCoins, FileText, Banknote, Landmark } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 
@@ -102,13 +102,11 @@ export default function FinancePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expenseInput, setExpenseInput] = useState('');
 
-  const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(
-    useMemoFirebase(() => user ? query(collection(firestore, 'employees'), where('userId', '==', user.uid)) : null, [firestore, user])
-  );
+  const employeesQuery = useMemoFirebase(() => user ? query(collection(firestore, 'employees'), where('userId', '==', user.uid)) : null, [firestore, user]);
+  const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
   
-  const { data: expenses, isLoading: isLoadingExpenses } = useCollection<Expense>(
-    useMemoFirebase(() => user ? query(collection(firestore, 'expenses'), where('userId', '==', user.uid), orderBy('date', 'desc')) : null, [firestore, user])
-  );
+  const expensesQuery = useMemoFirebase(() => user ? query(collection(firestore, 'expenses'), where('userId', '==', user.uid), orderBy('date', 'desc')) : null, [firestore, user]);
+  const { data: expenses, isLoading: isLoadingExpenses } = useCollection<Expense>(expensesQuery);
   
   const [allAdvances, setAllAdvances] = useState<EmployeeAdvance[]>([]);
   const [isLoadingAdvances, setIsLoadingAdvances] = useState(true);
@@ -123,21 +121,25 @@ export default function FinancePage() {
     };
     
     setIsLoadingAdvances(true);
-    const advancesData: Record<string, EmployeeAdvance> = {};
     
-    // Create listeners for all employee advance subcollections
-    const unsubscribers = employees.map(employee => {
-        const advancesQuery = query(
-            collection(firestore, `employees/${employee.id}/advances`),
-            orderBy('date', 'desc')
-        );
+    if (employees.length === 0) {
+        setIsLoadingAdvances(false);
+        setAllAdvances([]);
+        return;
+    }
+    
+    const advancesData: Record<string, EmployeeAdvance> = {};
+    let activeListeners = employees.length;
 
+    const unsubscribers = employees.map(employee => {
+        const advancesQuery = query(collection(firestore, `employees/${employee.id}/advances`), orderBy('date', 'desc'));
+        
         return onSnapshot(advancesQuery, (querySnapshot) => {
             querySnapshot.docChanges().forEach((change) => {
                  const advance = { 
                      ...change.doc.data(), 
                      id: change.doc.id, 
-                     employeeId: employee.id, // Add parent employeeId
+                     employeeId: employee.id, 
                      employeeName: employee.name 
                 } as EmployeeAdvance;
                 
@@ -147,21 +149,23 @@ export default function FinancePage() {
                     advancesData[advance.id] = advance;
                 }
             });
-            // Update state with the new aggregated data
             setAllAdvances(Object.values(advancesData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-            setIsLoadingAdvances(false);
         }, (error) => {
             console.error(`Error fetching advances for employee ${employee.id}:`, error);
-            setIsLoadingAdvances(false); // Stop loading on error for this listener
+            activeListeners--;
+            if (activeListeners === 0) setIsLoadingAdvances(false);
+        }, () => {
+             activeListeners--;
+             if (activeListeners === 0) setIsLoadingAdvances(false);
         });
     });
-
-    if (employees.length === 0) {
+    
+     // Initial check in case onSnapshot completes synchronously for all
+    if (activeListeners === 0) {
         setIsLoadingAdvances(false);
-        setAllAdvances([]);
     }
 
-    // Cleanup all listeners on unmount
+
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
@@ -180,7 +184,7 @@ export default function FinancePage() {
         const searchMatch = !searchTerm || description.toLowerCase().includes(searchTerm.toLowerCase()) || ('employeeName' in item && item.employeeName?.toLowerCase().includes(searchTerm.toLowerCase()));
 
         return yearMatch && monthMatch && searchMatch;
-    });
+    }).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [expenses, allAdvances, selectedYear, selectedMonth, searchTerm]);
 
   const generalExpenses = useMemo(() => filteredData.filter((item): item is Expense => 'description' in item), [filteredData]);
@@ -300,7 +304,7 @@ export default function FinancePage() {
           <CardHeader>
             <CardTitle>Adicionar Despesa</CardTitle>
             <CardDescription>
-              Use o formato: `código descrição valor`. Ex: `m arroz 50`. Códigos: (m)ercado, (s)alário, (v)ale, (c)ontas, (i)mpostos, (o)utros.
+              Use o formato: `código descrição valor`. Ex: `m arroz 50`. Códigos: (m)ercado, (s)alário, (c)ontas, (i)mpostos, (o)utros.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col sm:flex-row items-center gap-2">
