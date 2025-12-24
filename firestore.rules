@@ -25,21 +25,19 @@ service cloud.firestore {
 
     /**
      * @description
-     *   Manages shared data and user-specific data collections.
-     *   Security is primarily enforced at the application level by querying
-     *   for documents with the correct userId. This simplified rule prevents
-     *   list query permission errors while the app's queries ensure data privacy.
+     *   Generic rule for user-owned data.
+     *   - Users can create documents if they set the userId to their own UID.
+     *   - Users can read, update, or delete documents they own.
+     *   This rule applies to collections where documents have a 'userId' field.
      */
     match /order_items/{orderItemId} {
-       allow read, write: if isSignedIn();
+       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /favorite_clients/{clientId} {
-       allow read, write: if isSignedIn();
-    }
-
-    match /bomboniere_items/{itemId} {
-        allow read, write: if isSignedIn();
+       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /daily_reports/{reportId} {
@@ -47,20 +45,29 @@ service cloud.firestore {
     }
 
     match /expenses/{expenseId} {
-      allow read, write: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /payables/{payableId} {
-      allow read, write: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /employees/{employeeId} {
-      allow read, write: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       
       // Salary advances for a specific employee.
       match /advances/{advanceId} {
-        allow read, write: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       }
+    }
+    
+    // Shared, public data that any authenticated user can manage.
+    match /bomboniere_items/{itemId} {
+        allow read, write: if isSignedIn();
     }
   }
 }
