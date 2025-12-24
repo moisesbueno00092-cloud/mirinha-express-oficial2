@@ -1,8 +1,14 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
+    
+    // Regra geral: O utilizador só pode manipular os seus próprios dados.
+    function isOwner(docData) {
+      return request.auth.uid == docData.userId;
+    }
+
+    // Aplica a regra a todas as coleções de primeiro nível
+    match /{collection}/{docId} {
       allow read, write: if request.auth != null;
     }
   }
