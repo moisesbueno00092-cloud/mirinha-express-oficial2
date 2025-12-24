@@ -218,7 +218,7 @@ function ExpensesTab() {
                                     <TableRow key={exp.id}>
                                         <TableCell>{formatDate(exp.date)}</TableCell>
                                         <TableCell className="font-medium">{exp.description}</TableCell>
-                                        <TableCell><Badge variant="secondary">{exp.category}</TableCell>
+                                        <TableCell><Badge variant="secondary">{exp.category}</Badge></TableCell>
                                         <TableCell className="text-right font-mono font-semibold">{formatCurrency(exp.amount)}</TableCell>
                                     </TableRow>
                                 ))}
