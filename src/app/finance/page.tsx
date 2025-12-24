@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, orderBy, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import type { Expense, Employee, EmployeeAdvance } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -49,7 +50,7 @@ const formatCurrency = (value: number) => {
     }).format(value);
 };
 
-const expenseCategories = {
+const expenseCategories: Record<string, string> = {
     'm': 'Mercado',
     's': 'Salário',
     'v': 'Vale',
@@ -112,65 +113,76 @@ export default function FinancePage() {
 
   useEffect(() => {
     if (!user || !firestore || !employees) {
-        if (!isLoadingEmployees) {
-             setAllAdvances([]);
-             setIsLoadingAdvances(false);
-        }
-        return;
-    };
-    
-    setIsLoadingAdvances(true);
-    
-    if (employees.length === 0) {
-        setIsLoadingAdvances(false);
-        setAllAdvances([]);
-        return;
+      setIsLoadingAdvances(false);
+      return;
     }
-    
-    const advancesData: Record<string, EmployeeAdvance> = {};
-
-    const unsubscribers = employees.map(employee => {
-        const advancesQuery = query(collection(firestore, `employees/${employee.id}/advances`));
-        
-        return onSnapshot(advancesQuery, (querySnapshot) => {
-            let updated = false;
-            querySnapshot.docChanges().forEach((change) => {
-                 const advance = { 
-                     ...change.doc.data(), 
-                     id: change.doc.id, 
-                     userId: user.uid,
-                     employeeId: employee.id, 
-                     employeeName: employee.name 
-                } as EmployeeAdvance;
-                
-                if (change.type === "removed") {
-                    delete advancesData[advance.id];
-                } else {
-                    advancesData[advance.id] = advance;
-                }
-                updated = true;
-            });
-
-            if (updated) {
-                // Update the state with the latest advances from all employees
-                setAllAdvances(Object.values(advancesData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-            }
-        }, (error) => {
-            console.error(`Error fetching advances for employee ${employee.id}:`, error);
+  
+    setIsLoadingAdvances(true);
+  
+    if (employees.length === 0) {
+      setAllAdvances([]);
+      setIsLoadingAdvances(false);
+      return;
+    }
+  
+    const unsubscribers: Unsubscribe[] = [];
+    const allAdvancesData: { [key: string]: EmployeeAdvance } = {};
+  
+    let listenersAttached = 0;
+  
+    employees.forEach(employee => {
+      const advancesQuery = query(collection(firestore, 'employees', employee.id, 'advances'));
+  
+      const unsubscribe = onSnapshot(advancesQuery, snapshot => {
+        let isUpdated = false;
+        snapshot.docChanges().forEach(change => {
+          const advanceData = change.doc.data() as Omit<EmployeeAdvance, 'id' | 'userId' | 'employeeName'>;
+          const advanceId = change.doc.id;
+  
+          if (change.type === 'removed') {
+            delete allAdvancesData[advanceId];
+          } else {
+            allAdvancesData[advanceId] = {
+              ...advanceData,
+              id: advanceId,
+              userId: user.uid,
+              employeeId: employee.id,
+              employeeName: employee.name,
+            };
+          }
+          isUpdated = true;
         });
+  
+        if (isUpdated) {
+          setAllAdvances(Object.values(allAdvancesData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        }
+  
+        // Mark initial load for this listener as complete
+        if (listenersAttached < employees.length) {
+            listenersAttached++;
+            if (listenersAttached === employees.length) {
+                setIsLoadingAdvances(false);
+            }
+        }
+      }, (error) => {
+        console.error(`Error fetching advances for employee ${employee.id}:`, error);
+        // Also mark as loaded on error to not block UI
+        if (listenersAttached < employees.length) {
+            listenersAttached++;
+            if (listenersAttached === employees.length) {
+                setIsLoadingAdvances(false);
+            }
+        }
+      });
+  
+      unsubscribers.push(unsubscribe);
     });
-    
-    // Since onSnapshot can take time to fire the first time,
-    // we can consider loading finished after attaching listeners.
-    // A more robust solution might involve tracking initial loads for each listener.
-    setIsLoadingAdvances(false);
-
-
+  
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
-
-  }, [firestore, user, employees, isLoadingEmployees]);
+  
+  }, [firestore, user, employees]);
 
 
   const filteredData = useMemo(() => {
@@ -492,3 +504,5 @@ export default function FinancePage() {
     </div>
   );
 }
+
+    

@@ -1,11 +1,35 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      // This rule allows any authenticated user to read and write to any document in any collection.
-      // Security is enforced at the application level by querying for documents with the correct userId.
+    // Regra global para todas as coleções de primeiro nível
+    match /{collection}/{docId} {
+      // Permite que um utilizador leia/escreva/apague o seu próprio documento.
+      // E permite criar um documento se o 'userId' for o seu.
+      allow read, write: if request.auth != null && request.auth.uid == (request.resource.data.userId
+        ? request.resource.data.userId
+        : resource.data.userId);
+    }
+    
+    // Regra específica para a sub-coleção 'advances'
+    match /employees/{employeeId}/advances/{advanceId} {
+        // Permite ler/escrever na sub-coleção se o utilizador for o dono do documento 'employee' pai.
+        allow read, write: if request.auth != null && get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
+    }
+    
+    // Regra específica para 'bomboniere_items' que não têm 'userId'
+    match /bomboniere_items/{itemId} {
+      // Permite a qualquer utilizador autenticado ler ou escrever nesta coleção.
+      allow read, write: if request.auth != null;
+    }
+
+    // Regra específica para 'daily_reports' que não têm 'userId'
+    match /daily_reports/{reportId} {
+      // Permite a qualquer utilizador autenticado ler ou escrever nesta coleção.
       allow read, write: if request.auth != null;
     }
   }
 }
+
+    
