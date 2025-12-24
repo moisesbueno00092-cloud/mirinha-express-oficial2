@@ -3,44 +3,8 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check ownership based on a 'userId' field in the document
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-
-    // Generic rule for collections where documents contain a 'userId' field.
-    // This applies to: order_items, favorite_clients, expenses, payables, employees
-    match /{collection}/{docId} {
-      // Allow read/write if the user is the owner of the existing or new document.
-      allow read, write: if request.auth != null && (
-        (resource != null && isOwner(resource.data.userId)) || // Check existing doc
-        (request.resource != null && isOwner(request.resource.data.userId)) // Check new doc
-      );
-      
-      // Allow list queries only if they are filtered by the user's own UID.
-      allow list: if request.auth != null && request.query.resource.data.userId == request.auth.uid;
-    }
-    
-    // Rule for the users collection itself
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
-    }
-    
-    // Shared collections that any authenticated user can read/write to.
-    match /bomboniere_items/{itemId} {
+    match /{document=**} {
       allow read, write: if request.auth != null;
-    }
-
-    match /daily_reports/{reportId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    // Rule for the 'advances' sub-collection within 'employees'
-    match /employees/{employeeId}/advances/{advanceId} {
-        // Allow read/write if the user is authenticated.
-        // The parent document security (based on userId) implicitly protects this.
-        allow read, write: if request.auth != null;
     }
   }
 }
