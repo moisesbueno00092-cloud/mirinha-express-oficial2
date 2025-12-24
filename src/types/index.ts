@@ -97,7 +97,7 @@ export interface Expense {
     userId: string;
     description: string;
     amount: number;
-    category: 'Fornecedor' | 'Conta Fixa' | 'Salário' | 'Imposto' | 'Outros';
+    category: string;
     date: string; // ISO date string
 }
 
@@ -122,6 +122,7 @@ export interface EmployeeAdvance {
     id: string;
     userId: string;
     employeeId: string;
+    employeeName: string;
     amount: number;
     date: string; // ISO date string
 }

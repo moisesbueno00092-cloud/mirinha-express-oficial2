@@ -7,7 +7,7 @@ import { collection, query, where, orderBy, doc, deleteDoc, addDoc, updateDoc } 
 import type { Expense, Payable, Employee, EmployeeAdvance } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Trash2, User, Package, Utensils, CalendarDays, ReceiptText, Plus, DollarSign, Briefcase, FileText, Search, ChevronsUpDown, Check } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, User, Package, Utensils, CalendarDays, ReceiptText, Plus, DollarSign, Briefcase, FileText, Search, ChevronsUpDown, Check, BadgeEuro } from 'lucide-react';
 import Link from 'next/link';
 import {
   AlertDialog,
@@ -118,7 +118,7 @@ function ExpensesTab() {
         toast({ title: 'Sucesso!', description: 'Despesa adicionada.' });
         setDescription('');
         setAmount('');
-        setCategory('');
+        // setCategory(''); // Keep category for faster input
     };
 
     const handleComplexInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -251,14 +251,18 @@ function CategoryCombobox({ existingCategories, value, setValue, onAddNew }: { e
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
-            const hasSelection = document.querySelector('[role="option"][aria-selected="true"]');
-            if (!hasSelection && value.trim() !== '') {
+            const inputValue = (e.target as HTMLInputElement).value;
+            const isExisting = existingCategories.some(c => c.toLowerCase() === inputValue.toLowerCase());
+            // If it's a new value or there's no specific item highlighted in the list
+            if (!isExisting || !document.querySelector('[role="option"][aria-selected="true"]')) {
                 e.preventDefault();
+                setValue(inputValue); // Ensure the state is set to the typed value
                 setOpen(false);
                 onAddNew?.();
             }
         }
     };
+    
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -274,7 +278,7 @@ function CategoryCombobox({ existingCategories, value, setValue, onAddNew }: { e
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
+                <Command shouldFilter={false}>
                     <CommandInput
                         value={value}
                         onValueChange={setValue}
@@ -284,7 +288,9 @@ function CategoryCombobox({ existingCategories, value, setValue, onAddNew }: { e
                     <CommandList>
                         <CommandEmpty>Nenhum fornecedor encontrado.</CommandEmpty>
                         <CommandGroup>
-                            {existingCategories.map((category) => (
+                            {existingCategories
+                                .filter(c => c.toLowerCase().includes(value.toLowerCase()))
+                                .map((category) => (
                                 <CommandItem
                                     key={category}
                                     value={category}
@@ -293,7 +299,7 @@ function CategoryCombobox({ existingCategories, value, setValue, onAddNew }: { e
                                     <Check
                                         className={cn(
                                             "mr-2 h-4 w-4",
-                                            value === category ? "opacity-100" : "opacity-0"
+                                            value.toLowerCase() === category.toLowerCase() ? "opacity-100" : "opacity-0"
                                         )}
                                     />
                                     {category}
@@ -433,18 +439,268 @@ function PayablesTab() {
     );
 }
 
-
 // --- Funcionários Component ---
 function EmployeesTab() {
-    // Placeholder - Logic to be implemented
+    const { user } = useUser();
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [name, setName] = useState('');
+    const [role, setRole] = useState('');
+    const [salary, setSalary] = useState('');
+    const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
+
+    const employeesQuery = useMemoFirebase(() => (
+        firestore && user ? query(collection(firestore, 'employees'), where('userId', '==', user.uid), orderBy('name')) : null
+    ), [firestore, user]);
+    const { data: employees, isLoading } = useCollection<Employee>(employeesQuery);
+
+    const handleAddEmployee = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user || !firestore || !name || !role || !salary) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Preencha todos os campos.' });
+            return;
+        }
+
+        const newEmployee: Omit<Employee, 'id'> = {
+            userId: user.uid,
+            name,
+            role,
+            salary: parseFloat(salary.replace(',', '.'))
+        };
+        
+        const employeesCollectionRef = collection(firestore, "employees");
+        addDocumentNonBlocking(employeesCollectionRef, newEmployee);
+        
+        toast({ title: 'Sucesso!', description: 'Funcionário adicionado.' });
+        setName('');
+        setRole('');
+        setSalary('');
+    };
+    
+    const confirmDeleteEmployee = () => {
+        if (!firestore || !employeeToDelete) return;
+        const docRef = doc(firestore, 'employees', employeeToDelete.id);
+        deleteDocumentNonBlocking(docRef);
+        toast({ title: 'Funcionário Removido' });
+        setEmployeeToDelete(null);
+    };
+
     return (
-        <div className="text-center text-muted-foreground py-16">
-            <Briefcase className="mx-auto h-12 w-12" />
-            <h2 className="mt-4 text-xl font-semibold">Controle de Funcionários</h2>
-            <p className="mt-2 text-sm">Funcionalidade em desenvolvimento.</p>
+        <div className="space-y-6">
+             <AlertDialog open={!!employeeToDelete} onOpenChange={(open) => !open && setEmployeeToDelete(null)}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir Funcionário?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem certeza que deseja excluir <strong>{employeeToDelete?.name}</strong>? Esta ação é irreversível e também excluirá todos os vales associados.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmDeleteEmployee}>Confirmar Exclusão</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Adicionar Funcionário</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleAddEmployee} className="grid sm:grid-cols-3 gap-4 items-end">
+                        <div className="space-y-2">
+                            <Label htmlFor="emp-name">Nome</Label>
+                            <Input id="emp-name" value={name} onChange={e => setName(e.target.value)} placeholder="Nome do funcionário" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="emp-role">Cargo</Label>
+                            <Input id="emp-role" value={role} onChange={e => setRole(e.target.value)} placeholder="Ex: Cozinheira" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="emp-salary">Salário (R$)</Label>
+                            <Input id="emp-salary" value={salary} onChange={e => setSalary(e.target.value)} placeholder="2000,00" />
+                        </div>
+                        <Button type="submit" className="sm:col-span-3">Adicionar Funcionário</Button>
+                    </form>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader><CardTitle>Quadro de Funcionários</CardTitle></CardHeader>
+                <CardContent>
+                    {isLoading ? <Loader2 className="mx-auto h-8 w-8 animate-spin" /> : (
+                         <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Nome</TableHead>
+                                    <TableHead>Cargo</TableHead>
+                                    <TableHead className="text-right">Salário</TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {employees?.map(emp => (
+                                    <TableRow key={emp.id}>
+                                        <TableCell className="font-medium">{emp.name}</TableCell>
+                                        <TableCell>{emp.role}</TableCell>
+                                        <TableCell className="text-right font-mono">{formatCurrency(emp.salary)}</TableCell>
+                                        <TableCell>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setEmployeeToDelete(emp)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                     {employees?.length === 0 && !isLoading && (
+                        <div className="text-center py-10 text-muted-foreground">
+                            <p>Nenhum funcionário cadastrado.</p>
+                        </div>
+                     )}
+                </CardContent>
+            </Card>
         </div>
     );
 }
+
+// --- Vales Component ---
+function AdvancesTab() {
+    const { user } = useUser();
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    
+    const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+    const [amount, setAmount] = useState('');
+    const [date, setDate] = useState<Date | undefined>(new Date());
+    
+    const employeesQuery = useMemoFirebase(() => (
+        firestore && user ? query(collection(firestore, 'employees'), where('userId', '==', user.uid), orderBy('name')) : null
+    ), [firestore, user]);
+    const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
+    
+    const advancesQuery = useMemoFirebase(() => {
+        if (!firestore || !user || !selectedEmployeeId) return null;
+        return query(collection(firestore, 'employees', selectedEmployeeId, 'advances'), orderBy('date', 'desc'));
+    }, [firestore, user, selectedEmployeeId]);
+    const { data: advances, isLoading: isLoadingAdvances } = useCollection<EmployeeAdvance>(advancesQuery);
+    
+    const handleAddAdvance = (e: React.FormEvent) => {
+        e.preventDefault();
+        const selectedEmployee = employees?.find(emp => emp.id === selectedEmployeeId);
+        if (!user || !firestore || !selectedEmployee || !amount || !date) {
+             toast({ variant: 'destructive', title: 'Erro', description: 'Selecione um funcionário e preencha todos os campos.' });
+            return;
+        }
+
+        const newAdvance: Omit<EmployeeAdvance, 'id'> = {
+            userId: user.uid,
+            employeeId: selectedEmployee.id,
+            employeeName: selectedEmployee.name,
+            amount: parseFloat(amount.replace(',', '.')),
+            date: date.toISOString(),
+        };
+
+        const advancesCollectionRef = collection(firestore, 'employees', selectedEmployee.id, 'advances');
+        addDocumentNonBlocking(advancesCollectionRef, newAdvance);
+        
+        toast({ title: 'Sucesso!', description: `Vale para ${selectedEmployee.name} adicionado.` });
+        setAmount('');
+        setDate(new Date());
+    };
+    
+    const totalAdvances = useMemo(() => advances?.reduce((sum, v) => sum + v.amount, 0) || 0, [advances]);
+
+    return (
+        <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Lançar Vale (Adiantamento)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleAddAdvance} className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                        <div className="space-y-2 sm:col-span-2 md:col-span-1">
+                            <Label htmlFor="adv-employee">Funcionário</Label>
+                             <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                                <SelectTrigger id="adv-employee">
+                                    <SelectValue placeholder="Selecione..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {isLoadingEmployees ? <div className="p-4"><Loader2 className="h-4 w-4 animate-spin"/></div> :
+                                     employees?.map(emp => (
+                                        <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                                     ))
+                                    }
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                             <Label htmlFor="adv-amount">Valor (R$)</Label>
+                            <Input id="adv-amount" value={amount} onChange={e => setAmount(e.target.value)} placeholder="100,00"/>
+                        </div>
+                         <div className="space-y-2">
+                            <Label>Data</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
+                                        <CalendarDays className="mr-2 h-4 w-4" />
+                                        {date ? format(date, "PPP", { locale: ptBR }) : <span>Escolha a data</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date} onSelect={setDate} initialFocus locale={ptBR}/></PopoverContent>
+                            </Popover>
+                        </div>
+                        <Button type="submit" className="w-full">Adicionar Vale</Button>
+                    </form>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Histórico de Vales</CardTitle>
+                    {selectedEmployeeId && (
+                         <div className="text-right">
+                             <p className="text-sm text-muted-foreground">Total de Vales</p>
+                             <p className="text-xl font-bold text-destructive">{formatCurrency(totalAdvances)}</p>
+                        </div>
+                    )}
+                </CardHeader>
+                <CardContent>
+                    {isLoadingAdvances ? <Loader2 className="mx-auto h-8 w-8 animate-spin" /> : (
+                         <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Data</TableHead>
+                                    <TableHead>Funcionário</TableHead>
+                                    <TableHead className="text-right">Valor</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {advances?.map(adv => (
+                                    <TableRow key={adv.id}>
+                                        <TableCell>{formatDate(adv.date)}</TableCell>
+                                        <TableCell>{adv.employeeName}</TableCell>
+                                        <TableCell className="text-right font-mono">{formatCurrency(adv.amount)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                     {!selectedEmployeeId && (
+                         <div className="text-center py-10 text-muted-foreground">
+                            <p>Selecione um funcionário para ver seu histórico de vales.</p>
+                        </div>
+                     )}
+                     {selectedEmployeeId && advances?.length === 0 && !isLoadingAdvances && (
+                        <div className="text-center py-10 text-muted-foreground">
+                            <p>Nenhum vale encontrado para este funcionário.</p>
+                        </div>
+                     )}
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
 
 export default function FinancePage() {
     const { user, isUserLoading } = useUser();
@@ -468,22 +724,27 @@ export default function FinancePage() {
                 </div>
             </div>
 
-            <Tabs defaultValue="expenses" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+            <Tabs defaultValue="employees" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="employees"><Briefcase className="mr-2 h-4 w-4"/>Funcionários</TabsTrigger>
+                    <TabsTrigger value="advances"><BadgeEuro className="mr-2 h-4 w-4"/>Vales</TabsTrigger>
                     <TabsTrigger value="expenses"><DollarSign className="mr-2 h-4 w-4"/>Despesas</TabsTrigger>
                     <TabsTrigger value="payables"><FileText className="mr-2 h-4 w-4"/>Contas a Pagar</TabsTrigger>
-                    <TabsTrigger value="employees"><Briefcase className="mr-2 h-4 w-4"/>Funcionários</TabsTrigger>
                 </TabsList>
+                <TabsContent value="employees" className="mt-6">
+                    <EmployeesTab />
+                </TabsContent>
+                <TabsContent value="advances" className="mt-6">
+                    <AdvancesTab />
+                </TabsContent>
                 <TabsContent value="expenses" className="mt-6">
                    <ExpensesTab />
                 </TabsContent>
                 <TabsContent value="payables" className="mt-6">
                    <PayablesTab />
                 </TabsContent>
-                <TabsContent value="employees" className="mt-6">
-                    <EmployeesTab />
-                </TabsContent>
             </Tabs>
         </div>
     );
 }
+
