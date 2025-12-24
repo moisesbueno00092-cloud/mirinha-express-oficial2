@@ -28,13 +28,14 @@ service cloud.firestore {
      * @description
      *   Manages order items. Users can create their own items.
      *   They can read, update, or delete items they own.
-     *   Listing is implicitly handled by client-side queries filtering by userId.
+     *   Listing requires filtering by the user's ID.
      * @path
      *   /order_items/{orderItemId}
      */
     match /order_items/{orderItemId} {
        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+       allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+       allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
     }
     
     /**
@@ -45,7 +46,8 @@ service cloud.firestore {
      */
     match /favorite_clients/{clientId} {
        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+       allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+       allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
     }
 
     /**
@@ -78,22 +80,26 @@ service cloud.firestore {
      */
     match /expenses/{expenseId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
     }
 
     match /payables/{payableId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
     }
 
     match /employees/{employeeId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
       
       // Salary advances
       match /advances/{advanceId} {
         allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
       }
     }
   }
