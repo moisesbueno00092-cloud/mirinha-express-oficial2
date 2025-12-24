@@ -9,6 +9,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
     /**
      * @description
      *   Manages the user's own profile document.
@@ -17,33 +21,41 @@ service cloud.firestore {
      *   /users/{userId}
      */
     match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isSignedIn() && isOwner(userId);
     }
 
     /**
      * @description
      *   Manages order items. Users can only access their own items.
-     *   - List/Read: Allowed only if the query filters by the user's own userId.
+     *   - List: Allowed only if the query filters by the user's own userId.
      *   - Get: Allowed if the document's userId matches the requesting user.
      *   - Write: Allowed if the new/updated data's userId matches the requesting user.
      * @path
      *   /order_items/{orderItemId}
      */
     match /order_items/{orderItemId} {
-       allow read, write: if isSignedIn();
+       allow read: if isSignedIn() && (
+         (request.method == 'list' && request.query.where.get('userId', '') == request.auth.uid) ||
+         (request.method == 'get' && resource.data.userId == request.auth.uid)
+       );
+       allow write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
     
     /**
      * @description
      *   Manages favorite clients. Users can only access their own saved clients.
-     *   - List/Read: Allowed only if the query filters by the user's own userId.
+     *   - List: Allowed only if the query filters by the user's own userId.
      *   - Get: Allowed if the document's userId matches the requesting user.
      *   - Write: Allowed if the new/updated data's userId matches the requesting user.
      * @path
      *   /favorite_clients/{clientId}
      */
     match /favorite_clients/{clientId} {
-       allow read, write: if isSignedIn();
+       allow read: if isSignedIn() && (
+         (request.method == 'list' && request.query.where.get('userId', '') == request.auth.uid) ||
+         (request.method == 'get' && resource.data.userId == request.auth.uid)
+       );
+       allow write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
 
     /**
