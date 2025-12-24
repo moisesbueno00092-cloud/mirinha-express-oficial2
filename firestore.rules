@@ -8,37 +8,30 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Public collections (read-only for authenticated users)
-    match /bomboniere_items/{itemId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    // User-specific collections
     match /order_items/{orderItemId} {
-       allow read, write: if isSignedIn();
+      allow read, write: if isSignedIn();
     }
 
     match /favorite_clients/{clientId} {
       allow read, write: if isSignedIn();
     }
 
+    match /bomboniere_items/{itemId} {
+      allow read, write: if isSignedIn();
+    }
+
     match /daily_reports/{reportId} {
       allow read, write: if isSignedIn();
     }
-    
+
     match /expenses/{expenseId} {
       allow read, write: if isSignedIn();
     }
-    
+
     match /payables/{payableId} {
       allow read, write: if isSignedIn();
     }
@@ -46,13 +39,11 @@ service cloud.firestore {
     match /employees/{employeeId} {
       allow read, write: if isSignedIn();
     }
-
+    
     match /employee_advances/{advanceId} {
-       allow read, write: if isSignedIn();
+      allow read, write: if isSignedIn();
     }
 
-    // This rule allows reads on the subcollection as long as the parent document's owner matches.
-    // It's not strictly needed with the flat isSignedIn() rule but good for future reference.
     match /employees/{employeeId}/advances/{advanceId} {
        allow read, write: if isSignedIn();
     }

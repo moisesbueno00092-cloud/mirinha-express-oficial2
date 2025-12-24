@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -245,13 +246,13 @@
         }
       },
       {
-        "path": "/employees/{employeeId}/advances/{advanceId}",
+        "path": "/employee_advances/{advanceId}",
         "definition": {
           "entityName": "EmployeeAdvance",
           "schema": {
             "$ref": "#/backend/entities/EmployeeAdvance"
           },
-          "description": "Sub-collection of salary advances for a specific employee."
+          "description": "Collection of salary advances for all employees."
         }
       }
     ]
