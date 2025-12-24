@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -111,13 +112,12 @@ export default function FinancePage() {
   const [isLoadingAdvances, setIsLoadingAdvances] = useState(true);
 
   useEffect(() => {
-    if (!firestore || !employees) {
+    if (!firestore || !employees || isLoadingEmployees) {
         if(!isLoadingEmployees) setIsLoadingAdvances(false);
         return () => {};
     }
     
     setIsLoadingAdvances(true);
-    const advancesData: Record<string, EmployeeAdvance[]> = {};
     
     if (employees.length === 0) {
         setAllAdvances([]);
@@ -125,32 +125,32 @@ export default function FinancePage() {
         return () => {};
     }
 
-    const unsubscribers = employees.map(employee => {
+    const unsubscribers: Unsubscribe[] = [];
+    let allAdvancesData: EmployeeAdvance[] = [];
+
+    employees.forEach(employee => {
         const advancesQuery = query(collection(firestore, 'employees', employee.id, 'advances'));
-        return onSnapshot(advancesQuery,
+        const unsubscribe = onSnapshot(advancesQuery,
             (snapshot) => {
-                advancesData[employee.id] = snapshot.docs.map(doc => ({
+                const employeeAdvances = snapshot.docs.map(doc => ({
                     ...doc.data(),
                     id: doc.id,
                     employeeId: employee.id,
                     employeeName: employee.name,
                 } as EmployeeAdvance));
+
+                // Filter out old advances for this employee and add new ones
+                allAdvancesData = allAdvancesData.filter(adv => adv.employeeId !== employee.id).concat(employeeAdvances);
                 
-                const combinedAdvances = Object.values(advancesData).flat();
-                setAllAdvances(combinedAdvances.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-                
-                if(Object.keys(advancesData).length === employees.length) {
-                  setIsLoadingAdvances(false);
-                }
+                setAllAdvances(allAdvancesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                setIsLoadingAdvances(false);
             },
             (error) => {
                 console.error(`Error fetching advances for employee ${employee.id}:`, error);
-                
-                if(Object.keys(advancesData).length === employees.length) {
-                  setIsLoadingAdvances(false);
-                }
+                setIsLoadingAdvances(false);
             }
         );
+        unsubscribers.push(unsubscribe);
     });
 
     return () => {
