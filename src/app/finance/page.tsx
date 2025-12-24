@@ -129,17 +129,18 @@ export default function FinancePage() {
     }
     
     const advancesData: Record<string, EmployeeAdvance> = {};
-    let activeListeners = employees.length;
+    let listenerCount = employees.length;
+    let loadedCount = 0;
 
     const unsubscribers = employees.map(employee => {
-        const advancesQuery = query(collection(firestore, `employees/${employee.id}/advances`), orderBy('date', 'desc'));
+        const advancesQuery = query(collection(firestore, `employees/${employee.id}/advances`));
         
         return onSnapshot(advancesQuery, (querySnapshot) => {
             querySnapshot.docChanges().forEach((change) => {
                  const advance = { 
                      ...change.doc.data(), 
                      id: change.doc.id, 
-                     userId: user.uid, // Add userId to the advance
+                     userId: user.uid,
                      employeeId: employee.id, 
                      employeeName: employee.name 
                 } as EmployeeAdvance;
@@ -150,32 +151,22 @@ export default function FinancePage() {
                     advancesData[advance.id] = advance;
                 }
             });
-             // This needs to be done inside the snapshot callback to ensure it's up-to-date
+            // Update the state with the latest advances from all employees
             setAllAdvances(Object.values(advancesData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-
         }, (error) => {
             console.error(`Error fetching advances for employee ${employee.id}:`, error);
-            activeListeners--;
-            if (activeListeners === 0) setIsLoadingAdvances(false);
+            loadedCount++;
+            if(loadedCount === listenerCount) setIsLoadingAdvances(false);
         }, () => {
-             // This is the completion handler
-             activeListeners--;
-             if (activeListeners === 0) {
-                setIsLoadingAdvances(false);
-             }
+          // onCompletion is not standard for onSnapshot, but we can manage loading state
         });
     });
+    
+    // Since onSnapshot can take time to fire the first time,
+    // we assume loading is finished when all listeners are attached.
+    // A more robust solution might involve tracking initial loads.
+    setIsLoadingAdvances(false);
 
-    // Set initial loading to false only after all listeners are set up
-    // and potentially have fired once. The completion handler above is more reliable.
-    if (unsubscribers.length === employees.length) {
-        const initialLoadCheck = () => {
-            if (activeListeners === 0) {
-                setIsLoadingAdvances(false);
-            }
-        };
-        setTimeout(initialLoadCheck, 1000); // Give snapshots a moment to load
-    }
 
     return () => {
       unsubscribers.forEach(unsub => unsub());
@@ -503,5 +494,7 @@ export default function FinancePage() {
     </div>
   );
 }
+
+    
 
     
