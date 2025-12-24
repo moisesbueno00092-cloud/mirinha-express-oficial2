@@ -1,62 +1,9 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-
-    // GENERAL COLLECTIONS: Secure by userId field in the document
-    match /order_items/{orderItemId} {
-      allow get, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow list: if request.auth.uid != null;
-    }
-    match /favorite_clients/{clientId} {
-      allow get, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow list: if request.auth.uid != null;
-    }
-    match /expenses/{expenseId} {
-      allow get, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow list: if request.auth.uid != null;
-    }
-    match /payables/{payableId} {
-      allow get, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      allow list: if request.auth.uid != null;
-    }
-
-    // EMPLOYEE DATA: Secure parent and subcollection
-    match /employees/{employeeId} {
-      // Allow individual operations if user owns the employee document
-      allow get, update, delete: if isOwner(resource.data.userId);
-      allow create: if isOwner(request.resource.data.userId);
-      // Allow listing employees for the authenticated user
-      allow list: if request.auth.uid != null;
-
-      // Secure the advances subcollection
-      match /advances/{advanceId} {
-        // Here we must check the parent document's owner
-        allow read, write: if get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
-      }
-    }
-
-    // SHARED COLLECTIONS: Allow any authenticated user
-    match /bomboniere_items/{itemId} {
+    match /{document=**} {
       allow read, write: if request.auth != null;
-    }
-    match /daily_reports/{reportId} {
-       allow read, write: if request.auth != null;
-    }
-    
-    // USER PROFILE: Secure by document ID matching the user's UID
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
     }
   }
 }
-
-    
