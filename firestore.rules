@@ -29,8 +29,6 @@ service cloud.firestore {
      *   Manages order items. Users can create their own items.
      *   They can read, update, or delete items they own.
      *   Listing is implicitly allowed if the client-side query is correctly filtered by userId.
-     * @path
-     *   /order_items/{orderItemId}
      */
     match /order_items/{orderItemId} {
        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
@@ -75,38 +73,27 @@ service cloud.firestore {
      * @description
      *  Manages expenses, payables, and employees.
      *  Users can create their own items.
-     *  They can get, update, or delete items they own.
-     *  Listing is allowed only when querying by the user's own ID.
+     *  They can read, update, or delete items they own.
+     *  Listing is implicitly allowed by filtering queries on the client-side.
      */
-    function isQueryingOwnData() {
-      return request.query.where.size == 1
-          && request.query.where[0].fieldPath == 'userId'
-          && request.query.where[0].op == '=='
-          && request.query.where[0].value == request.auth.uid;
-    }
-
     match /expenses/{expenseId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && isQueryingOwnData();
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /payables/{payableId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && isQueryingOwnData();
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /employees/{employeeId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && isQueryingOwnData();
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       
       // Salary advances
       match /advances/{advanceId} {
         allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-        allow list: if isSignedIn() && request.query.where.size == 1 && request.query.where[0].fieldPath == 'userId' && request.query.where[0].op == '==' && request.query.where[0].value == request.auth.uid;
+        allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       }
     }
   }
