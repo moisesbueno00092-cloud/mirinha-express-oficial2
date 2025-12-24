@@ -47,23 +47,19 @@ service cloud.firestore {
     }
 
     match /expenses/{expenseId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, write: if isSignedIn();
     }
 
     match /payables/{payableId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, write: if isSignedIn();
     }
 
     match /employees/{employeeId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, write: if isSignedIn();
       
       // Salary advances for a specific employee.
       match /advances/{advanceId} {
-        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow read, write: if isSignedIn();
       }
     }
   }
