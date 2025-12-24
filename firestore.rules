@@ -1,34 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Regra para coleções que contêm o campo 'userId'
-    match /{collection}/{docId} where collection in ['users', 'order_items', 'favorite_clients', 'expenses', 'payables', 'employees'] {
-      // Permite a leitura de uma lista (query) apenas se a consulta filtrar por 'userId'.
-      allow list: if request.auth != null && request.query.get('where')[0][2] == request.auth.uid;
-      
-      // Permite ler, criar, atualizar ou apagar um documento específico se o 'userId' do documento corresponder.
-      // Para 'create', verificamos o 'userId' nos dados da requisição.
-      // Para 'get', 'update', 'delete', verificamos o 'userId' no documento existente no servidor.
-      allow get, update, delete: if request.auth != null && get(/databases/$(database)/documents/$(collection)/$(docId)).data.userId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-    }
-
-    // A coleção 'bomboniere_items' é partilhada e pode ser lida por qualquer utilizador autenticado.
-    // A escrita é restrita para evitar modificações não autorizadas.
-    match /bomboniere_items/{itemId} {
-      allow read, write: if request.auth != null; 
-    }
-    
-    // A coleção 'daily_reports' pode ser lida e escrita por qualquer utilizador autenticado.
-    match /daily_reports/{reportId} {
-        allow read, write: if request.auth != null;
-    }
-
-    // Regra para a sub-coleção 'advances' (vales) de um funcionário.
-    match /employees/{employeeId}/advances/{advanceId} {
-      // Permite ler e escrever na sub-coleção se o utilizador for o proprietário do documento 'employee' pai.
-      allow read, write: if request.auth != null && get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
