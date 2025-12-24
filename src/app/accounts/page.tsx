@@ -58,17 +58,26 @@ const formatTime = (dateString: string) => {
 
 function EntryItems({ entry }: { entry: ClientAccountEntry }) {
     return (
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-2">
         {entry.predefinedItems && entry.predefinedItems.map((item, idx) => (
-          <Badge key={`pre-${idx}`} variant="secondary">{item.name}</Badge>
+            <div key={`pre-${idx}`} className="flex flex-col items-center">
+                <Badge variant="secondary">{item.name}</Badge>
+                <span className="text-xs text-muted-foreground">{formatCurrency(item.price)}</span>
+            </div>
         ))}
         {entry.individualPrices && entry.individualPrices.map((price, idx) => (
-            <Badge key={`kg-${idx}`} variant="secondary">KG</Badge>
+            <div key={`kg-${idx}`} className="flex flex-col items-center">
+                <Badge variant="secondary">KG</Badge>
+                <span className="text-xs text-muted-foreground">{formatCurrency(price)}</span>
+            </div>
         ))}
         {entry.bomboniereItems && entry.bomboniereItems.map((item, idx) => (
-          <Badge key={`bom-${idx}`} variant="outline">
-            {item.quantity > 1 && `${item.quantity}x `}{item.name}
-          </Badge>
+          <div key={`bom-${idx}`} className="flex flex-col items-center">
+            <Badge variant="outline">
+                {item.quantity > 1 && `${item.quantity}x `}{item.name}
+            </Badge>
+            <span className="text-xs text-muted-foreground">{formatCurrency(item.price)}</span>
+          </div>
         ))}
       </div>
     );
@@ -335,3 +344,5 @@ export default function AccountsPage() {
     </div>
   );
 }
+
+    
