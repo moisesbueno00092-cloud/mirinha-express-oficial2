@@ -23,7 +23,7 @@ export interface SelectedBomboniereItem {
 
 export interface Item {
   id: string;
-  userId: string; // ID of the user who owns this item
+  // userId field is no longer needed on the item itself, as it's part of the path
   name: string; // e.g., 'M P', 'KG', 'Lançamento Misto'
   quantity: number; // total count of individual items
   price: number; // For single items, this is the price. For grouped KG items, this is the SUM of individualPrices.
@@ -45,7 +45,7 @@ export interface Item {
 
 export interface ClientAccountEntry {
     id: string;
-    userId: string;
+    // userId is implicit in the path
     customerId: string;
     customerName: string;
     description: string;
@@ -56,11 +56,14 @@ export interface ClientAccountEntry {
     bomboniereItems?: SelectedBomboniereItem[];
     individualPrices?: number[];
     deliveryFee?: number;
+    total: number;
+    originalCommand: string;
+    group: Group;
 }
 
 export interface FavoriteClient {
   id: string;
-  userId: string;
+  // userId is implicit in the path
   name: string;
   command: string;
 }

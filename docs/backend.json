@@ -1,59 +1,55 @@
-
 {
   "entities": {
-    "OrderItem": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "OrderItem",
+    "UserProfile": {
+      "title": "User Profile",
       "type": "object",
-      "description": "Represents an individual item ordered at Mirinha's Restaurant.",
+      "description": "Represents a user's profile information.",
       "properties": {
-        "userId": {
+        "email": {
           "type": "string",
-          "description": "The ID of the user who created the order item."
-        },
-        "itemName": {
+          "format": "email",
+          "description": "The user's email address."
+        }
+      },
+      "required": ["email"]
+    },
+    "OrderItem": {
+      "title": "Order Item",
+      "type": "object",
+      "description": "Represents an individual item ordered at the restaurant.",
+      "properties": {
+        "name": {
           "type": "string",
           "description": "The name of the item ordered."
         },
-        "itemPrice": {
+        "price": {
           "type": "number",
-          "description": "The price of the item.",
-          "format": "number"
+          "description": "The price of the item."
         },
-        "itemGroup": {
+        "group": {
           "type": "string",
-          "description": "The group the item belongs to (Fiados salão, Fiados rua, Vendas rua, Vendas salão)."
+          "description": "The group the item belongs to."
         },
         "quantity": {
           "type": "number",
-          "description": "The quantity of the item ordered. Defaults to 1 if not specified.",
-          "format": "number"
+          "description": "The quantity of the item ordered."
         },
-        "orderDateTime": {
+        "timestamp": {
           "type": "string",
-          "description": "The date and time the item was ordered.",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "The date and time the item was ordered."
+        },
+        "total": {
+          "type": "number"
         }
       },
-      "required": [
-        "userId",
-        "itemName",
-        "itemPrice",
-        "itemGroup",
-        "quantity",
-        "orderDateTime"
-      ]
+      "required": ["name", "price", "group", "quantity", "timestamp", "total"]
     },
     "FavoriteClient": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FavoriteClient",
+      "title": "Favorite Client",
       "type": "object",
       "description": "Represents a favorite client with a saved command.",
       "properties": {
-        "userId": {
-          "type": "string",
-          "description": "The ID of the user who created the favorite."
-        },
         "name": {
           "type": "string",
           "description": "The name of the favorite client."
@@ -63,27 +59,44 @@
           "description": "The saved command for the client's usual order."
         }
       },
-      "required": ["userId", "name", "command"]
+      "required": ["name", "command"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
       {
-        "path": "/order_items/{orderItemId}",
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/order_items/{orderItemId}",
         "definition": {
           "entityName": "OrderItem",
           "schema": {
             "$ref": "#/backend/entities/OrderItem"
           },
-          "description": "Stores all order items for the application. Access is controlled via a 'userId' field on each document.",
+          "description": "Sub-collection for a user's order items.",
           "params": [
-             {
+            {
+              "name": "userId",
+              "description": "The user's ID."
+            },
+            {
               "name": "orderItemId",
               "description": "The unique identifier of the order item."
             }
@@ -91,17 +104,53 @@
         }
       },
       {
-        "path": "/favorite_clients/{clientId}",
+        "path": "/users/{userId}/favorite_clients/{clientId}",
         "definition": {
           "entityName": "FavoriteClient",
           "schema": {
             "$ref": "#/backend/entities/FavoriteClient"
           },
-          "description": "Stores all favorite clients. Access is controlled via a 'userId' field on each document.",
+          "description": "Sub-collection for a user's favorite clients.",
           "params": [
+            {
+              "name": "userId",
+              "description": "The user's ID."
+            },
             {
               "name": "clientId",
               "description": "The unique identifier of the favorite client."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/bomboniere_items/{itemId}",
+        "definition": {
+          "entityName": "BomboniereItem",
+          "schema": {
+            "$ref": "#/backend/entities/BomboniereItem"
+          },
+          "description": "Shared list of bomboniere items.",
+          "params": [
+             {
+              "name": "itemId",
+              "description": "The unique identifier of the bomboniere item."
+            }
+          ]
+        }
+      },
+       {
+        "path": "/daily_reports/{reportId}",
+        "definition": {
+          "entityName": "DailyReport",
+          "schema": {
+            "$ref": "#/backend/entities/DailyReport"
+          },
+          "description": "Daily sales reports.",
+          "params": [
+            {
+              "name": "reportId",
+              "description": "The unique identifier of the daily report."
             }
           ]
         }

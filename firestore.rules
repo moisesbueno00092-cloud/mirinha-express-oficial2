@@ -1,72 +1,34 @@
 
 rules_version = '2';
 
-/**
- * # Firestore Security Rules
- *
- * ## Core Philosophy
- * This ruleset enforces a user-ownership model where users can only access
- * documents that contain their `userId`. This is a data-based security model.
- *
- * ## Data Structure
- * - Each document in a protected collection (e.g., `order_items`) must have a
- *   `userId` field matching the UID of the authenticated user.
- * - Shared data, like `bomboniere_items`, is readable by any authenticated user.
- */
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function for reusable logic
+    // Helper Functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is the owner based on a `userId` field
-    // on an *existing* document.
-    function isDataOwner() {
-      return isSignedIn() && request.auth.uid == resource.data.userId;
-    }
-    
-    // Helper function for create operations, checking incoming data.
-    function isCreatingOwner() {
-      return isSignedIn() && request.auth.uid == request.resource.data.userId;
+    // Helper function to check if the user is the owner of the user document
+    // they are trying to access.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
      * @description
-     *   Manages user order items. Access is granted if the document's `userId`
-     *   field matches the authenticated user's UID. This allows for secure
-     *   `list` queries using a `where("userId", "==", request.auth.uid)` clause.
+     *   Manages user-specific data. A user can only access their own document
+     *   and the sub-collections within it. This is a path-based security model.
      * @path
-     *   /order_items/{orderItemId}
+     *   /users/{userId}
      */
-    match /order_items/{orderItemId} {
-      // Allow LIST if the query is securely filtered by the user's ID.
-      // Allow GET if the user is the direct owner of the document.
-      allow read: if isSignedIn() && (
-                    (request.query.limit > 0 || request.query.offset > 0) ? request.query.where.get("userId", "") == request.auth.uid : resource.data.userId == request.auth.uid
-                  );
-      allow create: if isCreatingOwner();
-      allow update, delete: if isDataOwner();
+    match /users/{userId}/{document=**} {
+      // Allow full read and write access if the user is the owner of this path.
+      // This single rule securely covers the user's profile document and all
+      // documents in all sub-collections (like order_items, favorite_clients, etc.).
+      allow read, write: if isOwner(userId);
     }
     
-    /**
-     * @description
-     *   Manages user favorite clients. Access is granted if the document's `userId`
-     *   field matches the authenticated user's UID.
-     * @path
-     *   /favorite_clients/{clientId}
-     */
-    match /favorite_clients/{clientId} {
-      // Allow LIST if the query is securely filtered by the user's ID.
-      // Allow GET if the user is the direct owner of the document.
-      allow read: if isSignedIn() && (
-                    (request.query.limit > 0 || request.query.offset > 0) ? request.query.where.get("userId", "") == request.auth.uid : resource.data.userId == request.auth.uid
-                  );
-      allow create: if isCreatingOwner();
-      allow update, delete: if isDataOwner();
-    }
-
     /**
      * @description
      *   Manages the shared list of bomboniere items (products).

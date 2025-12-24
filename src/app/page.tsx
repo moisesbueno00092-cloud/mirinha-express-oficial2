@@ -5,7 +5,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, query, where, orderBy } from "firebase/firestore";
+import { collection, doc, query, orderBy } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import Link from 'next/link';
 
@@ -65,8 +65,10 @@ export default function Home() {
     const ensureUser = async () => {
       if (!isUserLoading && !user && auth) {
         try {
+          // Try to sign in with the shared credentials first
           await signInWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
         } catch (error: any) {
+          // If the user does not exist, create it
           if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             try {
               await createUserWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
@@ -83,14 +85,14 @@ export default function Home() {
   }, [user, isUserLoading, auth]);
 
   const userOrderItemsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, "order_items"), where("userId", "==", user.uid)) : null),
+    () => (firestore && user ? collection(firestore, "users", user.uid, "order_items") : null),
     [firestore, user]
   );
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
   const favoriteClientsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'favorite_clients'), where("userId", "==", user.uid)) : null),
+    () => (firestore && user ? collection(firestore, "users", user.uid, "favorite_clients") : null),
     [firestore, user]
   );
 
@@ -130,7 +132,7 @@ export default function Home() {
 
   const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteClient?: FavoriteClient) => {
     setIsProcessing(true);
-    if (!user) {
+    if (!user || !firestore) {
         toast({ variant: "destructive", title: "Erro", description: "Utilizador não autenticado." });
         setIsProcessing(false);
         return;
@@ -298,7 +300,7 @@ export default function Home() {
             deliveryFeeApplicable = false;
         }
 
-        if (!currentItem && bomboniereItems && firestore) { // Only decrement stock for new items, not for edits
+        if (!currentItem && bomboniereItems) { // Only decrement stock for new items, not for edits
           const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
           processedBomboniereItems.forEach(soldItem => {
               const itemDef = bomboniereItems.find(i => i.id === soldItem.id);
@@ -309,7 +311,6 @@ export default function Home() {
               }
           });
         }
-
 
         const deliveryFee = isTaxExempt ? 0 : (customDeliveryFee !== null ? customDeliveryFee : (deliveryFeeApplicable ? DELIVERY_FEE : 0));
         const total = totalPrice + deliveryFee;
@@ -329,14 +330,14 @@ export default function Home() {
 
         const timestamp = new Date().toISOString();
 
-        const finalItem: Omit<Item, 'id' | 'total'> = {
-            userId: user.uid,
+        const finalItem: Omit<Item, 'id' | 'userId'> = {
             name: consolidatedName,
             quantity: totalQuantity,
             price: totalPrice,
             group,
             timestamp: timestamp,
             deliveryFee,
+            total,
             originalCommand: rawInputToProcess,
             ...(customerName && { customerName }),
             ...(favoriteClient && { customerId: favoriteClient.id }),
@@ -345,23 +346,18 @@ export default function Home() {
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
 
+        const orderItemsCollectionRef = collection(firestore, "users", user.uid, "order_items");
 
         if (currentItem?.id) {
-            if (!firestore) return;
-            const docRef = doc(firestore, "order_items", currentItem.id);
-            setDocumentNonBlocking(docRef, { ...finalItem, total }, { merge: true });
+            const docRef = doc(orderItemsCollectionRef, currentItem.id);
+            setDocumentNonBlocking(docRef, finalItem, { merge: true });
             toast({ title: "Sucesso", description: "Lançamento atualizado." });
         } else {
-            if (!firestore) return;
-            const newItem = { ...finalItem, total };
-            const orderItemsCollectionRef = collection(firestore, "order_items");
-            addDocumentNonBlocking(orderItemsCollectionRef, newItem);
-
+            addDocumentNonBlocking(orderItemsCollectionRef, finalItem);
             toast({ title: "Sucesso", description: "Lançamento adicionado." });
         }
         
         setRawInput("");
-
 
     } catch (error) {
         console.error("Error upserting item:", error);
@@ -386,7 +382,7 @@ export default function Home() {
   const confirmClearData = () => {
     if (!items || !firestore || !user) return;
     try {
-      const orderItemsCollectionRef = collection(firestore, "order_items");
+      const orderItemsCollectionRef = collection(firestore, "users", user.uid, "order_items");
       items.forEach(item => {
         const docRef = doc(orderItemsCollectionRef, item.id);
         deleteDocumentNonBlocking(docRef);
@@ -423,8 +419,8 @@ export default function Home() {
   };
   
   const confirmDelete = () => {
-    if(!firestore || !itemToDelete) return;
-    const orderItemsCollectionRef = collection(firestore, "order_items");
+    if(!firestore || !itemToDelete || !user) return;
+    const orderItemsCollectionRef = collection(firestore, "users", user.uid, "order_items");
     deleteDocumentNonBlocking(doc(orderItemsCollectionRef, itemToDelete));
     toast({
       title: "Sucesso",
@@ -472,12 +468,11 @@ export default function Home() {
     if (!firestore || !user || !itemToSaveAsFavorite || !favoriteName.trim() || !itemToSaveAsFavorite.originalCommand) return;
     
     const newFavorite: Omit<FavoriteClient, 'id'> = {
-      userId: user.uid,
       name: favoriteName.trim(),
       command: itemToSaveAsFavorite.originalCommand,
     };
     
-    const favClientsCollectionRef = collection(firestore, "favorite_clients");
+    const favClientsCollectionRef = collection(firestore, "users", user.uid, "favorite_clients");
     addDocumentNonBlocking(favClientsCollectionRef, newFavorite);
     toast({ title: 'Sucesso', description: `"${favoriteName.trim()}" foi salvo como favorito.` });
     setIsSaveFavoriteOpen(false);
@@ -492,8 +487,8 @@ export default function Home() {
   };
 
   const confirmDeleteFavorite = () => {
-    if (!firestore || !favoriteToDelete) return;
-    const docRef = doc(firestore, "favorite_clients", favoriteToDelete);
+    if (!firestore || !favoriteToDelete || !user) return;
+    const docRef = doc(firestore, "users", user.uid, "favorite_clients", favoriteToDelete);
     deleteDocumentNonBlocking(docRef);
     toast({ title: 'Sucesso', description: 'Favorito removido.' });
     setFavoriteToDelete(null);
