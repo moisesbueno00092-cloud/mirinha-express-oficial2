@@ -53,12 +53,11 @@ service cloud.firestore {
     match /employees/{employeeId} {
       allow create: if isSignedIn() && isOwner(request.resource.data.userId);
       allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
-      
-      // Sub-collection rules
-      match /advances/{advanceId} {
+    }
+
+    match /employee_advances/{advanceId} {
         allow create: if isSignedIn() && isOwner(request.resource.data.userId);
         allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
-      }
     }
   }
 }
