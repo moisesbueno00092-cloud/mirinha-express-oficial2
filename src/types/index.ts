@@ -48,4 +48,5 @@ export interface FavoriteClient {
   name: string;
   command: string;
 }
+
     

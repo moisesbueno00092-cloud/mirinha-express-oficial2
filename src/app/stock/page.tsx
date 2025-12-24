@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "UserProfile": {
@@ -130,5 +129,3 @@
     ]
   }
 }
-
-    

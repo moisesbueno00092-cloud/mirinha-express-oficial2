@@ -184,7 +184,7 @@ export default function Home() {
                 while(i < parts.length && isNumeric(parts[i])) {
                     const price = parseFloat(parts[i].replace(',', '.'));
                     individualPrices.push(price);
-totalPrice += price;
+                    totalPrice += price;
                     i++;
                 }
                 i--; 
@@ -651,3 +651,5 @@ totalPrice += price;
     </>
   );
 }
+
+    
