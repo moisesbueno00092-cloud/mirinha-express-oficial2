@@ -69,6 +69,17 @@
         }
       },
       "required": ["userId", "name", "command"]
+    },
+    "BomboniereItem": {
+      "title": "Bomboniere Item",
+      "description": "Represents a bomboniere item with stock control.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "stock": { "type": "number" }
+      },
+      "required": ["name", "price", "stock"]
     }
   },
   "auth": {
@@ -115,19 +126,7 @@
           },
           "description": "Shared list of bomboniere items."
         }
-      },
-      {
-        "path": "/daily_reports/{reportId}",
-        "definition": {
-          "entityName": "DailyReport",
-          "schema": {
-            "$ref": "#/backend/entities/DailyReport"
-          },
-          "description": "Daily sales reports."
-        }
       }
     ]
   }
 }
-
-    
