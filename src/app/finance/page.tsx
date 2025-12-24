@@ -113,10 +113,14 @@ export default function FinancePage() {
 
   useEffect(() => {
     if (!firestore || !employees) {
-        setIsLoadingAdvances(false);
+        if(!isLoadingEmployees) setIsLoadingAdvances(false);
         return;
     }
+    
     setIsLoadingAdvances(true);
+    let activeListeners = true;
+    const unsubscribers: Unsubscribe[] = [];
+    const advancesData: Record<string, EmployeeAdvance[]> = {};
 
     if (employees.length === 0) {
         setAllAdvances([]);
@@ -124,39 +128,46 @@ export default function FinancePage() {
         return;
     }
 
-    const unsubscribers: Unsubscribe[] = [];
-    let allAdvancesData: EmployeeAdvance[] = [...allAdvances];
+    let loadedCount = 0;
 
     employees.forEach(employee => {
         const advancesQuery = query(collection(firestore, 'employees', employee.id, 'advances'));
         const unsubscribe = onSnapshot(advancesQuery,
             (snapshot) => {
+                if (!activeListeners) return;
+
                 const advancesForEmployee = snapshot.docs.map(doc => ({
                     ...doc.data(),
                     id: doc.id,
                     employeeId: employee.id,
                     employeeName: employee.name,
                 } as EmployeeAdvance));
-
-                // Filter out this employee's old advances and add the new ones
-                allAdvancesData = allAdvancesData.filter(adv => adv.employeeId !== employee.id).concat(advancesForEmployee);
-
-                // Update the state with the latest aggregated data
-                setAllAdvances(allAdvancesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-                setIsLoadingAdvances(false);
+                
+                advancesData[employee.id] = advancesForEmployee;
+                
+                const combinedAdvances = Object.values(advancesData).flat();
+                setAllAdvances(combinedAdvances.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+                
+                if(++loadedCount === employees.length) {
+                    setIsLoadingAdvances(false);
+                }
             },
             (error) => {
+                if (!activeListeners) return;
                 console.error(`Error fetching advances for employee ${employee.id}:`, error);
-                setIsLoadingAdvances(false);
+                if(++loadedCount === employees.length) {
+                   setIsLoadingAdvances(false);
+                }
             }
         );
         unsubscribers.push(unsubscribe);
     });
 
     return () => {
+        activeListeners = false;
         unsubscribers.forEach(unsub => unsub());
     };
-}, [firestore, employees]);
+}, [firestore, employees, isLoadingEmployees]);
 
 
   const filteredData = useMemo(() => {
