@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -16,10 +15,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ArrowLeft, Trash2, Calendar, Search, Filter, Plus, Repeat, Code } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, Calendar, Search, Filter, Plus, Repeat, Code, TrendingUp, ShoppingBasket, HandCoins, FileText, Banknote, Landmark } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 const months = [
   { value: 0, label: 'Janeiro' },
@@ -38,6 +38,36 @@ const months = [
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
+};
+
+const categoryData = [
+    { name: 'Mercado', value: 48574.90, color: 'hsl(var(--chart-1))', icon: ShoppingBasket },
+    { name: 'Salário', value: 35200.00, color: 'hsl(var(--chart-2))', icon: HandCoins },
+    { name: 'Vale', value: 7850.00, color: 'hsl(var(--chart-3))', icon: FileText },
+    { name: 'Contas', value: 32789.60, color: 'hsl(var(--chart-4))', icon: Banknote },
+    { name: 'Impostos', value: 22401.90, color: 'hsl(var(--chart-5))', icon: Landmark },
+    { name: 'Outros', value: 5500.00, color: 'hsl(var(--muted-foreground))', icon: Plus },
+];
+
+const RADIAN = Math.PI / 180;
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" className="text-xs font-bold">
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
+
 
 export default function FinancePage() {
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
@@ -66,6 +96,9 @@ export default function FinancePage() {
             <Button variant="ghost" className="border-b-2 border-primary text-primary">Despesas</Button>
              <Link href="/history" passHref>
                 <Button variant="ghost">Histórico</Button>
+            </Link>
+             <Link href="/accounts" passHref>
+                <Button variant="ghost">Caderneta</Button>
             </Link>
             <Button variant="ghost" disabled>Caixa</Button>
         </div>
@@ -135,7 +168,7 @@ export default function FinancePage() {
             </div>
              <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input 
+                <Input
                     placeholder="Buscar por descrição ou funcionário..."
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
@@ -165,9 +198,69 @@ export default function FinancePage() {
                 </Card>
             </TabsContent>
         </Tabs>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Análise Anual de Despesas ({selectedYear})</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+                <p className="text-muted-foreground">Total do Ano de {selectedYear}</p>
+                <p className="text-5xl font-bold text-red-500 mt-2">{formatCurrency(152316.40)}</p>
+            </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Detalhes por Categoria</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={categoryData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={renderCustomizedLabel}
+                                outerRadius={110}
+                                fill="#8884d8"
+                                dataKey="value"
+                                nameKey="name"
+                            >
+                                {categoryData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} stroke="hsl(var(--background))" strokeWidth={3} />
+                                ))}
+                            </Pie>
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: 'hsl(var(--background))',
+                                    borderColor: 'hsl(var(--border))',
+                                    borderRadius: 'var(--radius)',
+                                }}
+                                formatter={(value: number) => formatCurrency(value)}
+                             />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="space-y-3">
+                    {categoryData.map(category => {
+                        const Icon = category.icon;
+                        return (
+                            <div key={category.name} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <Icon className="h-5 w-5" style={{color: category.color}} />
+                                    <span className="font-medium">{category.name}</span>
+                                </div>
+                                <span className="font-mono font-semibold">{formatCurrency(category.value)}</span>
+                            </div>
+                        )
+                    })}
+                </div>
+            </CardContent>
+        </Card>
+
       </div>
     </div>
   );
 }
-
-    
