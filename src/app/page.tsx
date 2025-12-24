@@ -694,17 +694,11 @@ export default function Home() {
                 <div><span className="text-muted-foreground">À Vista:</span> <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span></div>
                 <div><span className="text-muted-foreground">Fiado:</span> <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span></div>
             </div>
-             <div className="flex justify-center items-center gap-2">
+             <div className="flex justify-center items-center">
                  <Link href="/accounts" passHref>
                     <Button variant="outline" size="sm">
                        <BookUser className="mr-2 h-4 w-4" />
                        Caderneta
-                    </Button>
-                </Link>
-                 <Link href="/employees" passHref>
-                    <Button variant="outline" size="sm">
-                       <UserCog className="mr-2 h-4 w-4" />
-                       Funcionários
                     </Button>
                 </Link>
             </div>

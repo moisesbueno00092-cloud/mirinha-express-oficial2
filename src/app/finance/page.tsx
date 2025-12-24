@@ -7,7 +7,7 @@ import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import type { Payable } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Trash2, PlusCircle, CheckCircle, Circle, DollarSign, Calendar } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, PlusCircle, CheckCircle, Circle } from 'lucide-react';
 import Link from 'next/link';
 import {
   AlertDialog,
@@ -29,8 +29,6 @@ import {
 } from "@/components/ui/table"
 import { Input } from '@/components/ui/input';
 import { useToast } from "@/hooks/use-toast";
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { deleteDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -102,10 +100,10 @@ export default function FinancePage() {
         setNewPayableDueDate(undefined);
     };
 
-    const confirmDelete = async (collectionName: 'payables', id: string) => {
+    const confirmDelete = async () => {
         if (!firestore || !itemToDelete) return;
         
-        const docRef = doc(firestore, collectionName, id);
+        const docRef = doc(firestore, 'payables', itemToDelete);
         deleteDocumentNonBlocking(docRef);
 
         toast({ title: 'Sucesso', description: 'Item removido.' });
@@ -122,7 +120,7 @@ export default function FinancePage() {
         })
     };
     
-    if (isUserLoading) {
+    if (isUserLoading || !user) {
       return (
         <div className="flex h-screen items-center justify-center">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -130,21 +128,19 @@ export default function FinancePage() {
       );
     }
     
-    const renderError = (title: string, error: Error | null) => (
-        <div className="container mx-auto p-8 text-center text-destructive">
-            <h1 className="text-2xl font-bold">{title}</h1>
-            <p className="mt-2">{error?.message}</p>
-             <Link href="/" passHref>
-                <Button variant="outline" className="mt-4">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Voltar
-                </Button>
-            </Link>
-        </div>
-    );
-
     if (errorPayables) {
-        return renderError('Erro ao Carregar Contas a Pagar', errorPayables);
+        return (
+            <div className="container mx-auto p-8 text-center text-destructive">
+                <h1 className="text-2xl font-bold">Erro ao Carregar Contas a Pagar</h1>
+                <p className="mt-2">{errorPayables?.message}</p>
+                 <Link href="/" passHref>
+                    <Button variant="outline" className="mt-4">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Voltar
+                    </Button>
+                </Link>
+            </div>
+        );
     }
 
     const totalOpenPayables = payables?.filter(p => !p.isPaid).reduce((acc, p) => acc + p.amount, 0) || 0;
@@ -161,7 +157,7 @@ export default function FinancePage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => confirmDelete('payables', itemToDelete!)}>Confirmar</AlertDialogAction>
+                    <AlertDialogAction onClick={confirmDelete}>Confirmar</AlertDialogAction>
                 </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -244,4 +240,3 @@ export default function FinancePage() {
         </>
     );
 }
-
