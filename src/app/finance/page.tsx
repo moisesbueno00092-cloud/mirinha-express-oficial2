@@ -42,6 +42,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -64,6 +70,7 @@ function ExpensesTab() {
 
     const [description, setDescription] = useState('');
     const [amount, setAmount] = useState('');
+    const [category, setCategory] = useState('');
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [searchTerm, setSearchTerm] = useState('');
     
@@ -80,15 +87,23 @@ function ExpensesTab() {
     
     const filteredExpenses = useMemo(() => {
         if (!sortedExpenses) return [];
+        const lowercasedFilter = searchTerm.toLowerCase();
         return sortedExpenses.filter(expense => 
-            expense.description.toLowerCase().includes(searchTerm.toLowerCase())
+            expense.description.toLowerCase().includes(lowercasedFilter) ||
+            expense.category.toLowerCase().includes(lowercasedFilter)
         );
     }, [sortedExpenses, searchTerm]);
+
+    const existingCategories = useMemo(() => {
+        if (!expenses) return [];
+        const categories = expenses.map(exp => exp.category);
+        return [...new Set(categories)].sort((a, b) => a.localeCompare(b));
+    }, [expenses]);
 
 
     const handleAddExpense = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !firestore || !description || !amount || !date) {
+        if (!user || !firestore || !description || !amount || !date || !category) {
             toast({ variant: 'destructive', title: 'Erro', description: 'Preencha todos os campos.' });
             return;
         }
@@ -97,7 +112,7 @@ function ExpensesTab() {
             userId: user.uid,
             description,
             amount: parseFloat(amount.replace(',', '.')),
-            category: 'Outros', // Simplified for now
+            category,
             date: date.toISOString(),
         };
 
@@ -107,6 +122,7 @@ function ExpensesTab() {
         toast({ title: 'Sucesso!', description: 'Despesa adicionada.' });
         setDescription('');
         setAmount('');
+        setCategory('');
     };
 
     const handleComplexInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,6 +164,24 @@ function ExpensesTab() {
                                     className="h-11 text-base"
                                 />
                            </div>
+                           <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="h-11 w-full sm:w-auto min-w-[150px] justify-start text-left font-normal">
+                                        <span className="truncate">{category || "Categoria"}</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    {existingCategories.map(cat => (
+                                        <DropdownMenuItem key={cat} onSelect={() => setCategory(cat)}>{cat}</DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                           </DropdownMenu>
+                           <Input 
+                                value={category}
+                                onChange={(e) => setCategory(e.target.value)}
+                                placeholder="Ou nova categoria"
+                                className="h-11 w-full sm:w-auto"
+                            />
                            <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className={cn("h-11 w-full sm:w-auto justify-start text-left font-normal", !date && "text-muted-foreground")}>
@@ -174,7 +208,7 @@ function ExpensesTab() {
                      <div className="relative pt-2">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
-                           placeholder="Buscar por descrição..."
+                           placeholder="Buscar por descrição ou categoria..."
                            value={searchTerm}
                            onChange={e => setSearchTerm(e.target.value)}
                            className="pl-10"
@@ -403,3 +437,5 @@ export default function FinancePage() {
         </div>
     );
 }
+
+    
