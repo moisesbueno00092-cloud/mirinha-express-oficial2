@@ -71,33 +71,29 @@ service cloud.firestore {
 
     /**
      * @description
-     *  Manages expenses, payables, and employees.
-     *  Users can create their own items and can only update/delete their own items.
-     *  Reading/listing is allowed for any signed-in user, but secured by client-side queries
-     *  that filter by userId, ensuring users only see their own data.
+     *  Manages user-specific data like expenses, payables, and employees.
+     *  Users can create their own items. They can only read, update, or
+     *  delete items that they own. This is enforced by checking the 'userId'
+     *  field on the document.
      */
     match /expenses/{expenseId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read: if isSignedIn();
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /payables/{payableId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read: if isSignedIn();
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /employees/{employeeId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read: if isSignedIn();
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       
       // Salary advances for a specific employee.
       match /advances/{advanceId} {
         allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        allow read: if isSignedIn();
-        allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       }
     }
   }
