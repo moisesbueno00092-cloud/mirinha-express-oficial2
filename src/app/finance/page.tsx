@@ -777,21 +777,21 @@ export default function FinancePage() {
                 </div>
             </div>
 
-            <Tabs defaultValue="employees" className="w-full">
+            <Tabs defaultValue="expenses" className="w-full">
                 <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="expenses"><DollarSign className="mr-2 h-4 w-4"/>Despesas</TabsTrigger>
                     <TabsTrigger value="employees"><Briefcase className="mr-2 h-4 w-4"/>Funcionários</TabsTrigger>
                     <TabsTrigger value="advances"><BadgeEuro className="mr-2 h-4 w-4"/>Vales</TabsTrigger>
-                    <TabsTrigger value="expenses"><DollarSign className="mr-2 h-4 w-4"/>Despesas</TabsTrigger>
                     <TabsTrigger value="payables"><FileText className="mr-2 h-4 w-4"/>Contas a Pagar</TabsTrigger>
                 </TabsList>
+                <TabsContent value="expenses" className="mt-6">
+                   <ExpensesTab />
+                </TabsContent>
                 <TabsContent value="employees" className="mt-6">
                     <EmployeesTab />
                 </TabsContent>
                 <TabsContent value="advances" className="mt-6">
                     <AdvancesTab />
-                </TabsContent>
-                <TabsContent value="expenses" className="mt-6">
-                   <ExpensesTab />
                 </TabsContent>
                 <TabsContent value="payables" className="mt-6">
                    <PayablesTab />
