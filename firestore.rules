@@ -17,16 +17,32 @@ service cloud.firestore {
 
     /**
      * @description
-     *   Manages user-specific data. A user can only access their own document
-     *   and the sub-collections within it. This is a path-based security model.
+     *   Manages the user's own profile document.
      * @path
      *   /users/{userId}
      */
-    match /users/{userId}/{document=**} {
-      // Allow full read and write access if the user is the owner of this path.
-      // This single rule securely covers the user's profile document and all
-      // documents in all sub-collections (like order_items, favorite_clients, etc.).
+    match /users/{userId} {
       allow read, write: if isOwner(userId);
+
+      /**
+       * @description
+       *   Manages a user's order items.
+       * @path
+       *   /users/{userId}/order_items/{orderItemId}
+       */
+      match /order_items/{orderItemId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      /**
+       * @description
+       *   Manages a user's favorite clients.
+       * @path
+       *   /users/{userId}/favorite_clients/{clientId}
+       */
+      match /favorite_clients/{clientId} {
+        allow read, write: if isOwner(userId);
+      }
     }
     
     /**
