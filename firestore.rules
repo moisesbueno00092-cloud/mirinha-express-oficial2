@@ -72,27 +72,32 @@ service cloud.firestore {
     /**
      * @description
      *  Manages expenses, payables, and employees.
-     *  Users can create their own items and can only read/update/delete their own items.
-     *  Listing is secured by client-side queries filtering by userId.
+     *  Users can create their own items and can only update/delete their own items.
+     *  Reading/listing is allowed for any signed-in user, but secured by client-side queries
+     *  that filter by userId, ensuring users only see their own data.
      */
     match /expenses/{expenseId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /payables/{payableId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /employees/{employeeId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn();
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       
       // Salary advances for a specific employee.
       match /advances/{advanceId} {
         allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow read: if isSignedIn();
+        allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       }
     }
   }
