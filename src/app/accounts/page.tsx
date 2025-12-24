@@ -55,6 +55,18 @@ const formatTime = (dateString: string) => {
     });
 }
 
+const formatOriginalCommand = (command: string = "") => {
+    return command.split(' ').map(part => {
+        // Check if the part is a number or a number with a comma
+        const isNumeric = /^[0-9]+(,[0-9]{1,2})?$/.test(part);
+        if (isNumeric) {
+            let num = parseFloat(part.replace(',', '.'));
+            return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        return part;
+    }).join(' ');
+}
+
 
 function EntryItems({ entry }: { entry: ClientAccountEntry }) {
     return (
@@ -217,7 +229,7 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
                                 </TableCell>
                                 <TableCell className="align-top max-w-[250px]">
                                     <EntryItems entry={entry} />
-                                    <p className="text-xs text-muted-foreground mt-1 truncate italic">"{entry.originalCommand}"</p>
+                                    <p className="text-xs text-muted-foreground mt-1 truncate italic">"{formatOriginalCommand(entry.originalCommand)}"</p>
                                 </TableCell>
                                 <TableCell className="text-right font-mono font-semibold align-top">
                                     {formatCurrency(entry.total)}
