@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
 import type { BomboniereItem } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -37,9 +37,10 @@ const getStockColor = (stock: number) => {
 
 export default function StockPage() {
     const firestore = useFirestore();
+    const { user, isUserLoading } = useUser();
     const { toast } = useToast();
     
-    const bomboniereItemsQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
+    const bomboniereItemsQuery = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore, user]);
     const { data: bomboniereItems, isLoading, error } = useCollection<BomboniereItem>(bomboniereItemsQuery);
     
     const [editValues, setEditValues] = useState<Record<string, Partial<Omit<BomboniereItem, 'id'>>>>({});
@@ -188,7 +189,7 @@ export default function StockPage() {
         );
     }
 
-     if (isLoading) {
+     if (isLoading || isUserLoading) {
         return (
           <div className="flex h-screen items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -343,5 +344,3 @@ export default function StockPage() {
     );
 }
 
-
-    
