@@ -2,10 +2,58 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Helper function to check ownership
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Rules for top-level collections owned by a user
+    match /order_items/{itemId} {
+      allow list: if request.auth.uid != null;
+      allow get, update, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+    }
+
+    match /favorite_clients/{clientId} {
+      allow list: if request.auth.uid != null;
+      allow get, update, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+    }
+
+    match /expenses/{expenseId} {
+      allow list: if request.auth.uid != null;
+      allow get, update, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+    }
+    
+    match /employees/{employeeId} {
+      allow list: if request.auth.uid != null;
+      allow get, update, delete: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+      
+      // Rules for the 'advances' sub-collection
+      match /advances/{advanceId} {
+        // Allow list/read/write for the owner of the parent employee document
+        allow read, write: if get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
+      }
+    }
+    
+    // bomboniere_items is public read, but write is restricted
+    match /bomboniere_items/{itemId} {
+      allow read: if request.auth.uid != null;
+      allow write: if request.auth.uid != null; // Simplificado para permitir a gestão
+    }
+    
+    // daily_reports can be read by any authenticated user, but write is restricted.
+    match /daily_reports/{reportId} {
+       allow read: if request.auth.uid != null;
+       allow write: if request.auth.uid != null; // Simplificado para permitir a gestão
+    }
+    
+    // Default deny for any other path
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }
-
-    
