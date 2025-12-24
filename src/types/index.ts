@@ -43,24 +43,6 @@ export interface Item {
   customerId?: string; // ID from FavoriteClient
 }
 
-export interface ClientAccountEntry {
-    id: string;
-    userId: string;
-    customerId: string;
-    customerName: string;
-    description: string;
-    price: number;
-    timestamp: string;
-    // Detailed items for better tracking
-    predefinedItems?: PredefinedItem[];
-    bomboniereItems?: SelectedBomboniereItem[];
-    individualPrices?: number[];
-    deliveryFee?: number;
-    total: number;
-    originalCommand: string;
-    group: Group;
-}
-
 export interface FavoriteClient {
   id: string;
   userId: string;
@@ -91,38 +73,4 @@ export interface DailyReport {
   rawItems: Item[];
 }
 
-// Financial Control Types
-export interface Expense {
-    id: string;
-    userId: string;
-    description: string;
-    amount: number;
-    category: string;
-    date: string; // ISO date string
-}
-
-export interface Payable {
-    id: string;
-    userId: string;
-    description: string;
-    amount: number;
-    dueDate: string; // ISO date string
-    isPaid: boolean;
-}
-
-export interface Employee {
-    id: string;
-    userId: string;
-    name: string;
-    role: string;
-    salary: number;
-}
-
-export interface EmployeeAdvance {
-    id: string;
-    // userId is not needed here as it will be in the parent Employee document
-    employeeId: string;
-    employeeName: string;
-    amount: number;
-    date: string; // ISO date string
-}
+    

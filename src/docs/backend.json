@@ -69,95 +69,6 @@
         }
       },
       "required": ["userId", "name", "command"]
-    },
-    "Expense": {
-      "title": "Expense",
-      "type": "object",
-      "description": "Represents a business expense.",
-      "properties": {
-        "userId": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "amount": {
-          "type": "number"
-        },
-        "category": {
-          "type": "string"
-        },
-        "date": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "required": ["userId", "description", "amount", "category", "date"]
-    },
-    "Payable": {
-      "title": "Payable",
-      "type": "object",
-      "description": "Represents a bill or payable item.",
-      "properties": {
-        "userId": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "amount": {
-          "type": "number"
-        },
-        "dueDate": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "isPaid": {
-          "type": "boolean"
-        }
-      },
-      "required": ["userId", "description", "amount", "dueDate", "isPaid"]
-    },
-    "Employee": {
-      "title": "Employee",
-      "type": "object",
-      "description": "Represents an employee.",
-      "properties": {
-        "userId": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "role": {
-          "type": "string"
-        },
-        "salary": {
-          "type": "number"
-        }
-      },
-      "required": ["userId", "name", "role", "salary"]
-    },
-    "EmployeeAdvance": {
-      "title": "Employee Advance",
-      "type": "object",
-      "description": "Represents a salary advance (vale) for an employee.",
-      "properties": {
-        "employeeId": {
-            "type": "string"
-        },
-        "employeeName": {
-            "type": "string"
-        },
-        "amount": {
-          "type": "number"
-        },
-        "date": {
-          "type": "string",
-          "format": "date-time"
-        }
-      },
-      "required": ["employeeId", "employeeName", "amount", "date"]
     }
   },
   "auth": {
@@ -214,49 +125,9 @@
           },
           "description": "Daily sales reports."
         }
-      },
-      {
-        "path": "/expenses/{expenseId}",
-        "definition": {
-          "entityName": "Expense",
-          "schema": {
-            "$ref": "#/backend/entities/Expense"
-          },
-          "description": "Collection of all business expenses."
-        }
-      },
-      {
-        "path": "/payables/{payableId}",
-        "definition": {
-          "entityName": "Payable",
-          "schema": {
-            "$ref": "#/backend/entities/Payable"
-          },
-          "description": "Collection of all bills to be paid."
-        }
-      },
-      {
-        "path": "/employees/{employeeId}",
-        "definition": {
-          "entityName": "Employee",
-          "schema": {
-            "$ref": "#/backend/entities/Employee"
-          },
-          "description": "Collection of all employees.",
-          "collections": [
-            {
-              "path": "advances/{advanceId}",
-              "definition": {
-                "entityName": "EmployeeAdvance",
-                "schema": {
-                  "$ref": "#/backend/entities/EmployeeAdvance"
-                },
-                "description": "Salary advances for a specific employee."
-              }
-            }
-          ]
-        }
       }
     ]
   }
 }
+
+    
