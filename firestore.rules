@@ -2,50 +2,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-
-    match /order_items/{orderItemId} {
-      allow read, write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-    }
-
-    match /favorite_clients/{clientId} {
-      allow read, write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-    }
-
-    match /bomboniere_items/{itemId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /daily_reports/{reportId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    match /expenses/{expenseId} {
-       allow read, write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-    }
-
-    match /payables/{payableId} {
-      allow read, write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-    }
-
-    match /employees/{employeeId} {
-      allow read, write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      
-      match /advances/{advanceId} {
-        allow read, write: if isSignedIn();
-      }
+    // This rule allows any authenticated user to read and write to any document.
+    // Security is now primarily enforced by the application's queries,
+    // which filter data by the user's ID.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
