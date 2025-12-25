@@ -17,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Loader2, ArrowLeft, Trash2, Edit, ArrowUpCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, Edit, ArrowUpCircle, BrainCircuit, FileDown } from 'lucide-react';
 import {
   ChartContainer,
   ChartTooltip,
@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import type { DailyReport, ItemCount } from '@/types';
+import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
 
 
 const formatCurrency = (value: number | undefined | null) => {
@@ -88,13 +89,13 @@ export default function ReportsPage() {
       { name: 'Vendas Salão', value: report.totalVendasSalao || 0, fill: 'hsl(var(--primary))' },
       { name: 'Vendas Rua', value: report.totalVendasRua || 0, fill: 'hsl(var(--chart-2))' },
       { name: 'Fiado Salão', value: report.totalFiadoSalao || 0, fill: 'hsl(var(--chart-3))' },
-      { name: 'Fiado Rua', value: report.totalFiadoRua || 0, fill: 'hsl(var(--destructive))' },
+      { name: 'Fiado Rua', value: report.totalFiadoRua || 0, fill: 'hsl(var(--chart-5))' },
     ];
     const chartConfig = {
       "Vendas Salão": { label: "Vendas Salão", color: "hsl(var(--primary))" },
       "Vendas Rua": { label: "Vendas Rua", color: "hsl(var(--chart-2))" },
       "Fiado Salão": { label: "Fiado Salão", color: "hsl(var(--chart-3))" },
-      "Fiado Rua": { label: "Fiado Rua", color: "hsl(var(--destructive))" },
+      "Fiado Rua": { label: "Fiado Rua", color: "hsl(var(--chart-5))" },
     };
   
     // Do not render the chart if there is no data
@@ -109,7 +110,7 @@ export default function ReportsPage() {
     return (
       <ChartContainer
         config={chartConfig}
-        className="mx-auto aspect-square h-[120px]"
+        className="mx-auto aspect-square h-[180px]"
       >
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -122,7 +123,7 @@ export default function ReportsPage() {
                   </div>
               )} />}
             />
-            <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={30} strokeWidth={2}>
+            <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={40} strokeWidth={2}>
             {chartData.map((entry) => (
                 <Cell key={`cell-${entry.name}`} fill={entry.fill} />
             ))}
@@ -268,9 +269,13 @@ export default function ReportsPage() {
                                  </AccordionTrigger>
                                  <AccordionContent className="p-2">
                                     <Card className="bg-card/50 shadow-inner">
-                                        <CardHeader>
-                                            <CardTitle className="text-lg">Relatório #{index + 1} - FATURAMENTO</CardTitle>
-                                            <CardDescription>{formatCurrency(report.totalGeral || 0)}</CardDescription>
+                                        <CardHeader className="flex flex-row items-start justify-between">
+                                            <div>
+                                                <CardTitle className="text-lg">Resumo do Dia - FATURAMENTO</CardTitle>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-3xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                                            </div>
                                         </CardHeader>
                                       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                           {/* Left Column */}
@@ -318,10 +323,28 @@ export default function ReportsPage() {
                                             </div>
                                             <Separator />
                                             <div>
-                                                <h3 className="font-semibold mb-2 text-center">Proporção de Vendas</h3>
+                                                <h3 className="font-semibold mb-2">Proporção de Vendas</h3>
                                                 <ProportionChart report={report}/>
                                             </div>
                                           </div>
+                                      </CardContent>
+                                      <CardContent>
+                                        <Separator className="mb-4" />
+                                        <h3 className="font-semibold mb-3">Ações</h3>
+                                        <div className="flex gap-2">
+                                            <Button variant="outline" onClick={() => toast({ title: 'Em breve!'})} className="flex-1 sm:flex-none">
+                                                <WhatsAppIcon className="mr-2 h-4 w-4" />
+                                                Enviar via WhatsApp
+                                            </Button>
+                                            <Button variant="outline" onClick={() => toast({ title: 'Em breve!'})} className="flex-1 sm:flex-none">
+                                                <FileDown className="mr-2 h-4 w-4" />
+                                                Exportar para WPS
+                                            </Button>
+                                            <Button variant="outline" onClick={() => toast({ title: 'Em breve!'})} className="flex-1 sm:flex-none">
+                                                <BrainCircuit className="mr-2 h-4 w-4" />
+                                                Analisar com IA
+                                            </Button>
+                                        </div>
                                       </CardContent>
                                     </Card>
                                  </AccordionContent>
