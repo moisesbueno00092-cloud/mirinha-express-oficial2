@@ -95,6 +95,16 @@ export default function ReportsPage() {
       fiado: { label: "Fiado", color: "hsl(var(--destructive))" },
     };
 
+    // Do not render the chart if there is no data
+    if (chartData.every(d => d.value === 0)) {
+        return (
+            <div className="flex items-center justify-center h-[150px] text-sm text-muted-foreground">
+                Sem dados para o gráfico.
+            </div>
+        );
+    }
+
+
     return (
       <ChartContainer
         config={chartConfig}
@@ -139,6 +149,7 @@ export default function ReportsPage() {
                     {counts.totalMarmitas > 0 && <li className="flex justify-between"><span>Marmitas:</span> <span>{counts.totalMarmitas}</span></li>}
                     {counts.totalKg > 0 && <li className="flex justify-between"><span>KG:</span> <span>{counts.totalKg}</span></li>}
                     {counts.totalBomboniere > 0 && <li className="flex justify-between"><span>Bomboniere:</span> <span>{counts.totalBomboniere}</span></li>}
+                    {(counts.totalMarmitas === 0 && counts.totalKg === 0 && counts.totalBomboniere === 0) && <li className="text-muted-foreground">Nenhum item contado.</li>}
                 </ul>
             </div>
         </div>
@@ -302,6 +313,14 @@ export default function ReportsPage() {
               )
           })}
           
+          {(savedReports === null || savedReports.length === 0) && (
+            <Card>
+                <CardContent className="p-10 text-center text-muted-foreground">
+                    <p>Nenhum relatório salvo encontrado para o mês selecionado.</p>
+                </CardContent>
+            </Card>
+          )}
+
           <Card>
               <CardHeader>
                   <CardTitle>Gerenciamento de Dados</CardTitle>
@@ -319,5 +338,3 @@ export default function ReportsPage() {
     </>
   );
 }
-
-    
