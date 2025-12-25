@@ -33,7 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, History } from "lucide-react";
+import { Save, Loader2, History, BarChart } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -647,10 +647,14 @@ export default function Home() {
                 <span className="text-muted-foreground">Faturamento Total:</span>
                 <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
             </div>
-             <div className="flex justify-end">
+             <div className="flex justify-end gap-2">
                 <Link href="/history" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2">
                     <History className="mr-2 h-4 w-4" />
                     Histórico
+                </Link>
+                 <Link href="/reports" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2">
+                    <BarChart className="mr-2 h-4 w-4" />
+                    Relatórios
                 </Link>
             </div>
         </div>
@@ -658,3 +662,5 @@ export default function Home() {
     </>
   );
 }
+
+    
