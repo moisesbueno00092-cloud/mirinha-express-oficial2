@@ -29,11 +29,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import type { DailyReport } from '@/types';
 
 
-const formatCurrency = (value: number) => {
+const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
-    }).format(value);
+    }).format(value || 0);
 };
 
 const getDayName = (date: Date) => {
@@ -73,8 +73,8 @@ export default function ReportsPage() {
 
   const ProportionChart = ({ report }: { report: DailyReport }) => {
     const chartData = [
-      { name: 'Vendas', value: report.totalAVista, fill: 'hsl(var(--chart-1))' },
-      { name: 'Fiado', value: report.totalFiado, fill: 'hsl(var(--destructive))' },
+      { name: 'Vendas', value: report.totalAVista || 0, fill: 'hsl(var(--chart-1))' },
+      { name: 'Fiado', value: report.totalFiado || 0, fill: 'hsl(var(--destructive))' },
     ];
     const chartConfig = {
       vendas: { label: "Vendas", color: "hsl(var(--chart-1))" },
@@ -111,9 +111,9 @@ export default function ReportsPage() {
   
   const renderItemCounts = (report: DailyReport) => {
     const counts = {
-        totalMarmitas: report.totalMarmitas,
-        totalKg: report.totalKg,
-        totalBomboniere: report.totalBomboniere,
+        totalMarmitas: report.totalMarmitas || 0,
+        totalKg: report.totalKg || 0,
+        totalBomboniere: report.totalBomboniere || 0,
     };
     
     return (
@@ -167,7 +167,7 @@ export default function ReportsPage() {
             const dayReports = reportsByDay[dateStr];
             if (!dayReports) return null;
 
-            const totalDia = dayReports.reduce((sum, report) => sum + report.totalGeral, 0);
+            const totalDia = dayReports.reduce((sum, report) => sum + (report.totalGeral || 0), 0);
 
             return (
                 <Card key={dateStr}>
@@ -222,7 +222,7 @@ export default function ReportsPage() {
                                             <h3 className="font-semibold text-center md:text-left">Resumo Financeiro</h3>
                                              <Separator />
                                             <div className="space-y-1 text-sm">
-                                                <div className="flex justify-between"><span>Vendas Salão:</span> <span className="font-mono">{formatCurrency(report.totalAVista - report.totalTaxas)}</span></div>
+                                                <div className="flex justify-between"><span>Vendas Salão:</span> <span className="font-mono">{formatCurrency((report.totalAVista || 0) - (report.totalTaxas || 0))}</span></div>
                                                 <div className="flex justify-between"><span>Vendas Rua:</span> <span className="font-mono">{formatCurrency(0)}</span></div>
                                                 <div className="flex justify-between text-destructive"><span>Fiado Salão:</span> <span className="font-mono">{formatCurrency(report.totalFiado)}</span></div>
                                                 <div className="flex justify-between text-destructive"><span>Fiado Rua:</span> <span className="font-mono">{formatCurrency(0)}</span></div>
@@ -272,3 +272,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
