@@ -33,7 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2 } from "lucide-react";
+import { Save, Loader2, History } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -638,7 +638,7 @@ export default function Home() {
         </main>
       </div>
       <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
-        <div className="container mx-auto max-w-4xl grid grid-cols-2 items-center p-3 text-xs sm:text-sm gap-2">
+        <div className="container mx-auto max-w-4xl grid grid-cols-3 items-center p-3 text-xs sm:text-sm gap-2">
             <div className="flex flex-col gap-1">
                 <div><span className="text-muted-foreground">À Vista:</span> <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span></div>
                 <div><span className="text-muted-foreground">Fiado:</span> <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span></div>
@@ -646,6 +646,14 @@ export default function Home() {
             <div className="text-right">
                 <span className="text-muted-foreground">Faturamento Total:</span>
                 <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
+            </div>
+             <div className="flex justify-end">
+                <Button variant="outline" asChild>
+                    <Link href="/history">
+                        <History className="mr-2 h-4 w-4" />
+                        Histórico
+                    </Link>
+                </Button>
             </div>
         </div>
       </footer>
