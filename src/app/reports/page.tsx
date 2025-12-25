@@ -3,8 +3,8 @@
 
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, parseISO } from 'date-fns';
+import { collection } from 'firebase/firestore';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import Link from 'next/link';
@@ -90,7 +90,7 @@ export default function ReportsPage() {
           <PieChart>
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent hideLabel formatter={(value, name) => `${name}: ${formatCurrency(value as number)}`} />}
+              content={<ChartTooltipContent hideLabel formatter={(value) => formatCurrency(value as number)} />}
             />
             <Pie
               data={chartData}
@@ -261,5 +261,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
