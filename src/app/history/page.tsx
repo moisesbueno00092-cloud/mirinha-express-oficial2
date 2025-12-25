@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import Link from 'next/link';
@@ -42,6 +42,12 @@ export default function HistoryPage() {
   
   const [isOverwriteAlertOpen, setOverwriteAlertOpen] = useState(false);
   const [reportToGenerate, setReportToGenerate] = useState<DailyReport | null>(null);
+  
+  const userOrderItemsQuery = useMemoFirebase(
+    () => (firestore && user ? query(collection(firestore, "order_items"), where("userId", "==", user.uid)) : null),
+    [firestore, user]
+  );
+  const { data: allItems, isLoading: isLoadingAllItems } = useCollection<Item>(userOrderItemsQuery);
 
   const dailyReportsRef = useMemoFirebase(() => (firestore && user ? collection(firestore, 'daily_reports') : null), [firestore, user]);
   const { data: savedReports } = useCollection<DailyReport>(dailyReportsRef);
@@ -50,35 +56,27 @@ export default function HistoryPage() {
   const isReportSavedForDate = formattedDate ? savedReports?.some(report => report.id === formattedDate) : false;
 
   useEffect(() => {
-    if (date) {
-      fetchItemsForDate(date);
-    }
-  }, [date, user]);
-
-  const fetchItemsForDate = async (reportDate: Date) => {
-    if (!firestore || !user) return;
-    setIsLoading(true);
-    try {
-      const start = startOfDay(reportDate);
-      const end = endOfDay(reportDate);
-
-      const q = query(
-        collection(firestore, 'order_items'),
-        where('userId', '==', user.uid),
-        where('timestamp', '>=', start.toISOString()),
-        where('timestamp', '<=', end.toISOString())
-      );
-
-      const querySnapshot = await getDocs(q);
-      const fetchedItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Item));
-      setItems(fetchedItems);
-    } catch (error) {
-      console.error('Error fetching items for date: ', error);
-      toast({ variant: 'destructive', title: 'Erro ao buscar lançamentos.' });
-    } finally {
+    if (date && allItems) {
+      setIsLoading(true);
+      const start = startOfDay(date);
+      const end = endOfDay(date);
+      
+      const filteredItems = allItems.filter(item => {
+          try {
+              const itemDate = new Date(item.timestamp);
+              return isWithinInterval(itemDate, { start, end });
+          } catch(e) {
+              return false;
+          }
+      });
+      
+      setItems(filteredItems);
       setIsLoading(false);
+    } else if (!allItems) {
+      setIsLoading(isLoadingAllItems);
     }
-  };
+  }, [date, allItems, isLoadingAllItems]);
+
 
   const handleGenerateReport = async () => {
     if (!firestore || !user || !date || items.length === 0) {
