@@ -648,9 +648,9 @@ export default function Home() {
                 <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
             </div>
              <div className="flex justify-end gap-2">
-                <Link href="/history" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2">
+                <Link href="/reports" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2">
                     <History className="mr-2 h-4 w-4" />
-                    Histórico
+                    Relatórios
                 </Link>
             </div>
         </div>

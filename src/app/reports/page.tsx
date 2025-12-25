@@ -42,7 +42,7 @@ const formatCurrency = (value: number | undefined | null) => {
     }).format(value || 0);
 };
 
-export default function HistoryPage() {
+export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -319,7 +319,7 @@ export default function HistoryPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatório do Dia</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios</h1>
               <p className="text-muted-foreground">{date ? format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'Selecione uma data'}</p>
             </div>
           </div>
