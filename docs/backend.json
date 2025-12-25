@@ -80,25 +80,6 @@
         "stock": { "type": "number" }
       },
       "required": ["name", "price", "stock"]
-    },
-    "DailyReport": {
-        "title": "Daily Report",
-        "description": "Represents a summarized report of a day's sales.",
-        "type": "object",
-        "properties": {
-            "userId": { "type": "string" },
-            "totalAVista": { "type": "number" },
-            "totalFiadoRua": { "type": "number" },
-            "totalFiadoSalao": { "type": "number" },
-            "total": { "type": "number" },
-            "items": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/backend/entities/OrderItem"
-                }
-            }
-        },
-        "required": ["userId", "totalAVista", "totalFiadoRua", "totalFiadoSalao", "total", "items"]
     }
   },
   "auth": {
@@ -144,16 +125,6 @@
             "$ref": "#/backend/entities/BomboniereItem"
           },
           "description": "Shared list of bomboniere items."
-        }
-      },
-      {
-        "path": "/daily_reports/{reportId}",
-        "definition": {
-            "entityName": "DailyReport",
-            "schema": {
-                "$ref": "#/backend/entities/DailyReport"
-            },
-            "description": "Stores generated daily sales reports."
         }
       }
     ]
