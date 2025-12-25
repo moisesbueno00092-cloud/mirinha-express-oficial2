@@ -35,9 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-
-
-import type { DailyReport } from '@/types';
+import type { DailyReport, ItemCount } from '@/types';
 
 
 const formatCurrency = (value: number | undefined | null) => {
@@ -87,45 +85,47 @@ export default function ReportsPage() {
 
   const ProportionChart = ({ report }: { report: DailyReport }) => {
     const chartData = [
-      { name: 'Vendas', value: report.totalAVista || 0, fill: 'hsl(var(--chart-1))' },
-      { name: 'Fiado', value: report.totalFiado || 0, fill: 'hsl(var(--destructive))' },
+      { name: 'Vendas Salão', value: report.totalVendasSalao || 0, fill: 'hsl(var(--primary))' },
+      { name: 'Vendas Rua', value: report.totalVendasRua || 0, fill: 'hsl(var(--chart-2))' },
+      { name: 'Fiado Salão', value: report.totalFiadoSalao || 0, fill: 'hsl(var(--chart-3))' },
+      { name: 'Fiado Rua', value: report.totalFiadoRua || 0, fill: 'hsl(var(--destructive))' },
     ];
     const chartConfig = {
-      vendas: { label: "Vendas", color: "hsl(var(--chart-1))" },
-      fiado: { label: "Fiado", color: "hsl(var(--destructive))" },
+      "Vendas Salão": { label: "Vendas Salão", color: "hsl(var(--primary))" },
+      "Vendas Rua": { label: "Vendas Rua", color: "hsl(var(--chart-2))" },
+      "Fiado Salão": { label: "Fiado Salão", color: "hsl(var(--chart-3))" },
+      "Fiado Rua": { label: "Fiado Rua", color: "hsl(var(--destructive))" },
     };
-
+  
     // Do not render the chart if there is no data
     if (chartData.every(d => d.value === 0)) {
         return (
-            <div className="flex items-center justify-center h-[150px] text-sm text-muted-foreground">
+            <div className="flex items-center justify-center h-[120px] text-xs text-muted-foreground">
                 Sem dados para o gráfico.
             </div>
         );
     }
-
-
+  
     return (
       <ChartContainer
         config={chartConfig}
-        className="mx-auto aspect-square h-[150px]"
+        className="mx-auto aspect-square h-[120px]"
       >
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent hideLabel formatter={(value) => formatCurrency(value as number)} />}
+              content={<ChartTooltipContent hideLabel formatter={(value, name, item) => (
+                  <div className="flex flex-col">
+                      <span>{item.payload.name}</span>
+                      <span className="font-bold">{formatCurrency(value as number)}</span>
+                  </div>
+              )} />}
             />
-            <Pie
-              data={chartData}
-              dataKey="value"
-              nameKey="name"
-              innerRadius={30}
-              strokeWidth={5}
-            >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.fill} />
-              ))}
+            <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={30} strokeWidth={2}>
+            {chartData.map((entry) => (
+                <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+            ))}
             </Pie>
           </PieChart>
         </ResponsiveContainer>
@@ -133,28 +133,23 @@ export default function ReportsPage() {
     );
   };
   
-  const renderItemCounts = (report: DailyReport) => {
-    const counts = {
-        totalMarmitas: report.totalMarmitas || 0,
-        totalKg: report.totalKg || 0,
-        totalBomboniere: report.totalBomboniere || 0,
-    };
-    
-    return (
-        <div className="grid grid-cols-1 gap-4 text-sm">
-            <div>
-                <h4 className="font-semibold mb-1">Contagem de Itens</h4>
-                <Separator/>
-                <ul className="mt-2 space-y-1">
-                    {counts.totalMarmitas > 0 && <li className="flex justify-between"><span>Marmitas:</span> <span>{counts.totalMarmitas}</span></li>}
-                    {counts.totalKg > 0 && <li className="flex justify-between"><span>KG:</span> <span>{counts.totalKg}</span></li>}
-                    {counts.totalBomboniere > 0 && <li className="flex justify-between"><span>Bomboniere:</span> <span>{counts.totalBomboniere}</span></li>}
-                    {(counts.totalMarmitas === 0 && counts.totalKg === 0 && counts.totalBomboniere === 0) && <li className="text-muted-foreground">Nenhum item contado.</li>}
-                </ul>
-            </div>
-        </div>
-    )
-  }
+  const renderItemCountList = (counts?: ItemCount) => (
+    <ul className="text-xs space-y-0.5">
+        {!counts || Object.keys(counts).length === 0 ? (
+            <li className="text-muted-foreground">Nenhum</li>
+        ) : (
+        Object.entries(counts)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([name, count]) => (
+                <li key={name} className="flex justify-between">
+                    <span>• {name}:</span>
+                    <span className="font-bold">{count}</span>
+                </li>
+            ))
+        )}
+    </ul>
+  );
+
 
   const handleDeleteRequest = (reportId: string) => {
     setReportToDelete(reportId);
@@ -187,7 +182,7 @@ export default function ReportsPage() {
 
   return (
     <>
-      <AlertDialog open={!!reportToDelete} onOpenChange={setReportToDelete}>
+      <AlertDialog open={!!reportToDelete} onOpenChange={(open) => !open && setReportToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Relatório?</AlertDialogTitle>
@@ -258,49 +253,74 @@ export default function ReportsPage() {
                                             <p className="text-sm text-muted-foreground">({format(parseISO(report.createdAt), 'HH:mm:ss')})</p>
                                           )}
                                         </div>
-                                        <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                                         <div className="flex items-center gap-4">
+                                            <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                                            <div className="flex items-center">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); toast({ variant: 'destructive', title: 'Em breve', description: 'A edição de relatórios será implementada no futuro.'}) }}>
+                                                  <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteRequest(report.id); }}>
+                                                  <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                         </div>
                                     </div>
                                  </AccordionTrigger>
                                  <AccordionContent className="p-2">
                                     <Card className="bg-card/50 shadow-inner">
-                                      <CardHeader>
-                                        <div className="flex justify-between items-start">
-                                          <div>
-                                              <CardTitle className="text-lg">Detalhes do Relatório #{index + 1}</CardTitle>
-                                              <CardDescription>Faturamento Total: {formatCurrency(report.totalGeral)}</CardDescription>
-                                          </div>
-                                          <div className="flex items-center -mt-2">
-                                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); toast({ variant: 'destructive', title: 'Em breve', description: 'A edição de relatórios será implementada no futuro.'}) }}>
-                                                <Edit className="h-4 w-4" />
-                                              </Button>
-                                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteRequest(report.id); }}>
-                                                <Trash2 className="h-4 w-4" />
-                                              </Button>
-                                          </div>
-                                        </div>
-                                      </CardHeader>
-                                      <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                          <div className="md:col-span-1 space-y-2">
-                                              <h3 className="font-semibold text-center md:text-left">Resumo Financeiro</h3>
-                                               <Separator />
+                                        <CardHeader>
+                                            <CardTitle className="text-lg">Relatório #{index + 1} - FATURAMENTO</CardTitle>
+                                            <CardDescription>{formatCurrency(report.totalGeral || 0)}</CardDescription>
+                                        </CardHeader>
+                                      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                          {/* Left Column */}
+                                          <div className="space-y-4">
+                                            <div>
+                                              <h3 className="font-semibold mb-2">Resumo Financeiro</h3>
                                               <div className="space-y-1 text-sm">
-                                                  <div className="flex justify-between"><span>À Vista:</span> <span className="font-mono">{formatCurrency(report.totalAVista)}</span></div>
-                                                  <div className="flex justify-between text-destructive"><span>Fiado:</span> <span className="font-mono">{formatCurrency(report.totalFiado)}</span></div>
-                                                  <Separator className="my-2" />
-                                                  <div className="flex justify-between"><span>Taxa Motoboy:</span> <span className="font-mono">{formatCurrency(report.totalTaxas)}</span></div>
-                                                  <div className="flex justify-between"><span>Total Itens:</span> <span className="font-mono">{report.totalItens || 0}</span></div>
-                                                  <div className="flex justify-between"><span>Total Pedidos:</span> <span className="font-mono">{report.totalPedidos || 0}</span></div>
+                                                <div className="flex justify-between items-center"><span className="text-primary">Vendas Salão:</span> <span className="font-mono">{formatCurrency(report.totalVendasSalao)}</span></div>
+                                                <div className="flex justify-between items-center"><span className="text-primary">Vendas Rua:</span> <span className="font-mono">{formatCurrency(report.totalVendasRua)}</span></div>
+                                                <div className="flex justify-between items-center"><span className="text-destructive">Fiado Salão:</span> <span className="font-mono">{formatCurrency(report.totalFiadoSalao)}</span></div>
+                                                <div className="flex justify-between items-center"><span className="text-destructive">Fiado Rua:</span> <span className="font-mono">{formatCurrency(report.totalFiadoRua)}</span></div>
                                               </div>
+                                            </div>
+                                            <Separator/>
+                                            <div>
+                                              <div className="space-y-1 text-sm">
+                                                <div className="flex justify-between items-center"><span>Total Outros (O):</span> <span className="font-mono">{formatCurrency(report.totalBomboniere)}</span></div>
+                                                <div className="flex justify-between items-center"><span>Total KG:</span> <span className="font-mono">{formatCurrency(report.totalKg)}</span></div>
+                                                <div className="flex justify-between items-center"><span>Taxa p/ Motoboy:</span> <span className="font-mono">{formatCurrency(report.totalTaxas)}</span></div>
+                                              </div>
+                                            </div>
+                                            <Separator/>
+                                            <div>
+                                              <div className="space-y-1 text-sm">
+                                                <div className="flex justify-between items-center text-muted-foreground"><span>Total de Entregas:</span> <span className="font-mono font-bold text-foreground">{report.totalEntregas || 0}</span></div>
+                                                <div className="flex justify-between items-center text-muted-foreground"><span>Total Geral (Itens):</span> <span className="font-mono font-bold text-foreground">{report.totalItens || 0}</span></div>
+                                                <div className="flex justify-between items-center text-muted-foreground"><span>Total Itens (Rua):</span> <span className="font-mono font-bold text-foreground">{report.totalItensRua || 0}</span></div>
+                                              </div>
+                                            </div>
                                           </div>
-                                          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                              <div className="space-y-2">
-                                                  {renderItemCounts(report)}
-                                              </div>
-                                              <div className="space-y-2">
-                                                   <h3 className="font-semibold text-center">Proporção de Vendas</h3>
-                                                   <Separator />
-                                                   <ProportionChart report={report}/>
-                                              </div>
+                                          {/* Right Column */}
+                                          <div className="space-y-4">
+                                            <div>
+                                                <h3 className="font-semibold mb-2">Contagem de Itens</h3>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <h4 className="font-medium text-xs text-muted-foreground mb-1">Total</h4>
+                                                        {renderItemCountList(report.contagemTotal)}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
+                                                        {renderItemCountList(report.contagemRua)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <Separator />
+                                            <div>
+                                                <h3 className="font-semibold mb-2 text-center">Proporção de Vendas</h3>
+                                                <ProportionChart report={report}/>
+                                            </div>
                                           </div>
                                       </CardContent>
                                     </Card>
@@ -338,3 +358,5 @@ export default function ReportsPage() {
     </>
   );
 }
+
+    

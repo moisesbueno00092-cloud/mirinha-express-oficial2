@@ -85,3 +85,5 @@ export interface DailyReport {
   contagemTotal?: ItemCount;
   contagemRua?: ItemCount;
 }
+
+    
