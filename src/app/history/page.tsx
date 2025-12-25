@@ -120,9 +120,9 @@ export default function HistoryPage() {
       // Item Counts
       const processItemCounts = (itemSource: { name: string }[], isRua: boolean) => {
         itemSource.forEach(p => {
-          const name = p.name;
+          const name = p.name.toUpperCase();
           const countMatch = name.match(/^(\d+)/);
-          const baseName = name.replace(/^\d+/, '');
+          const baseName = name.replace(/^\d+/, '').replace(/\s+/g, '');
           const quantity = countMatch ? parseInt(countMatch[1], 10) : 1;
           
           contagemTotal[baseName] = (contagemTotal[baseName] || 0) + quantity;
@@ -141,6 +141,13 @@ export default function HistoryPage() {
       if (item.bomboniereItems) {
         item.bomboniereItems.forEach(b => {
           totalOutros += b.price * b.quantity;
+          const name = b.name.replace(/\s+/g, '').toUpperCase();
+          contagemTotal[name] = (contagemTotal[name] || 0) + b.quantity;
+          totalGeralItens += b.quantity;
+           if(group.includes('rua')){
+             contagemRua[name] = (contagemRua[name] || 0) + b.quantity;
+             totalItensRua += b.quantity;
+           }
         })
       }
 
@@ -148,12 +155,18 @@ export default function HistoryPage() {
         item.individualPrices.forEach(price => {
           totalKgValue += price;
         });
+        const name = 'KG';
+        const quantity = item.individualPrices.length;
+        contagemTotal[name] = (contagemTotal[name] || 0) + quantity;
+        totalGeralItens += quantity;
+        if(group.includes('rua')){
+           contagemRua[name] = (contagemRua[name] || 0) + quantity;
+           totalItensRua += quantity;
+        }
       }
     });
 
     const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua + totalOutros + totalKgValue;
-    totalGeralItens += items.filter(i => i.individualPrices && i.individualPrices.length > 0).length;
-    totalItensRua += items.filter(i => i.individualPrices && i.individualPrices.length > 0 && i.group.includes('rua')).length;
 
     return {
       faturamentoTotal,
@@ -262,7 +275,7 @@ export default function HistoryPage() {
   const renderItemCountList = (counts: ItemCount) => (
     <ul className="text-xs space-y-0.5">
         {Object.entries(counts)
-            .sort((a, b) => a[0].localeCompare(b[0]))
+            .sort(([a], [b]) => a.localeCompare(b))
             .map(([name, count]) => (
                 <li key={name} className="flex justify-between">
                     <span>• {name}:</span>
@@ -440,3 +453,5 @@ export default function HistoryPage() {
     </>
   );
 }
+
+    
