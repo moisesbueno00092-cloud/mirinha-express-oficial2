@@ -201,18 +201,22 @@ export default function ReportsPage() {
                                           <p className="text-sm text-muted-foreground">({format(parseISO(report.createdAt), 'HH:mm:ss')})</p>
                                         )}
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}><Edit className="h-4 w-4" /></Button>
-                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => e.stopPropagation()}><Trash2 className="h-4 w-4" /></Button>
-                                      </div>
+                                      <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                   </div>
                                </AccordionTrigger>
                                <AccordionContent className="p-2">
                                   <Card className="bg-card/50">
                                     <CardHeader>
-                                        <CardTitle className="text-lg">Relatório #{index + 1} - FATURAMENTO</CardTitle>
-                                        <CardDescription>{formatCurrency(report.totalGeral)}</CardDescription>
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle className="text-lg">Relatório #{index + 1} - FATURAMENTO</CardTitle>
+                                            <CardDescription>{formatCurrency(report.totalGeral)}</CardDescription>
+                                        </div>
+                                        <div className="flex items-center -mt-2">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                        </div>
+                                      </div>
                                     </CardHeader>
                                     <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                         {/* Resumo Financeiro */}
