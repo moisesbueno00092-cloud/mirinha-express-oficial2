@@ -197,7 +197,9 @@ export default function ReportsPage() {
                                   <div className="flex justify-between items-center w-full pr-4">
                                       <div className="flex items-center gap-2">
                                         <p className="font-semibold">Relatório #{index + 1}</p>
-                                        <p className="text-sm text-muted-foreground">({format(parseISO(report.createdAt), 'HH:mm:ss')})</p>
+                                        {report.createdAt && (
+                                          <p className="text-sm text-muted-foreground">({format(parseISO(report.createdAt), 'HH:mm:ss')})</p>
+                                        )}
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
@@ -268,6 +270,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-
-    
