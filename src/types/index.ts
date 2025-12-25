@@ -49,19 +49,39 @@ export interface FavoriteClient {
   command: string;
 }
 
+export type ItemCount = { [itemName: string]: number };
+
 export interface DailyReport {
   id: string; // YYYY-MM-DD
   userId: string;
+  createdAt: string; // ISO String
+
+  // Main financial summary
+  totalGeral: number;
   totalAVista: number;
   totalFiado: number;
-
-  totalGeral: number;
-  totalMarmitas: number;
-  totalKg: number;
-  totalBomboniere: number;
-  totalTaxas: number;
   
-  totalItens: number;
-  totalPedidos: number;
-  createdAt: string; // ISO String
+  // Detailed financial breakdown
+  totalVendasSalao?: number;
+  totalVendasRua?: number;
+  totalFiadoSalao?: number;
+  totalFiadoRua?: number;
+
+  // Other financial data
+  totalKg?: number;
+  totalBomboniere?: number; // "Outros"
+  totalTaxas?: number;
+  
+  // Item/Order counts
+  totalItens?: number;
+  totalPedidos?: number;
+  totalEntregas?: number;
+  totalItensRua?: number;
+
+  // Legacy fields for compatibility
+  totalMarmitas?: number;
+
+  // Detailed counts
+  contagemTotal?: ItemCount;
+  contagemRua?: ItemCount;
 }
