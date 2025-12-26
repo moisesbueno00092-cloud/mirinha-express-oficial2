@@ -34,12 +34,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, History } from "lucide-react";
+import { Save, Loader2, History, Settings } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
 import ItemList from "@/components/item-list";
 import BomboniereModal from "@/components/bomboniere-modal";
+import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
@@ -105,6 +106,7 @@ export default function Home() {
   const [editInputValue, setEditInputValue] = useState("");
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
+  const [isStockEditModalOpen, setIsStockEditModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   
@@ -115,6 +117,8 @@ export default function Home() {
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
+  const [passwordAction, setPasswordAction] = useState<'reports' | 'stock' | null>(null);
+
 
   const { toast } = useToast();
 
@@ -535,7 +539,6 @@ export default function Home() {
         itemSource.forEach(p => {
           const name = p.name.toUpperCase().replace(/^\d+/, '').replace(/\s+/g, '');
           targetCount[name] = (targetCount[name] || 0) + p.quantity;
-          if (isRua) totalItensRua += p.quantity;
         });
       };
       
@@ -571,7 +574,9 @@ export default function Home() {
     });
 
     const totalItensSalao = Object.values(contagemTotal).reduce((sum, count) => sum + count, 0);
-    const totalGeralItens = totalItensSalao + totalItensRua;
+    const totalItensRuaCalculated = Object.values(contagemRua).reduce((sum, count) => sum + count, 0);
+    const totalGeralItens = totalItensSalao + totalItensRuaCalculated;
+
 
     const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua;
 
@@ -579,7 +584,7 @@ export default function Home() {
       faturamentoTotal, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
       totalBomboniereSalao, totalBomboniereRua,
       totalKg: totalKgValue, totalTaxas, totalEntregas, totalGeralItens,
-      totalItensRua, contagemTotal, contagemRua
+      totalItensRua: totalItensRuaCalculated, contagemTotal, contagemRua
     };
   }, [items]);
 
@@ -635,7 +640,8 @@ export default function Home() {
     }
   };
 
-  const handleOpenReports = () => {
+  const handleOpenPasswordModal = (action: 'reports' | 'stock') => {
+    setPasswordAction(action);
     setPasswordInput('');
     setIsPasswordModalOpen(true);
   }
@@ -643,12 +649,16 @@ export default function Home() {
   const handlePasswordSubmit = () => {
     if (passwordInput === 'mirinha') {
         setIsPasswordModalOpen(false);
-        router.push('/reports');
+        if (passwordAction === 'reports') {
+          router.push('/reports');
+        } else if (passwordAction === 'stock') {
+          setIsStockEditModalOpen(true);
+        }
     } else {
         toast({
             variant: 'destructive',
             title: 'Senha Incorreta',
-            description: 'A senha para aceder aos relatórios está incorreta.'
+            description: 'A senha para aceder a esta funcionalidade está incorreta.'
         })
     }
   }
@@ -739,6 +749,12 @@ export default function Home() {
         bomboniereItems={bomboniereItems || []}
       />
       
+      <StockEditModal
+        isOpen={isStockEditModalOpen}
+        onClose={() => setIsStockEditModalOpen(false)}
+        bomboniereItems={bomboniereItems || []}
+      />
+
       <Dialog open={isSaveFavoriteOpen} onOpenChange={setIsSaveFavoriteOpen}>
         <DialogContent>
           <DialogHeader>
@@ -776,7 +792,7 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle>Acesso Restrito</DialogTitle>
             <DialogDescription>
-              Por favor, insira a senha para ver os relatórios salvos.
+              Por favor, insira a senha para continuar.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -850,9 +866,13 @@ export default function Home() {
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Salvar Relatório Final
             </Button>
-            <Button variant="outline" className="w-full md:w-auto" onClick={handleOpenReports}>
+            <Button variant="outline" className="w-full md:w-auto" onClick={() => handleOpenPasswordModal('reports')}>
                 <History className="mr-2 h-4 w-4" />
                 Ver Relatórios Salvos
+            </Button>
+            <Button variant="outline" className="w-full md:w-auto" onClick={() => handleOpenPasswordModal('stock')}>
+                <Settings className="mr-2 h-4 w-4" />
+                Gerir Stock
             </Button>
         </div>
       </div>
