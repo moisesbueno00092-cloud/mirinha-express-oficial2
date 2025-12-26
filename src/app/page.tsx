@@ -522,20 +522,6 @@ export default function Home() {
     let contagemTotal: ItemCount = {};
     let contagemRua: ItemCount = {};
   
-    const processItemCounts = (
-      itemSource: { name: string; quantity: number }[],
-      targetCount: ItemCount,
-      isPredefined: boolean
-    ) => {
-      itemSource.forEach(p => {
-        let name = p.name;
-        if (isPredefined) {
-          name = p.name.toUpperCase().replace(/^\d+/, '');
-        }
-        targetCount[name] = (targetCount[name] || 0) + p.quantity;
-      });
-    };
-  
     items.forEach(item => {
       const group = item.group || '';
       
@@ -551,24 +537,25 @@ export default function Home() {
       const targetCount = isRua ? contagemRua : contagemTotal;
   
       if (item.predefinedItems) {
-        const aggregatedPredefined: { [key:string]: {name: string, quantity: number} } = {};
-        item.predefinedItems.forEach(p => {
-            if (!aggregatedPredefined[p.name]) {
-                aggregatedPredefined[p.name] = { name: p.name, quantity: 0 };
-            }
-            aggregatedPredefined[p.name].quantity++;
+        const itemCounts: Record<string, number> = {};
+        item.predefinedItems.forEach(pItem => {
+          const key = pItem.name.toUpperCase().replace(/^\d+/, '');
+          itemCounts[key] = (itemCounts[key] || 0) + 1;
         });
-        processItemCounts(Object.values(aggregatedPredefined), targetCount, true);
+
+        for (const [name, quantity] of Object.entries(itemCounts)) {
+            targetCount[name] = (targetCount[name] || 0) + quantity;
+        }
       }
       
       if (item.individualPrices) {
-        processItemCounts([{ name: 'KG', quantity: item.individualPrices.length }], targetCount, true);
+        targetCount['KG'] = (targetCount['KG'] || 0) + item.individualPrices.length;
         item.individualPrices.forEach(price => totalKgValue += price);
       }
       
       if (item.bomboniereItems) {
-        processItemCounts(item.bomboniereItems, targetCount, false); // isPredefined = false
         item.bomboniereItems.forEach(b => {
+          targetCount[b.name] = (targetCount[b.name] || 0) + b.quantity;
           const bomboniereValue = b.price * b.quantity;
           if (isRua) {
             totalBomboniereRua += bomboniereValue;
@@ -584,14 +571,16 @@ export default function Home() {
     const totalGeralItens = totalItensSalao + totalItensRuaCalculated;
   
     const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua;
-  
+    const totalAVista = summary.totalAVista;
+    const totalFiado = summary.totalFiado;
+
     return {
-      faturamentoTotal, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
+      faturamentoTotal, totalAVista, totalFiado, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
       totalBomboniereSalao, totalBomboniereRua,
       totalKg: totalKgValue, totalTaxas, totalEntregas, totalGeralItens,
       totalItensRua: totalItensRuaCalculated, contagemTotal, contagemRua
     };
-  }, [items]);
+  }, [items, summary]);
 
   const handleSaveReport = async () => {
     if (!firestore || !user || !reportData || items.length === 0) {
