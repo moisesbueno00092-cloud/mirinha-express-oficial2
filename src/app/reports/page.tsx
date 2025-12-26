@@ -40,6 +40,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
 import type { DailyReport, ItemCount } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
+import { Badge } from '@/components/ui/badge';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -198,7 +199,7 @@ export default function ReportsPage() {
             {report.items && report.items.length > 0 && (
               <>
                 <Separator />
-                <div>
+                <div className="mt-6">
                    <DailyTimelineChart items={report.items} />
                 </div>
               </>
@@ -254,12 +255,12 @@ export default function ReportsPage() {
               {savedReports.map(report => (
                 <AccordionItem value={report.id} key={report.id}>
                     <div className="flex items-center w-full">
-                        <AccordionTrigger className="flex-1 pr-4">
+                        <AccordionTrigger className="flex-1 py-4 pr-4 font-semibold text-lg hover:no-underline">
                             <div className="flex justify-between items-center w-full">
-                                <span className="font-semibold text-lg text-left">
+                                <span className="text-left">
                                     {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                                 </span>
-                                <span className="text-primary font-bold text-lg">
+                                <span className="text-primary font-bold">
                                     {formatCurrency(report.totalGeral)}
                                 </span>
                             </div>
@@ -276,7 +277,7 @@ export default function ReportsPage() {
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
-                  <AccordionContent className="p-2">
+                  <AccordionContent className="p-2 pt-0">
                     {renderReportDetail(report)}
                   </AccordionContent>
                 </AccordionItem>
