@@ -319,9 +319,9 @@ export default function Home() {
           processedBomboniereItems.forEach(soldItem => {
               const itemDef = bomboniereItems.find(i => i.id === soldItem.id);
               if (itemDef) {
-                  const newStock = itemDef.stock - soldItem.quantity;
+                  const newStock = itemDef.estoque - soldItem.quantity;
                   const docRef = doc(bomboniereCollectionRef, itemDef.id);
-                  updateDocumentNonBlocking(docRef, { stock: newStock });
+                  updateDocumentNonBlocking(docRef, { estoque: newStock });
               }
           });
         }
@@ -872,7 +872,7 @@ export default function Home() {
             </Button>
             <Button variant="outline" className="w-full md:w-auto" onClick={() => handleOpenPasswordModal('stock')}>
                 <Settings className="mr-2 h-4 w-4" />
-                Gerir Stock
+                Gerir Estoque
             </Button>
         </div>
       </div>

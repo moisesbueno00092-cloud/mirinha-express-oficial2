@@ -111,7 +111,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
                         <p className="font-semibold">{item.name}</p>
                         <div className="flex items-center gap-2">
                           <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
-                          <p className={cn("text-xs font-bold", getStockColor(item.stock))}>(Est: {item.stock})</p>
+                          <p className={cn("text-xs font-bold", getStockColor(item.estoque))}>(Estq: {item.estoque})</p>
                         </div>
                     </div>
                     <div className="flex items-center justify-end gap-2">

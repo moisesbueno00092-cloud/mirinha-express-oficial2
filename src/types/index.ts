@@ -10,7 +10,7 @@ export interface BomboniereItem {
     id: string;
     name: string;
     price: number;
-    stock: number;
+    estoque: number;
 }
 
 export interface SelectedBomboniereItem {
@@ -84,6 +84,7 @@ export interface DailyReport {
   contagemTotal?: ItemCount; // Renamed from contagemSalao
   contagemRua?: ItemCount;
 }
+
 
 
 

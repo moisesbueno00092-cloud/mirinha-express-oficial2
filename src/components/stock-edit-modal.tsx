@@ -30,7 +30,7 @@ interface StockEditModalProps {
   bomboniereItems: BomboniereItem[];
 }
 
-type EditableItem = Omit<BomboniereItem, 'id'> & { id?: string; stock: string | number };
+type EditableItem = Omit<BomboniereItem, 'id'> & { id?: string; estoque: string | number };
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -50,7 +50,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
   useEffect(() => {
     if (isOpen) {
       const sortedItems = [...initialItems].sort((a,b) => a.name.localeCompare(b.name));
-      setItems(sortedItems);
+      setItems(sortedItems.map(item => ({...item, estoque: item.estoque ?? 0})));
     }
   }, [isOpen, initialItems]);
 
@@ -58,7 +58,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
     const newItems = [...items];
     const item = newItems[index];
 
-    if (field === 'price' || field === 'stock') {
+    if (field === 'price' || field === 'estoque') {
         const numericValue = value.replace(',', '.');
         if (!isNaN(parseFloat(numericValue)) || numericValue === '') {
             (item[field] as any) = numericValue;
@@ -70,7 +70,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
   };
   
   const handleAddNewItem = () => {
-    setItems(prevItems => [...prevItems, { name: '', price: '', stock: '' }]);
+    setItems(prevItems => [...prevItems, { name: '', price: '', estoque: '' }]);
     setTimeout(() => {
       const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollArea) {
@@ -103,23 +103,23 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
 
       for (const item of items) {
-          const { name, price, stock } = item;
-          if (!name.trim() || String(price).trim() === '' || String(stock).trim() === '') {
+          const { name, price, estoque } = item;
+          if (!name.trim() || String(price).trim() === '' || String(estoque).trim() === '') {
               toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item "${name || 'novo'}" tem campos em branco.`});
               setIsProcessing(false);
               return;
           }
 
           const finalPrice = parseFloat(String(price).replace(',', '.'));
-          const finalStock = parseInt(String(stock), 10);
+          const finalStock = parseInt(String(estoque), 10);
           
           if(isNaN(finalPrice) || isNaN(finalStock)) {
-             toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item "${name}" tem valores inválidos para preço ou stock.`});
+             toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item "${name}" tem valores inválidos para preço ou estoque.`});
              setIsProcessing(false);
              return;
           }
 
-          const itemData = { name: name.trim(), price: finalPrice, stock: finalStock };
+          const itemData = { name: name.trim(), price: finalPrice, estoque: finalStock };
 
           if (item.id) { // Update existing
               const docRef = doc(bomboniereCollectionRef, item.id);
@@ -130,7 +130,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       }
       
       setIsProcessing(false);
-      toast({ title: "Sucesso", description: "Stock da bomboniere atualizado." });
+      toast({ title: "Sucesso", description: "Estoque da bomboniere atualizado." });
       onClose();
   };
   
@@ -155,13 +155,13 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl">
             <DialogHeader>
-                <DialogTitle className="text-center">Gerir Stock da Bomboniere</DialogTitle>
+                <DialogTitle className="text-center">Gerir Estoque da Bomboniere</DialogTitle>
             </DialogHeader>
             
             <div className="grid grid-cols-[2fr_1fr_1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-2 font-semibold text-sm text-muted-foreground">
               <span>Nome do Item</span>
               <span className="text-right">Preço (R$)</span>
-              <span className="text-right">Stock</span>
+              <span className="text-right">Estoque</span>
               <span />
             </div>
 
@@ -182,8 +182,8 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
                           placeholder="0,00"
                       />
                       <Input
-                          value={String(item.stock)}
-                          onChange={(e) => handleFieldChange(index, 'stock', e.target.value)}
+                          value={String(item.estoque)}
+                          onChange={(e) => handleFieldChange(index, 'estoque', e.target.value)}
                           type="number"
                           className="text-right"
                           placeholder="0"
