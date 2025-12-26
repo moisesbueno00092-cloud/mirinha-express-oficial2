@@ -58,21 +58,27 @@ export default function ReportsPage() {
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
 
-  const renderItemCountList = (counts: ItemCount) => {
+  const renderItemCountList = (counts: ItemCount, title?: string) => {
     const entries = Object.entries(counts);
-    if(entries.length === 0) return <p className="text-xs text-muted-foreground">Nenhum</p>;
+    if(entries.length === 0) {
+      // Don't render anything if there's no title and no items (for bomboniere)
+      return title ? <p className="text-xs text-muted-foreground">Nenhum</p> : null;
+    }
 
     return (
-        <ul className="text-xs space-y-0.5">
-            {entries
-                .sort(([, aCount], [, bCount]) => bCount - aCount)
-                .map(([name, count]) => (
-                    <li key={name} className="flex items-center gap-2">
-                        <span className="font-bold w-6 text-right">{count}</span>
-                        <span>{name}</span>
-                    </li>
-                ))}
-        </ul>
+        <div className="space-y-1.5">
+            {title && <h5 className="text-xs font-semibold text-muted-foreground/80 mt-2">{title}</h5>}
+            <ul className="text-xs space-y-0.5">
+                {entries
+                    .sort(([, aCount], [, bCount]) => bCount - aCount)
+                    .map(([name, count]) => (
+                        <li key={name} className="flex items-center gap-2">
+                            <span className="font-bold w-6 text-right">{count}</span>
+                            <span>{name}</span>
+                        </li>
+                    ))}
+            </ul>
+        </div>
     );
   }
 
@@ -161,11 +167,13 @@ export default function ReportsPage() {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
-                            {renderItemCountList(report.contagemTotal || {})}
+                            {renderItemCountList(report.contagemLanchesSalao || {}, 'Lanches')}
+                            {renderItemCountList(report.contagemBomboniereSalao || {}, 'Bomboniere')}
                         </div>
                         <div>
                             <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
-                            {renderItemCountList(report.contagemRua || {})}
+                            {renderItemCountList(report.contagemLanchesRua || {}, 'Lanches')}
+                            {renderItemCountList(report.contagemBomboniereRua || {}, 'Bomboniere')}
                         </div>
                     </div>
                 </div>
@@ -255,7 +263,7 @@ export default function ReportsPage() {
               {savedReports.map(report => (
                 <AccordionItem value={report.id} key={report.id}>
                   <div className="flex w-full items-center" >
-                    <AccordionTrigger className="flex-grow-0 py-4 pr-2 hover:no-underline">
+                    <AccordionTrigger className="flex-1 py-4 pr-2 hover:no-underline">
                         <span className="font-semibold text-lg">
                             {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                         </span>

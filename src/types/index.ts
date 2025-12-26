@@ -80,9 +80,14 @@ export interface DailyReport {
   totalEntregas?: number;
   totalItensRua?: number;
 
-  // Detailed counts
-  contagemTotal?: ItemCount; // Renamed from contagemSalao
-  contagemRua?: ItemCount;
+  // Detailed counts for lanches/predefined items
+  contagemLanchesSalao?: ItemCount;
+  contagemLanchesRua?: ItemCount;
+
+  // Detailed counts for bomboniere items
+  contagemBomboniereSalao?: ItemCount;
+  contagemBomboniereRua?: ItemCount;
+
 
   // Raw items for the day
   items: Item[];

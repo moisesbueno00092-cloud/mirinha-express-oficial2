@@ -519,55 +519,53 @@ export default function Home() {
     let totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
     let totalBomboniereSalao = 0, totalBomboniereRua = 0;
     
-    let contagemTotal: ItemCount = {};
-    let contagemRua: ItemCount = {};
+    let contagemLanchesSalao: ItemCount = {};
+    let contagemBomboniereSalao: ItemCount = {};
+    let contagemLanchesRua: ItemCount = {};
+    let contagemBomboniereRua: ItemCount = {};
   
     items.forEach(item => {
-      const group = item.group || '';
+        const group = item.group || '';
       
-      if (group === 'Vendas salão') totalVendasSalao += item.total || 0;
-      else if (group === 'Vendas rua') totalVendasRua += item.total || 0;
-      else if (group === 'Fiados salão') totalFiadoSalao += item.total || 0;
-      else if (group === 'Fiados rua') totalFiadoRua += item.total || 0;
-  
-      totalTaxas += item.deliveryFee || 0;
-      if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
-  
-      const isRua = group.includes('rua');
-      const targetCount = isRua ? contagemRua : contagemTotal;
-  
-      if (item.predefinedItems) {
-        const itemCounts: Record<string, number> = {};
-        item.predefinedItems.forEach(pItem => {
-          const key = pItem.name.toUpperCase().replace(/^\d+/, '');
-          itemCounts[key] = (itemCounts[key] || 0) + 1;
-        });
+        if (group === 'Vendas salão') totalVendasSalao += item.total || 0;
+        else if (group === 'Vendas rua') totalVendasRua += item.total || 0;
+        else if (group === 'Fiados salão') totalFiadoSalao += item.total || 0;
+        else if (group === 'Fiados rua') totalFiadoRua += item.total || 0;
+    
+        totalTaxas += item.deliveryFee || 0;
+        if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
+    
+        const isRua = group.includes('rua');
+        const targetLanches = isRua ? contagemLanchesRua : contagemLanchesSalao;
+        const targetBomboniere = isRua ? contagemBomboniereRua : contagemBomboniereSalao;
 
-        for (const [name, quantity] of Object.entries(itemCounts)) {
-            targetCount[name] = (targetCount[name] || 0) + quantity;
+        if (item.predefinedItems) {
+            item.predefinedItems.forEach(pItem => {
+                const key = pItem.name.toUpperCase();
+                targetLanches[key] = (targetLanches[key] || 0) + 1;
+            });
         }
-      }
-      
-      if (item.individualPrices) {
-        targetCount['KG'] = (targetCount['KG'] || 0) + item.individualPrices.length;
-        item.individualPrices.forEach(price => totalKgValue += price);
-      }
-      
-      if (item.bomboniereItems) {
-        item.bomboniereItems.forEach(b => {
-          targetCount[b.name] = (targetCount[b.name] || 0) + b.quantity;
-          const bomboniereValue = b.price * b.quantity;
-          if (isRua) {
-            totalBomboniereRua += bomboniereValue;
-          } else {
-            totalBomboniereSalao += bomboniereValue;
-          }
-        });
-      }
+        
+        if (item.individualPrices) {
+            targetLanches['KG'] = (targetLanches['KG'] || 0) + item.individualPrices.length;
+            item.individualPrices.forEach(price => totalKgValue += price);
+        }
+        
+        if (item.bomboniereItems) {
+            item.bomboniereItems.forEach(b => {
+                targetBomboniere[b.name] = (targetBomboniere[b.name] || 0) + b.quantity;
+                const bomboniereValue = b.price * b.quantity;
+                if (isRua) {
+                    totalBomboniereRua += bomboniereValue;
+                } else {
+                    totalBomboniereSalao += bomboniereValue;
+                }
+            });
+        }
     });
-  
-    const totalItensSalao = Object.values(contagemTotal).reduce((sum, count) => sum + count, 0);
-    const totalItensRuaCalculated = Object.values(contagemRua).reduce((sum, count) => sum + count, 0);
+
+    const totalItensSalao = Object.values(contagemLanchesSalao).reduce((s, c) => s + c, 0) + Object.values(contagemBomboniereSalao).reduce((s, c) => s + c, 0);
+    const totalItensRuaCalculated = Object.values(contagemLanchesRua).reduce((s, c) => s + c, 0) + Object.values(contagemBomboniereRua).reduce((s, c) => s + c, 0);
     const totalGeralItens = totalItensSalao + totalItensRuaCalculated;
   
     const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua;
@@ -575,10 +573,12 @@ export default function Home() {
     const totalFiado = summary.totalFiado;
 
     return {
-      faturamentoTotal, totalAVista, totalFiado, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
-      totalBomboniereSalao, totalBomboniereRua,
-      totalKg: totalKgValue, totalTaxas, totalEntregas, totalGeralItens,
-      totalItensRua: totalItensRuaCalculated, contagemTotal, contagemRua
+        faturamentoTotal, totalAVista, totalFiado, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
+        totalBomboniereSalao, totalBomboniereRua,
+        totalKg: totalKgValue, totalTaxas, totalEntregas, totalGeralItens,
+        totalItensRua: totalItensRuaCalculated,
+        contagemLanchesSalao, contagemBomboniereSalao,
+        contagemLanchesRua, contagemBomboniereRua,
     };
   }, [items, summary]);
 
@@ -609,8 +609,10 @@ export default function Home() {
       totalPedidos: items.length,
       totalEntregas: reportData.totalEntregas,
       totalItensRua: reportData.totalItensRua,
-      contagemTotal: reportData.contagemTotal,
-      contagemRua: reportData.contagemRua,
+      contagemLanchesSalao: reportData.contagemLanchesSalao,
+      contagemBomboniereSalao: reportData.contagemBomboniereSalao,
+      contagemLanchesRua: reportData.contagemLanchesRua,
+      contagemBomboniereRua: reportData.contagemBomboniereRua,
       items: items,
     };
 
