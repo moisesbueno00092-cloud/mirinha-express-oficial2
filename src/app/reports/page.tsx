@@ -51,6 +51,23 @@ const formatCurrency = (value: number | undefined | null) => {
 
 const bomboniereNames = new Set(BOMBONIERE_ITEMS_DEFAULT.map(item => item.name));
 
+const separateItemsByCategory = (items: ItemCount): { lanches: ItemCount; bomboniere: ItemCount } => {
+  const lanches: ItemCount = {};
+  const bomboniere: ItemCount = {};
+
+  for (const [name, count] of Object.entries(items)) {
+    // A condição `!isNaN(Number(name.charAt(0)))` parece ser para itens como "2bala".
+    // A verificação `bomboniereNames.has(name)` é para nomes exatos.
+    if (bomboniereNames.has(name) || (!isNaN(Number(name.charAt(0))) && isNaN(Number(name)))) {
+        bomboniere[name] = (bomboniere[name] || 0) + count;
+    } else {
+        lanches[name] = (lanches[name] || 0) + count;
+    }
+  }
+  return { lanches, bomboniere };
+};
+
+
 const renderItemCountList = (counts: ItemCount, title?: string) => {
   if (!counts || Object.keys(counts).length === 0) {
     return null;
@@ -94,33 +111,25 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
     };
 
     const { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao } = useMemo(() => {
-        const rua = Object.entries(report.contagemRua || {}).reduce((acc, [name, count]) => {
-            if (bomboniereNames.has(name) || !isNaN(Number(name.charAt(0)))) {
-                acc.bomboniere[name] = (acc.bomboniere[name] || 0) + count;
-            } else {
-                acc.lanches[name] = (acc.lanches[name] || 0) + count;
-            }
-            return acc;
-        }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
-  
-        const salao = Object.entries(report.contagemTotal || {}).reduce((acc, [name, count]) => {
-            const ruaCount = report.contagemRua?.[name] || 0;
-            const salaoCount = count - ruaCount;
-            if (salaoCount > 0) {
-                if (bomboniereNames.has(name) || !isNaN(Number(name.charAt(0)))) {
-                    acc.bomboniere[name] = (acc.bomboniere[name] || 0) + salaoCount;
-                } else {
-                    acc.lanches[name] = (acc.lanches[name] || 0) + salaoCount;
-                }
-            }
-            return acc;
-        }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
+        const contagemRua = report.contagemRua || {};
+        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
         
+        const contagemTotal = report.contagemTotal || {};
+        const contagemSalao: ItemCount = {};
+        for (const [name, totalCount] of Object.entries(contagemTotal)) {
+          const ruaCount = contagemRua[name] || 0;
+          const salaoCount = totalCount - ruaCount;
+          if (salaoCount > 0) {
+            contagemSalao[name] = salaoCount;
+          }
+        }
+        const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
+    
         return { 
-          lanchesRua: rua.lanches, 
-          bomboniereRua: rua.bomboniere,
-          lanchesSalao: salao.lanches,
-          bomboniereSalao: salao.bomboniere,
+          lanchesRua, 
+          bomboniereRua,
+          lanchesSalao,
+          bomboniereSalao,
         };
       }, [report.contagemTotal, report.contagemRua]);
 
