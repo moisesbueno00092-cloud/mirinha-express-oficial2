@@ -52,7 +52,7 @@ const formatCurrency = (value: number | undefined | null) => {
 // Create a Set of bomboniere names for efficient lookup
 const bomboniereNames = new Set(BOMBONIERE_ITEMS_DEFAULT.map(item => item.name));
 
-const renderItemCountList = (counts: ItemCount, title: string) => {
+const renderItemCountList = (counts: ItemCount, title?: string) => {
   if (!counts || Object.keys(counts).length === 0) {
     return null;
   }
@@ -66,7 +66,7 @@ const renderItemCountList = (counts: ItemCount, title: string) => {
 
   return (
     <div>
-      <h5 className="font-medium text-xs text-muted-foreground mb-2 mt-3">{title}</h5>
+      {title && <h5 className="font-medium text-xs text-muted-foreground mb-2 mt-3">{title}</h5>}
       <ul className="text-xs space-y-0.5">
         {sortedEntries.map(([name, count]) => (
             <li key={name} className="flex items-center gap-2">
@@ -161,13 +161,13 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
                   <h3 className="font-semibold mb-2">Contagem de Itens</h3>
                   <div className="grid grid-cols-2 gap-4">
                       <div>
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Total</h4>
-                          {renderItemCountList(lanchesTotais, 'Lanches')}
+                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
+                          {renderItemCountList(lanchesTotais)}
                           {renderItemCountList(bomboniereTotais, 'Bomboniere')}
                       </div>
                       <div>
                           <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
-                          {renderItemCountList(lanchesRua, 'Lanches')}
+                          {renderItemCountList(lanchesRua)}
                           {renderItemCountList(bomboniereRua, 'Bomboniere')}
                       </div>
                   </div>
@@ -331,5 +331,7 @@ export default function ReportsPage() {
     </>
   );
 }
+
+    
 
     
