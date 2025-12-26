@@ -105,15 +105,13 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
       }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
     }, [report.contagemTotal]);
   
-    const { lanches: lanchesRua, bomboniere: bomboniereRua } = useMemo(() => {
+    const { lanches: lanchesRua } = useMemo(() => {
       return Object.entries(report.contagemRua || {}).reduce((acc, [name, count]) => {
-        if (bomboniereNames.has(name)) {
-          acc.bomboniere[name] = count;
-        } else {
+        if (!bomboniereNames.has(name)) {
           acc.lanches[name] = count;
         }
         return acc;
-      }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
+      }, { lanches: {} as ItemCount });
     }, [report.contagemRua]);
 
 
@@ -159,16 +157,18 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
             <div className="space-y-4">
               <div>
                   <h3 className="font-semibold mb-2">Contagem de Itens</h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                       <div>
                           <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
                           {renderItemCountList(lanchesTotais)}
-                          {renderItemCountList(bomboniereTotais, 'Bomboniere')}
                       </div>
                       <div>
                           <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
                           {renderItemCountList(lanchesRua)}
-                          {renderItemCountList(bomboniereRua, 'Bomboniere')}
+                      </div>
+                      <div>
+                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Bomboniere</h4>
+                          {renderItemCountList(bomboniereTotais)}
                       </div>
                   </div>
               </div>
@@ -201,7 +201,7 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
           {report.items && report.items.length > 0 && (
             <>
               <Separator />
-              <div className="mt-6 grid grid-cols-1 gap-8">
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                  <DailyTimelineChart items={report.items} dataType="total" title="Picos de Vendas (Valor)" color="primary" />
                  <DailyTimelineChart items={report.items} dataType="quantity" title="Picos de Vendas (Quantidade)" color="chart-2" />
               </div>
@@ -331,7 +331,3 @@ export default function ReportsPage() {
     </>
   );
 }
-
-    
-
-    
