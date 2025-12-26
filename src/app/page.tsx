@@ -514,15 +514,28 @@ export default function Home() {
 
   const reportData = useMemo(() => {
     if (!items) return null;
-
+  
     let totalVendasSalao = 0, totalVendasRua = 0, totalFiadoSalao = 0, totalFiadoRua = 0;
     let totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
     let totalBomboniereSalao = 0, totalBomboniereRua = 0;
     
-    let totalItensRua = 0;
     let contagemTotal: ItemCount = {};
     let contagemRua: ItemCount = {};
-
+  
+    const processItemCounts = (
+      itemSource: { name: string; quantity: number }[],
+      targetCount: ItemCount,
+      isPredefined: boolean
+    ) => {
+      itemSource.forEach(p => {
+        let name = p.name;
+        if (isPredefined) {
+          name = p.name.toUpperCase().replace(/^\d+/, '');
+        }
+        targetCount[name] = (targetCount[name] || 0) + p.quantity;
+      });
+    };
+  
     items.forEach(item => {
       const group = item.group || '';
       
@@ -530,27 +543,13 @@ export default function Home() {
       else if (group === 'Vendas rua') totalVendasRua += item.total || 0;
       else if (group === 'Fiados salão') totalFiadoSalao += item.total || 0;
       else if (group === 'Fiados rua') totalFiadoRua += item.total || 0;
-
+  
       totalTaxas += item.deliveryFee || 0;
       if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
-
-      const processItemCounts = (
-        itemSource: { name: string; quantity: number }[],
-        isRua: boolean,
-        isPredefined: boolean
-      ) => {
-        const targetCount = isRua ? contagemRua : contagemTotal;
-        itemSource.forEach(p => {
-          let name = p.name;
-          if (isPredefined) {
-            name = p.name.toUpperCase().replace(/^\d+/, '');
-          }
-          targetCount[name] = (targetCount[name] || 0) + p.quantity;
-        });
-      };
-
+  
       const isRua = group.includes('rua');
-      
+      const targetCount = isRua ? contagemRua : contagemTotal;
+  
       if (item.predefinedItems) {
         const aggregatedPredefined: { [key:string]: {name: string, quantity: number} } = {};
         item.predefinedItems.forEach(p => {
@@ -559,16 +558,16 @@ export default function Home() {
             }
             aggregatedPredefined[p.name].quantity++;
         });
-        processItemCounts(Object.values(aggregatedPredefined), isRua, true);
+        processItemCounts(Object.values(aggregatedPredefined), targetCount, true);
       }
       
       if (item.individualPrices) {
-        processItemCounts([{ name: 'KG', quantity: item.individualPrices.length }], isRua, true);
+        processItemCounts([{ name: 'KG', quantity: item.individualPrices.length }], targetCount, true);
         item.individualPrices.forEach(price => totalKgValue += price);
       }
       
       if (item.bomboniereItems) {
-        processItemCounts(item.bomboniereItems, isRua, false);
+        processItemCounts(item.bomboniereItems, targetCount, false); // isPredefined = false
         item.bomboniereItems.forEach(b => {
           const bomboniereValue = b.price * b.quantity;
           if (isRua) {
@@ -579,14 +578,13 @@ export default function Home() {
         });
       }
     });
-
+  
     const totalItensSalao = Object.values(contagemTotal).reduce((sum, count) => sum + count, 0);
     const totalItensRuaCalculated = Object.values(contagemRua).reduce((sum, count) => sum + count, 0);
     const totalGeralItens = totalItensSalao + totalItensRuaCalculated;
-
-
+  
     const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua;
-
+  
     return {
       faturamentoTotal, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
       totalBomboniereSalao, totalBomboniereRua,
@@ -608,8 +606,8 @@ export default function Home() {
       reportDate: format(new Date(), 'yyyy-MM-dd'),
       createdAt: new Date().toISOString(),
       totalGeral: reportData.faturamentoTotal,
-      totalAVista: reportData.totalVendasSalao + reportData.totalVendasRua,
-      totalFiado: reportData.totalFiadoSalao + reportData.totalFiadoRua,
+      totalAVista: reportData.totalAVista,
+      totalFiado: reportData.totalFiado,
       totalVendasSalao: reportData.totalVendasSalao,
       totalVendasRua: reportData.totalVendasRua,
       totalFiadoSalao: reportData.totalFiadoSalao,
@@ -910,11 +908,5 @@ export default function Home() {
     </>
   );
 }
-
-    
-
-    
-
-    
 
     
