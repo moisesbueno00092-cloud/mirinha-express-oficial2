@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/chart"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
-import type { DailyReport, ItemCount } from '@/types';
+import type { DailyReport, ItemCount, Item } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
 import { BOMBONIERE_ITEMS_DEFAULT } from '@/lib/constants';
 
@@ -55,13 +55,15 @@ const separateItemsByCategory = (items: ItemCount): { lanches: ItemCount; bombon
   const lanches: ItemCount = {};
   const bomboniere: ItemCount = {};
 
+  if (!items) return { lanches, bomboniere };
+
   for (const [name, count] of Object.entries(items)) {
-    // A condição `!isNaN(Number(name.charAt(0)))` parece ser para itens como "2bala".
-    // A verificação `bomboniereNames.has(name)` é para nomes exatos.
-    if (bomboniereNames.has(name) || (!isNaN(Number(name.charAt(0))) && isNaN(Number(name)))) {
-        bomboniere[name] = (bomboniere[name] || 0) + count;
+    const bomboniereItemDef = BOMBONIERE_ITEMS_DEFAULT.find(bi => bi.name.toLowerCase().replace(/\s+/g, '-') === name.toLowerCase());
+
+    if (bomboniereItemDef || bomboniereNames.has(name) || /^\d+[a-zA-Z]+/.test(name) || name.match(/bala|chiclete|chocolate/i)) {
+      bomboniere[name] = (bomboniere[name] || 0) + count;
     } else {
-        lanches[name] = (lanches[name] || 0) + count;
+      lanches[name] = (lanches[name] || 0) + count;
     }
   }
   return { lanches, bomboniere };
@@ -111,27 +113,45 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
     };
 
     const { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao } = useMemo(() => {
-        const contagemRua = report.contagemRua || {};
-        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
-        
-        const contagemTotal = report.contagemTotal || {};
-        const contagemSalao: ItemCount = {};
-        for (const [name, totalCount] of Object.entries(contagemTotal)) {
-          const ruaCount = contagemRua[name] || 0;
-          const salaoCount = totalCount - ruaCount;
-          if (salaoCount > 0) {
-            contagemSalao[name] = salaoCount;
-          }
+      const contagemSalao: ItemCount = {};
+      const contagemRua: ItemCount = {};
+
+      const processItemCounts = (item: Item, targetCount: ItemCount) => {
+        if (item.predefinedItems) {
+            item.predefinedItems.forEach(pItem => {
+                const key = pItem.name.toUpperCase();
+                targetCount[key] = (targetCount[key] || 0) + 1;
+            });
         }
-        const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
-    
-        return { 
-          lanchesRua, 
-          bomboniereRua,
-          lanchesSalao,
-          bomboniereSalao,
-        };
-      }, [report.contagemTotal, report.contagemRua]);
+        if (item.individualPrices) {
+            targetCount['KG'] = (targetCount['KG'] || 0) + item.individualPrices.length;
+        }
+        if (item.bomboniereItems) {
+            item.bomboniereItems.forEach(bItem => {
+                const key = bItem.name;
+                targetCount[key] = (targetCount[key] || 0) + bItem.quantity;
+            });
+        }
+      };
+
+      (report.items || []).forEach(item => {
+        if (item.group.includes('rua')) {
+          processItemCounts(item, contagemRua);
+        } else {
+          processItemCounts(item, contagemSalao);
+        }
+      });
+      
+      const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
+      const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
+  
+      return { 
+        lanchesRua, 
+        bomboniereRua,
+        lanchesSalao,
+        bomboniereSalao,
+      };
+    }, [report.items]);
 
 
   return (
