@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -11,9 +11,19 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Accordion,
   AccordionContent,
@@ -44,6 +54,8 @@ export default function ReportsPage() {
   
   const dailyReportsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'desc')) : null), [firestore, user]);
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(dailyReportsRef);
+  
+  const [reportToDelete, setReportToDelete] = useState<string | null>(null);
 
   const renderItemCountList = (counts: ItemCount) => {
     const entries = Object.entries(counts);
@@ -62,6 +74,30 @@ export default function ReportsPage() {
         </ul>
     );
   }
+
+  const handleDeleteReportRequest = (reportId: string) => {
+    setReportToDelete(reportId);
+  };
+
+  const confirmDeleteReport = async () => {
+    if (!firestore || !reportToDelete) return;
+    try {
+      await deleteDoc(doc(firestore, "daily_reports", reportToDelete));
+      toast({
+        title: "Sucesso",
+        description: "Relatório excluído permanentemente.",
+      });
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível excluir o relatório.",
+      });
+    } finally {
+      setReportToDelete(null);
+    }
+  };
   
   const renderReportDetail = (report: DailyReport) => {
       const chartData = [
@@ -170,50 +206,80 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-5xl p-2 sm:p-4 lg:p-8">
-      <header className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/" passHref>
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios Salvos</h1>
-            <p className="text-muted-foreground">Histórico de relatórios diários finalizados.</p>
-          </div>
-        </div>
-      </header>
+    <>
+      <AlertDialog open={!!reportToDelete} onOpenChange={(open) => !open && setReportToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Relatório?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente o relatório selecionado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteReport}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      <main className="space-y-2">
-        {savedReports && savedReports.length > 0 ? (
-          <Accordion type="single" collapsible className="w-full">
-            {savedReports.map(report => (
-              <AccordionItem value={report.id} key={report.id}>
-                <AccordionTrigger>
-                  <div className="flex justify-between w-full pr-4">
-                    <span className="font-semibold text-lg">
-                      {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                    </span>
-                    <span className="text-primary font-bold text-lg">
-                      {formatCurrency(report.totalGeral)}
-                    </span>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="p-2">
-                  {renderReportDetail(report)}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        ) : (
-          <Card>
-            <CardContent className="p-10 text-center text-muted-foreground">
-              <p>Nenhum relatório salvo encontrado.</p>
-            </CardContent>
-          </Card>
-        )}
-      </main>
-    </div>
+      <div className="container mx-auto max-w-5xl p-2 sm:p-4 lg:p-8">
+        <header className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/" passHref>
+              <Button variant="outline" size="icon">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios Salvos</h1>
+              <p className="text-muted-foreground">Histórico de relatórios diários finalizados.</p>
+            </div>
+          </div>
+        </header>
+
+        <main className="space-y-2">
+          {savedReports && savedReports.length > 0 ? (
+            <Accordion type="single" collapsible className="w-full">
+              {savedReports.map(report => (
+                <AccordionItem value={report.id} key={report.id}>
+                  <AccordionTrigger>
+                    <div className="flex justify-between items-center w-full pr-4">
+                      <span className="font-semibold text-lg">
+                        {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                      </span>
+                      <div className="flex items-center gap-4">
+                        <span className="text-primary font-bold text-lg">
+                          {formatCurrency(report.totalGeral)}
+                        </span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Impede que o acordeão abra/feche
+                            handleDeleteReportRequest(report.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="p-2">
+                    {renderReportDetail(report)}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          ) : (
+            <Card>
+              <CardContent className="p-10 text-center text-muted-foreground">
+                <p>Nenhum relatório salvo encontrado.</p>
+              </CardContent>
+            </Card>
+          )}
+        </main>
+      </div>
+    </>
   );
 }
