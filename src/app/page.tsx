@@ -507,7 +507,9 @@ export default function Home() {
     if (!items) return null;
 
     let totalVendasSalao = 0, totalVendasRua = 0, totalFiadoSalao = 0, totalFiadoRua = 0;
-    let bomboniereValue = 0, totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
+    let totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
+    let totalBomboniereSalao = 0, totalBomboniereRua = 0;
+    
     let totalGeralItens = 0, totalItensRua = 0;
     let contagemTotal: ItemCount = {};
     let contagemRua: ItemCount = {};
@@ -523,21 +525,17 @@ export default function Home() {
       totalTaxas += item.deliveryFee || 0;
       if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
 
-      const processItemCounts = (itemSource: { name: string, quantity: number }[], targetCount: ItemCount) => {
+      const processItemCounts = (itemSource: { name: string, quantity: number }[], isRua: boolean) => {
+        const targetCount = isRua ? contagemRua : contagemTotal;
         itemSource.forEach(p => {
           const name = p.name.toUpperCase().replace(/^\d+/, '').replace(/\s+/g, '');
           targetCount[name] = (targetCount[name] || 0) + p.quantity;
-          totalGeralItens += p.quantity;
+          if (isRua) totalItensRua += p.quantity;
         });
       };
       
-      const targetCount = group.includes('rua') ? contagemRua : contagemTotal;
-      if (group.includes('rua')) {
-        if(item.predefinedItems) totalItensRua += item.predefinedItems.length;
-        if(item.bomboniereItems) totalItensRua += item.bomboniereItems.reduce((acc, b) => acc + b.quantity, 0);
-        if(item.individualPrices) totalItensRua += item.individualPrices.length;
-      }
-
+      const isRua = group.includes('rua');
+      
       if (item.predefinedItems) {
         const aggregatedPredefined: { [key:string]: {name: string, quantity: number} } = {};
         item.predefinedItems.forEach(p => {
@@ -546,25 +544,36 @@ export default function Home() {
             }
             aggregatedPredefined[p.name].quantity++;
         });
-        processItemCounts(Object.values(aggregatedPredefined), targetCount);
+        processItemCounts(Object.values(aggregatedPredefined), isRua);
       }
       
       if (item.individualPrices) {
-        processItemCounts([{ name: 'KG', quantity: item.individualPrices.length }], targetCount);
+        processItemCounts([{ name: 'KG', quantity: item.individualPrices.length }], isRua);
         item.individualPrices.forEach(price => totalKgValue += price);
       }
       
       if (item.bomboniereItems) {
-        processItemCounts(item.bomboniereItems, targetCount);
-        item.bomboniereItems.forEach(b => bomboniereValue += b.price * b.quantity);
+        processItemCounts(item.bomboniereItems, isRua);
+        item.bomboniereItems.forEach(b => {
+          const bomboniereValue = b.price * b.quantity;
+          if (isRua) {
+            totalBomboniereRua += bomboniereValue;
+          } else {
+            totalBomboniereSalao += bomboniereValue;
+          }
+        });
       }
     });
+
+    const totalItensSalao = Object.values(contagemTotal).reduce((sum, count) => sum + count, 0);
+    totalGeralItens = totalItensSalao + totalItensRua;
 
     const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua;
 
     return {
       faturamentoTotal, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
-      totalBomboniere: bomboniereValue, totalKg: totalKgValue, totalTaxas, totalEntregas, totalGeralItens,
+      totalBomboniereSalao, totalBomboniereRua,
+      totalKg: totalKgValue, totalTaxas, totalEntregas, totalGeralItens,
       totalItensRua, contagemTotal, contagemRua
     };
   }, [items]);
@@ -589,7 +598,8 @@ export default function Home() {
       totalFiadoSalao: reportData.totalFiadoSalao,
       totalFiadoRua: reportData.totalFiadoRua,
       totalKg: reportData.totalKg,
-      totalBomboniere: reportData.totalBomboniere,
+      totalBomboniereRua: reportData.totalBomboniereRua,
+      totalBomboniereSalao: reportData.totalBomboniereSalao,
       totalTaxas: reportData.totalTaxas,
       totalItens: reportData.totalGeralItens,
       totalPedidos: items.length,
