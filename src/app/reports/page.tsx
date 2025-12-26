@@ -97,7 +97,7 @@ export default function ReportsPage() {
               <Separator/>
                <div>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center"><span>Total Outros (O):</span> <span className="font-mono">{formatCurrency(report.totalBomboniere)}</span></div>
+                  <div className="flex justify-between items-center"><span>Bomboniere:</span> <span className="font-mono">{formatCurrency(report.totalBomboniere)}</span></div>
                   <div className="flex justify-between items-center"><span>Total KG:</span> <span className="font-mono">{formatCurrency(report.totalKg)}</span></div>
                   <div className="flex justify-between items-center"><span>Taxa p/ Motoboy:</span> <span className="font-mono">{formatCurrency(report.totalTaxas)}</span></div>
                 </div>
