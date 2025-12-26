@@ -477,12 +477,13 @@ export default function Home() {
   
   const summary = useMemo(() => {
     if (!items) {
-      return { total: 0, totalAVista: 0, totalFiado: 0 };
+      return { total: 0, totalAVista: 0, totalFiado: 0, totalEntregas: 0 };
     }
 
     let total = 0;
     let totalAVista = 0;
     let totalFiado = 0;
+    let totalEntregas = 0;
     
     items.forEach(item => {
       total += item.total;
@@ -491,9 +492,12 @@ export default function Home() {
       } else {
         totalAVista += item.total;
       }
+      if (item.group.includes('rua') || item.deliveryFee > 0) {
+        totalEntregas += 1;
+      }
     });
 
-    return { total, totalAVista, totalFiado };
+    return { total, totalAVista, totalFiado, totalEntregas };
   }, [items]);
 
   const reportData = useMemo(() => {
@@ -777,7 +781,7 @@ export default function Home() {
       </div>
 
       {/* Static Action Buttons Block */}
-      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pt-0">
+      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pt-0 mb-24">
           <div className="mt-8 flex flex-col md:flex-row md:items-end md:justify-end gap-2">
               <Button 
                   onClick={handleSaveReport}
@@ -798,12 +802,15 @@ export default function Home() {
 
       {/* Floating Summary Footer */}
       <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
-        <div className="container mx-auto max-w-4xl grid grid-cols-1 md:grid-cols-3 items-center p-4 text-xs sm:text-sm gap-4">
+        <div className="container mx-auto max-w-4xl grid grid-cols-2 md:grid-cols-3 items-center p-4 text-xs sm:text-sm gap-4">
             <div className="flex flex-col gap-1">
                 <div><span className="text-muted-foreground">À Vista:</span> <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span></div>
                 <div><span className="text-muted-foreground">Fiado:</span> <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span></div>
             </div>
-            <div className="col-span-2 flex flex-col items-start md:items-end">
+            <div className="flex flex-col gap-1 md:items-center">
+                 <div><span className="text-muted-foreground">Entregas:</span> <span className="font-bold text-foreground">{summary.totalEntregas}</span></div>
+            </div>
+            <div className="col-span-2 md:col-span-1 flex flex-col items-start md:items-end">
                 <span className="text-muted-foreground">Faturamento do Dia:</span>
                 <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
             </div>
