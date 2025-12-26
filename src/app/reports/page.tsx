@@ -255,27 +255,25 @@ export default function ReportsPage() {
               {savedReports.map(report => (
                 <AccordionItem value={report.id} key={report.id}>
                   <div className="flex w-full items-center">
-                      <AccordionTrigger className="flex-1 py-4 pr-2 hover:no-underline">
-                          <div className="flex w-full items-center justify-between">
-                            <span className="font-semibold text-lg">
-                                {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                            </span>
-                            <span className="font-bold text-lg text-primary">
-                                {formatCurrency(report.totalGeral)}
-                            </span>
-                          </div>
-                      </AccordionTrigger>
-                      <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive ml-2"
-                          onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteReportRequest(report.id);
-                          }}
-                          >
-                          <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <AccordionTrigger className="flex-1 py-4 pr-2 hover:no-underline">
+                        <span className="font-semibold text-lg">
+                            {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                        </span>
+                    </AccordionTrigger>
+                    <span className="font-bold text-lg text-primary text-right px-4">
+                        {formatCurrency(report.totalGeral)}
+                    </span>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive ml-2"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteReportRequest(report.id);
+                        }}
+                        >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                   <AccordionContent className="p-2 pt-0">
                     {renderReportDetail(report)}
