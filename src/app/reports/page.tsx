@@ -96,9 +96,9 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
     const { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao } = useMemo(() => {
         const rua = Object.entries(report.contagemRua || {}).reduce((acc, [name, count]) => {
             if (bomboniereNames.has(name)) {
-                acc.bomboniere[name] = count;
+                acc.bomboniere[name] = (acc.bomboniere[name] || 0) + count;
             } else {
-                acc.lanches[name] = count;
+                acc.lanches[name] = (acc.lanches[name] || 0) + count;
             }
             return acc;
         }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
@@ -108,9 +108,9 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
             const salaoCount = count - ruaCount;
             if (salaoCount > 0) {
                 if (bomboniereNames.has(name)) {
-                    acc.bomboniere[name] = salaoCount;
+                    acc.bomboniere[name] = (acc.bomboniere[name] || 0) + salaoCount;
                 } else {
-                    acc.lanches[name] = salaoCount;
+                    acc.lanches[name] = (acc.lanches[name] || 0) + salaoCount;
                 }
             }
             return acc;
