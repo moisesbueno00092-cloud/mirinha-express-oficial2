@@ -71,8 +71,7 @@ export interface DailyReport {
   // Other financial data
   totalKg?: number;
   totalTaxas?: number;
-  totalBomboniereSalao?: number;
-  totalBomboniereRua?: number;
+  totalBomboniere?: number;
   
   // Item/Order counts
   totalItens?: number;
@@ -80,15 +79,12 @@ export interface DailyReport {
   totalEntregas?: number;
   totalItensRua?: number;
 
-  // Detailed counts for lanches/predefined items
-  contagemLanchesSalao?: ItemCount;
-  contagemLanchesRua?: ItemCount;
-
-  // Detailed counts for bomboniere items
-  contagemBomboniereSalao?: ItemCount;
-  contagemBomboniereRua?: ItemCount;
-
+  // Detailed counts
+  contagemTotal?: ItemCount;
+  contagemRua?: ItemCount;
 
   // Raw items for the day
   items: Item[];
 }
+
+    

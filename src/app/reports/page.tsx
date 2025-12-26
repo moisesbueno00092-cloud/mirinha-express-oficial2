@@ -58,27 +58,21 @@ export default function ReportsPage() {
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
 
-  const renderItemCountList = (counts: ItemCount, title?: string) => {
-    const entries = Object.entries(counts);
-    if(entries.length === 0) {
-      // Don't render anything if there's no title and no items (for bomboniere)
-      return title ? <p className="text-xs text-muted-foreground">Nenhum</p> : null;
+  const renderItemCountList = (counts: ItemCount) => {
+    if (!counts || Object.keys(counts).length === 0) {
+      return <p className="text-xs text-muted-foreground">Nenhum</p>;
     }
-
     return (
-        <div className="space-y-1.5">
-            {title && <h5 className="text-xs font-semibold text-muted-foreground/80 mt-2">{title}</h5>}
-            <ul className="text-xs space-y-0.5">
-                {entries
-                    .sort(([, aCount], [, bCount]) => bCount - aCount)
-                    .map(([name, count]) => (
-                        <li key={name} className="flex items-center gap-2">
-                            <span className="font-bold w-6 text-right">{count}</span>
-                            <span>{name}</span>
-                        </li>
-                    ))}
-            </ul>
-        </div>
+      <ul className="text-xs space-y-0.5">
+        {Object.entries(counts)
+          .sort(([, aCount], [, bCount]) => bCount - aCount)
+          .map(([name, count]) => (
+            <li key={name} className="flex items-center gap-2">
+              <span className="font-bold w-6 text-right">{count}</span>
+              <span>{name}</span>
+            </li>
+          ))}
+      </ul>
     );
   }
 
@@ -146,8 +140,7 @@ export default function ReportsPage() {
                 <Separator/>
                 <div>
                   <div className="space-y-1 text-sm">
-                    <div className="flex justify-between items-center"><span>Bomboniere (Salão):</span> <span className="font-mono">{formatCurrency(report.totalBomboniereSalao)}</span></div>
-                    <div className="flex justify-between items-center"><span>Bomboniere (Rua):</span> <span className="font-mono">{formatCurrency(report.totalBomboniereRua)}</span></div>
+                    <div className="flex justify-between items-center"><span>Bomboniere:</span> <span className="font-mono">{formatCurrency(report.totalBomboniere)}</span></div>
                     <div className="flex justify-between items-center"><span>Total KG:</span> <span className="font-mono">{formatCurrency(report.totalKg)}</span></div>
                   </div>
                 </div>
@@ -166,14 +159,12 @@ export default function ReportsPage() {
                     <h3 className="font-semibold mb-2">Contagem de Itens</h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
-                            {renderItemCountList(report.contagemLanchesSalao || {}, 'Lanches')}
-                            {renderItemCountList(report.contagemBomboniereSalao || {}, 'Bomboniere')}
+                            <h4 className="font-medium text-xs text-muted-foreground mb-1">Total</h4>
+                            {renderItemCountList(report.contagemTotal || {})}
                         </div>
                         <div>
                             <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
-                            {renderItemCountList(report.contagemLanchesRua || {}, 'Lanches')}
-                            {renderItemCountList(report.contagemBomboniereRua || {}, 'Bomboniere')}
+                            {renderItemCountList(report.contagemRua || {})}
                         </div>
                     </div>
                 </div>
@@ -302,3 +293,5 @@ export default function ReportsPage() {
     </>
   );
 }
+
+    

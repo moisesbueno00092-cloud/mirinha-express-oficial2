@@ -517,12 +517,28 @@ export default function Home() {
   
     let totalVendasSalao = 0, totalVendasRua = 0, totalFiadoSalao = 0, totalFiadoRua = 0;
     let totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
-    let totalBomboniereSalao = 0, totalBomboniereRua = 0;
+    let totalBomboniere = 0;
     
-    let contagemLanchesSalao: ItemCount = {};
-    let contagemBomboniereSalao: ItemCount = {};
-    let contagemLanchesRua: ItemCount = {};
-    let contagemBomboniereRua: ItemCount = {};
+    const contagemTotal: ItemCount = {};
+    const contagemRua: ItemCount = {};
+
+    const processItemCounts = (item: Item, targetCount: ItemCount) => {
+        if (item.predefinedItems) {
+            item.predefinedItems.forEach(pItem => {
+                const key = pItem.name.toUpperCase();
+                targetCount[key] = (targetCount[key] || 0) + 1;
+            });
+        }
+        if (item.individualPrices) {
+            targetCount['KG'] = (targetCount['KG'] || 0) + item.individualPrices.length;
+        }
+        if (item.bomboniereItems) {
+            item.bomboniereItems.forEach(bItem => {
+                const key = bItem.name;
+                targetCount[key] = (targetCount[key] || 0) + bItem.quantity;
+            });
+        }
+    };
   
     items.forEach(item => {
         const group = item.group || '';
@@ -535,50 +551,30 @@ export default function Home() {
         totalTaxas += item.deliveryFee || 0;
         if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
     
-        const isRua = group.includes('rua');
-        const targetLanches = isRua ? contagemLanchesRua : contagemLanchesSalao;
-        const targetBomboniere = isRua ? contagemBomboniereRua : contagemBomboniereSalao;
-
-        if (item.predefinedItems) {
-            item.predefinedItems.forEach(pItem => {
-                const key = pItem.name.toUpperCase();
-                targetLanches[key] = (targetLanches[key] || 0) + 1;
-            });
+        if(item.bomboniereItems) {
+          totalBomboniere += item.bomboniereItems.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
         }
-        
         if (item.individualPrices) {
-            targetLanches['KG'] = (targetLanches['KG'] || 0) + item.individualPrices.length;
-            item.individualPrices.forEach(price => totalKgValue += price);
+            totalKgValue += item.individualPrices.reduce((acc, curr) => acc + curr, 0);
         }
-        
-        if (item.bomboniereItems) {
-            item.bomboniereItems.forEach(b => {
-                targetBomboniere[b.name] = (targetBomboniere[b.name] || 0) + b.quantity;
-                const bomboniereValue = b.price * b.quantity;
-                if (isRua) {
-                    totalBomboniereRua += bomboniereValue;
-                } else {
-                    totalBomboniereSalao += bomboniereValue;
-                }
-            });
+
+        processItemCounts(item, contagemTotal);
+        if (group.includes('rua')) {
+          processItemCounts(item, contagemRua);
         }
     });
-
-    const totalItensSalao = Object.values(contagemLanchesSalao).reduce((s, c) => s + c, 0) + Object.values(contagemBomboniereSalao).reduce((s, c) => s + c, 0);
-    const totalItensRuaCalculated = Object.values(contagemLanchesRua).reduce((s, c) => s + c, 0) + Object.values(contagemBomboniereRua).reduce((s, c) => s + c, 0);
-    const totalGeralItens = totalItensSalao + totalItensRuaCalculated;
   
+    const totalItens = Object.values(contagemTotal).reduce((s, c) => s + c, 0);
+    const totalItensRua = Object.values(contagemRua).reduce((s, c) => s + c, 0);
     const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua;
     const totalAVista = summary.totalAVista;
     const totalFiado = summary.totalFiado;
 
     return {
-        faturamentoTotal, totalAVista, totalFiado, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
-        totalBomboniereSalao, totalBomboniereRua,
-        totalKg: totalKgValue, totalTaxas, totalEntregas, totalGeralItens,
-        totalItensRua: totalItensRuaCalculated,
-        contagemLanchesSalao, contagemBomboniereSalao,
-        contagemLanchesRua, contagemBomboniereRua,
+      faturamentoTotal, totalAVista, totalFiado, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
+      totalKg: totalKgValue, totalTaxas, totalEntregas, totalBomboniere,
+      contagemTotal, contagemRua,
+      totalItens, totalItensRua,
     };
   }, [items, summary]);
 
@@ -590,6 +586,8 @@ export default function Home() {
     
     setIsSavingReport(true);
     
+    // The properties in newReportData are dynamically typed.
+    // Ensure all properties from reportData are correctly assigned.
     const newReportData: DailyReport = {
       userId: user.uid,
       reportDate: format(new Date(), 'yyyy-MM-dd'),
@@ -602,17 +600,14 @@ export default function Home() {
       totalFiadoSalao: reportData.totalFiadoSalao,
       totalFiadoRua: reportData.totalFiadoRua,
       totalKg: reportData.totalKg,
-      totalBomboniereRua: reportData.totalBomboniereRua,
-      totalBomboniereSalao: reportData.totalBomboniereSalao,
       totalTaxas: reportData.totalTaxas,
-      totalItens: reportData.totalGeralItens,
+      totalBomboniere: reportData.totalBomboniere,
+      totalItens: reportData.totalItens,
       totalPedidos: items.length,
       totalEntregas: reportData.totalEntregas,
       totalItensRua: reportData.totalItensRua,
-      contagemLanchesSalao: reportData.contagemLanchesSalao,
-      contagemBomboniereSalao: reportData.contagemBomboniereSalao,
-      contagemLanchesRua: reportData.contagemLanchesRua,
-      contagemBomboniereRua: reportData.contagemBomboniereRua,
+      contagemTotal: reportData.contagemTotal,
+      contagemRua: reportData.contagemRua,
       items: items,
     };
 
@@ -899,6 +894,8 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     
 
