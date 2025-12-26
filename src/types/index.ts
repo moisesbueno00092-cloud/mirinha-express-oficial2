@@ -70,7 +70,7 @@ export interface DailyReport {
 
   // Other financial data
   totalKg?: number;
-  totalBomboniere?: number; // "Outros"
+  totalBomboniere?: number;
   totalTaxas?: number;
   
   // Item/Order counts
@@ -79,12 +79,8 @@ export interface DailyReport {
   totalEntregas?: number;
   totalItensRua?: number;
 
-  // Legacy fields for compatibility
-  totalMarmitas?: number;
-
   // Detailed counts
-  contagemSalaoMarmitas?: ItemCount;
-  contagemSalaoBomboniere?: ItemCount;
-  contagemRuaMarmitas?: ItemCount;
-  contagemRuaBomboniere?: ItemCount;
+  contagemTotal?: ItemCount; // Renamed from contagemSalao
+  contagemRua?: ItemCount;
 }
+

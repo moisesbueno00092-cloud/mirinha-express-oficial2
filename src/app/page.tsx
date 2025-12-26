@@ -509,9 +509,8 @@ export default function Home() {
     let totalVendasSalao = 0, totalVendasRua = 0, totalFiadoSalao = 0, totalFiadoRua = 0;
     let bomboniereValue = 0, totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
     let totalGeralItens = 0, totalItensRua = 0;
-    let contagemSalaoMarmitas: ItemCount = {}, contagemSalaoBomboniere: ItemCount = {};
-    let contagemRuaMarmitas: ItemCount = {}, contagemRuaBomboniere: ItemCount = {};
-
+    let contagemTotal: ItemCount = {};
+    let contagemRua: ItemCount = {};
 
     items.forEach(item => {
       const group = item.group || '';
@@ -524,48 +523,40 @@ export default function Home() {
       totalTaxas += item.deliveryFee || 0;
       if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
 
-      const isRua = group.includes('rua');
-
-      // Predefined and KG items
-      const processMarmitaItems = (itemSource: { name: string }[], quantity: number) => {
+      const processItemCounts = (itemSource: { name: string, quantity: number }[], targetCount: ItemCount) => {
         itemSource.forEach(p => {
           const name = p.name.toUpperCase().replace(/^\d+/, '').replace(/\s+/g, '');
-          const targetCount = isRua ? contagemRuaMarmitas : contagemSalaoMarmitas;
-          targetCount[name] = (targetCount[name] || 0) + quantity;
+          targetCount[name] = (targetCount[name] || 0) + p.quantity;
+          totalGeralItens += p.quantity;
         });
       };
       
+      const targetCount = group.includes('rua') ? contagemRua : contagemTotal;
+      if (group.includes('rua')) {
+        if(item.predefinedItems) totalItensRua += item.predefinedItems.length;
+        if(item.bomboniereItems) totalItensRua += item.bomboniereItems.reduce((acc, b) => acc + b.quantity, 0);
+        if(item.individualPrices) totalItensRua += item.individualPrices.length;
+      }
+
       if (item.predefinedItems) {
-        const itemCounts: Record<string, number> = {};
-        item.predefinedItems.forEach(pItem => {
-          const name = pItem.name.toUpperCase();
-          itemCounts[name] = (itemCounts[name] || 0) + 1;
+        const aggregatedPredefined: { [key:string]: {name: string, quantity: number} } = {};
+        item.predefinedItems.forEach(p => {
+            if (!aggregatedPredefined[p.name]) {
+                aggregatedPredefined[p.name] = { name: p.name, quantity: 0 };
+            }
+            aggregatedPredefined[p.name].quantity++;
         });
-        Object.entries(itemCounts).forEach(([name, quantity]) => {
-          processMarmitaItems([{ name }], quantity);
-          totalGeralItens += quantity;
-          if(isRua) totalItensRua += quantity;
-        });
+        processItemCounts(Object.values(aggregatedPredefined), targetCount);
       }
       
       if (item.individualPrices) {
-        const quantity = item.individualPrices.length;
-        processMarmitaItems([{name: 'KG'}], quantity);
+        processItemCounts([{ name: 'KG', quantity: item.individualPrices.length }], targetCount);
         item.individualPrices.forEach(price => totalKgValue += price);
-        totalGeralItens += quantity;
-        if(isRua) totalItensRua += quantity;
       }
       
-      // Bomboniere items
       if (item.bomboniereItems) {
-        item.bomboniereItems.forEach(b => {
-          bomboniereValue += b.price * b.quantity;
-          const name = b.name.replace(/\s+/g, '').toUpperCase();
-          const targetCount = isRua ? contagemRuaBomboniere : contagemSalaoBomboniere;
-          targetCount[name] = (targetCount[name] || 0) + b.quantity;
-          totalGeralItens += b.quantity;
-           if(isRua) totalItensRua += b.quantity;
-        });
+        processItemCounts(item.bomboniereItems, targetCount);
+        item.bomboniereItems.forEach(b => bomboniereValue += b.price * b.quantity);
       }
     });
 
@@ -574,9 +565,7 @@ export default function Home() {
     return {
       faturamentoTotal, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
       totalBomboniere: bomboniereValue, totalKg: totalKgValue, totalTaxas, totalEntregas, totalGeralItens,
-      totalItensRua, 
-      contagemSalaoMarmitas, contagemSalaoBomboniere,
-      contagemRuaMarmitas, contagemRuaBomboniere
+      totalItensRua, contagemTotal, contagemRua
     };
   }, [items]);
 
@@ -606,10 +595,8 @@ export default function Home() {
       totalPedidos: items.length,
       totalEntregas: reportData.totalEntregas,
       totalItensRua: reportData.totalItensRua,
-      contagemSalaoMarmitas: reportData.contagemSalaoMarmitas,
-      contagemSalaoBomboniere: reportData.contagemSalaoBomboniere,
-      contagemRuaMarmitas: reportData.contagemRuaMarmitas,
-      contagemRuaBomboniere: reportData.contagemRuaBomboniere,
+      contagemTotal: reportData.contagemTotal,
+      contagemRua: reportData.contagemRua,
     };
 
     try {

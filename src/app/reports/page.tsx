@@ -122,16 +122,12 @@ export default function ReportsPage() {
                   <h3 className="font-semibold mb-2">Contagem de Itens</h3>
                   <div className="grid grid-cols-2 gap-4">
                       <div>
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Marmitas (Salão)</h4>
-                          {renderItemCountList(report.contagemSalaoMarmitas || {})}
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1 mt-2">Bomboniere (Salão)</h4>
-                          {renderItemCountList(report.contagemSalaoBomboniere || {})}
+                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
+                          {renderItemCountList(report.contagemTotal || {})}
                       </div>
                       <div>
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Marmitas (Rua)</h4>
-                          {renderItemCountList(report.contagemRuaMarmitas || {})}
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1 mt-2">Bomboniere (Rua)</h4>
-                          {renderItemCountList(report.contagemRuaBomboniere || {})}
+                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
+                          {renderItemCountList(report.contagemRua || {})}
                       </div>
                   </div>
               </div>
