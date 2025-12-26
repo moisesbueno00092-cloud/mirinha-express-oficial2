@@ -507,10 +507,11 @@ export default function Home() {
     if (!items) return null;
 
     let totalVendasSalao = 0, totalVendasRua = 0, totalFiadoSalao = 0, totalFiadoRua = 0;
-    let totalOutros = 0, totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
+    let bomboniereValue = 0, totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
     let totalGeralItens = 0, totalItensRua = 0;
-    let contagemTotal: ItemCount = {};
-    let contagemRua: ItemCount = {};
+    let contagemSalaoMarmitas: ItemCount = {}, contagemSalaoBomboniere: ItemCount = {};
+    let contagemRuaMarmitas: ItemCount = {}, contagemRuaBomboniere: ItemCount = {};
+
 
     items.forEach(item => {
       const group = item.group || '';
@@ -523,47 +524,48 @@ export default function Home() {
       totalTaxas += item.deliveryFee || 0;
       if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
 
-      const processItemCounts = (itemSource: { name: string }[], isRua: boolean) => {
+      const isRua = group.includes('rua');
+
+      // Predefined and KG items
+      const processMarmitaItems = (itemSource: { name: string }[], quantity: number) => {
         itemSource.forEach(p => {
-          const name = p.name.toUpperCase();
-          const countMatch = name.match(/^(\d+)/);
-          const baseName = name.replace(/^\d+/, '').replace(/\s+/g, '');
-          const quantity = countMatch ? parseInt(countMatch[1], 10) : 1;
-          
-          contagemTotal[baseName] = (contagemTotal[baseName] || 0) + quantity;
-          totalGeralItens += quantity;
-          if (isRua) {
-            contagemRua[baseName] = (contagemRua[baseName] || 0) + quantity;
-            totalItensRua += quantity;
-          }
+          const name = p.name.toUpperCase().replace(/^\d+/, '').replace(/\s+/g, '');
+          const targetCount = isRua ? contagemRuaMarmitas : contagemSalaoMarmitas;
+          targetCount[name] = (targetCount[name] || 0) + quantity;
         });
       };
       
-      if (item.predefinedItems) processItemCounts(item.predefinedItems, group.includes('rua'));
+      if (item.predefinedItems) {
+        const itemCounts: Record<string, number> = {};
+        item.predefinedItems.forEach(pItem => {
+          const name = pItem.name.toUpperCase();
+          itemCounts[name] = (itemCounts[name] || 0) + 1;
+        });
+        Object.entries(itemCounts).forEach(([name, quantity]) => {
+          processMarmitaItems([{ name }], quantity);
+          totalGeralItens += quantity;
+          if(isRua) totalItensRua += quantity;
+        });
+      }
       
+      if (item.individualPrices) {
+        const quantity = item.individualPrices.length;
+        processMarmitaItems([{name: 'KG'}], quantity);
+        item.individualPrices.forEach(price => totalKgValue += price);
+        totalGeralItens += quantity;
+        if(isRua) totalItensRua += quantity;
+      }
+      
+      // Bomboniere items
       if (item.bomboniereItems) {
         item.bomboniereItems.forEach(b => {
-          totalOutros += b.price * b.quantity;
+          bomboniereValue += b.price * b.quantity;
           const name = b.name.replace(/\s+/g, '').toUpperCase();
-          contagemTotal[name] = (contagemTotal[name] || 0) + b.quantity;
+          const targetCount = isRua ? contagemRuaBomboniere : contagemSalaoBomboniere;
+          targetCount[name] = (targetCount[name] || 0) + b.quantity;
           totalGeralItens += b.quantity;
-           if(group.includes('rua')){
-             contagemRua[name] = (contagemRua[name] || 0) + b.quantity;
-             totalItensRua += b.quantity;
-           }
-        })
-      }
-
-      if (item.individualPrices) {
-        item.individualPrices.forEach(price => totalKgValue += price);
-        const name = 'KG';
-        const quantity = item.individualPrices.length;
-        contagemTotal[name] = (contagemTotal[name] || 0) + quantity;
-        totalGeralItens += quantity;
-        if(group.includes('rua')){
-           contagemRua[name] = (contagemRua[name] || 0) + quantity;
-           totalItensRua += quantity;
-        }
+           if(isRua) totalItensRua += b.quantity;
+        });
       }
     });
 
@@ -571,8 +573,10 @@ export default function Home() {
 
     return {
       faturamentoTotal, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
-      totalOutros, totalKg: totalKgValue, totalTaxas, totalEntregas, totalGeralItens,
-      totalItensRua, contagemTotal, contagemRua,
+      totalBomboniere: bomboniereValue, totalKg: totalKgValue, totalTaxas, totalEntregas, totalGeralItens,
+      totalItensRua, 
+      contagemSalaoMarmitas, contagemSalaoBomboniere,
+      contagemRuaMarmitas, contagemRuaBomboniere
     };
   }, [items]);
 
@@ -596,21 +600,22 @@ export default function Home() {
       totalFiadoSalao: reportData.totalFiadoSalao,
       totalFiadoRua: reportData.totalFiadoRua,
       totalKg: reportData.totalKg,
-      totalBomboniere: reportData.totalOutros,
+      totalBomboniere: reportData.totalBomboniere,
       totalTaxas: reportData.totalTaxas,
       totalItens: reportData.totalGeralItens,
       totalPedidos: items.length,
       totalEntregas: reportData.totalEntregas,
       totalItensRua: reportData.totalItensRua,
-      contagemTotal: reportData.contagemTotal,
-      contagemRua: reportData.contagemRua,
+      contagemSalaoMarmitas: reportData.contagemSalaoMarmitas,
+      contagemSalaoBomboniere: reportData.contagemSalaoBomboniere,
+      contagemRuaMarmitas: reportData.contagemRuaMarmitas,
+      contagemRuaBomboniere: reportData.contagemRuaBomboniere,
     };
 
     try {
       const reportsCollectionRef = collection(firestore, 'daily_reports');
       await addDoc(reportsCollectionRef, newReportData);
 
-      // Delete items from today
       const batch = writeBatch(firestore);
       items.forEach(item => {
         const docRef = doc(firestore, 'order_items', item.id);
@@ -825,5 +830,3 @@ export default function Home() {
     </>
   );
 }
-
-    

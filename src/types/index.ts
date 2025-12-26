@@ -83,6 +83,8 @@ export interface DailyReport {
   totalMarmitas?: number;
 
   // Detailed counts
-  contagemTotal?: ItemCount;
-  contagemRua?: ItemCount;
+  contagemSalaoMarmitas?: ItemCount;
+  contagemSalaoBomboniere?: ItemCount;
+  contagemRuaMarmitas?: ItemCount;
+  contagemRuaBomboniere?: ItemCount;
 }

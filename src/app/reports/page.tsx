@@ -45,18 +45,23 @@ export default function ReportsPage() {
   const dailyReportsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'desc')) : null), [firestore, user]);
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(dailyReportsRef);
 
-  const renderItemCountList = (counts: ItemCount) => (
-    <ul className="text-xs space-y-0.5">
-        {Object.entries(counts)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([name, count]) => (
-                <li key={name} className="flex justify-between">
-                    <span>• {name}:</span>
-                    <span className="font-bold">{count}</span>
-                </li>
-            ))}
-    </ul>
-  );
+  const renderItemCountList = (counts: ItemCount) => {
+    const entries = Object.entries(counts);
+    if(entries.length === 0) return <p className="text-xs text-muted-foreground">Nenhum</p>;
+
+    return (
+        <ul className="text-xs space-y-0.5">
+            {entries
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([name, count]) => (
+                    <li key={name} className="flex justify-between">
+                        <span>• {name}:</span>
+                        <span className="font-bold">{count}</span>
+                    </li>
+                ))}
+        </ul>
+    );
+  }
   
   const renderReportDetail = (report: DailyReport) => {
       const chartData = [
@@ -117,12 +122,16 @@ export default function ReportsPage() {
                   <h3 className="font-semibold mb-2">Contagem de Itens</h3>
                   <div className="grid grid-cols-2 gap-4">
                       <div>
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
-                          {renderItemCountList(report.contagemTotal || {})}
+                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Marmitas (Salão)</h4>
+                          {renderItemCountList(report.contagemSalaoMarmitas || {})}
+                          <h4 className="font-medium text-xs text-muted-foreground mb-1 mt-2">Bomboniere (Salão)</h4>
+                          {renderItemCountList(report.contagemSalaoBomboniere || {})}
                       </div>
                       <div>
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
-                          {renderItemCountList(report.contagemRua || {})}
+                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Marmitas (Rua)</h4>
+                          {renderItemCountList(report.contagemRuaMarmitas || {})}
+                          <h4 className="font-medium text-xs text-muted-foreground mb-1 mt-2">Bomboniere (Rua)</h4>
+                          {renderItemCountList(report.contagemRuaBomboniere || {})}
                       </div>
                   </div>
               </div>
