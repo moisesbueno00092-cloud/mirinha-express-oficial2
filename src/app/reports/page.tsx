@@ -60,6 +60,7 @@ const isBomboniere = (itemName: string): boolean => {
 const separateItemsByCategory = (itemCount: ItemCount) => {
     const lanches: ItemCount = {};
     const bomboniere: ItemCount = {};
+    if (!itemCount) return { lanches, bomboniere };
     for (const [name, count] of Object.entries(itemCount)) {
         if (isBomboniere(name)) {
             bomboniere[name] = (bomboniere[name] || 0) + count;
