@@ -15,10 +15,11 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { format } from 'date-fns';
 
 interface DailyTimelineChartProps {
   items: Item[];
+  dataType: 'total' | 'quantity';
+  title: string;
 }
 
 const START_HOUR = 10;
@@ -33,9 +34,13 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+const formatQuantity = (value: number) => {
+    return String(Math.round(value));
+}
+
 const formatHour = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
 
-export default function DailyTimelineChart({ items }: DailyTimelineChartProps) {
+export default function DailyTimelineChart({ items, dataType, title }: DailyTimelineChartProps) {
   const chartData = useMemo(() => {
     if (!items) return [];
 
@@ -56,7 +61,7 @@ export default function DailyTimelineChart({ items }: DailyTimelineChartProps) {
     }
     intervals[`${END_HOUR}:00`] = 0;
 
-    // Aggregate item totals into intervals
+    // Aggregate item data into intervals
     items.forEach(item => {
       try {
         const date = new Date(item.timestamp);
@@ -66,7 +71,9 @@ export default function DailyTimelineChart({ items }: DailyTimelineChartProps) {
         if (hour >= START_HOUR && hour < END_HOUR) {
           const intervalMinute = Math.floor(minute / 15) * 15;
           const timeKey = `${String(hour).padStart(2, '0')}:${String(intervalMinute).padStart(2, '0')}`;
-          intervals[timeKey] = (intervals[timeKey] || 0) + item.total;
+          
+          const valueToAdd = dataType === 'total' ? item.total : item.quantity;
+          intervals[timeKey] = (intervals[timeKey] || 0) + valueToAdd;
         }
       } catch (e) {
         // Ignore invalid timestamps
@@ -75,20 +82,23 @@ export default function DailyTimelineChart({ items }: DailyTimelineChartProps) {
 
     // Convert to recharts format
     return Object.entries(intervals)
-      .map(([time, total]) => ({ time, total }))
+      .map(([time, value]) => ({ time, value }))
       .sort((a, b) => a.time.localeCompare(b.time));
 
-  }, [items]);
+  }, [items, dataType]);
+
+  const formatter = dataType === 'total' ? formatCurrency : formatQuantity;
+  const yAxisWidth = dataType === 'total' ? 80 : 40;
 
   return (
     <div className="w-full">
       <h3 className="text-sm font-medium text-muted-foreground mb-3 text-center">
-        Picos de Vendas (10h - 15h)
+        {title}
       </h3>
       <ChartContainer
         config={{
-          total: {
-            label: 'Total',
+          value: {
+            label: dataType === 'total' ? 'Total' : 'Quantidade',
             color: 'hsl(var(--primary))',
           },
         }}
@@ -97,7 +107,7 @@ export default function DailyTimelineChart({ items }: DailyTimelineChartProps) {
         <ResponsiveContainer>
           <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: -10 }}>
             <defs>
-              <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="fillValue" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
                   stopColor="hsl(var(--primary))"
@@ -116,7 +126,7 @@ export default function DailyTimelineChart({ items }: DailyTimelineChartProps) {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value, index) => {
+              tickFormatter={(value) => {
                 if(value.endsWith(':00')) {
                    return value.split(':')[0] + 'h';
                 }
@@ -129,8 +139,8 @@ export default function DailyTimelineChart({ items }: DailyTimelineChartProps) {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                tickFormatter={(value) => formatCurrency(value as number)}
-                width={80}
+                tickFormatter={(value) => formatter(value as number)}
+                width={yAxisWidth}
              />
             <ChartTooltip
               cursor={true}
@@ -138,7 +148,7 @@ export default function DailyTimelineChart({ items }: DailyTimelineChartProps) {
                 <ChartTooltipContent
                   formatter={(value, name, props) => (
                     <div>
-                      <p className="font-bold">{formatCurrency(value as number)}</p>
+                      <p className="font-bold">{formatter(value as number)}</p>
                       <p className="text-xs text-muted-foreground">
                         {props.payload.time}
                       </p>
@@ -150,9 +160,9 @@ export default function DailyTimelineChart({ items }: DailyTimelineChartProps) {
               }
             />
             <Area
-              dataKey="total"
+              dataKey="value"
               type="monotone"
-              fill="url(#fillTotal)"
+              fill="url(#fillValue)"
               stroke="hsl(var(--primary))"
               strokeWidth={2}
               dot={false}

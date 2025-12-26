@@ -40,7 +40,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
 import type { DailyReport, ItemCount } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
-import { Badge } from '@/components/ui/badge';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -199,8 +198,9 @@ export default function ReportsPage() {
             {report.items && report.items.length > 0 && (
               <>
                 <Separator />
-                <div className="mt-6">
-                   <DailyTimelineChart items={report.items} />
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <DailyTimelineChart items={report.items} dataType="total" title="Picos de Vendas (Valor)" />
+                   <DailyTimelineChart items={report.items} dataType="quantity" title="Picos de Vendas (Quantidade)" />
                 </div>
               </>
             )}
@@ -255,8 +255,8 @@ export default function ReportsPage() {
               {savedReports.map(report => (
                 <AccordionItem value={report.id} key={report.id}>
                     <div className="flex w-full items-center">
-                        <AccordionTrigger className="py-4 pr-2 font-semibold text-lg hover:no-underline">
-                           <span>
+                        <AccordionTrigger className="py-4 pr-2 hover:no-underline flex-shrink">
+                           <span className="font-semibold text-lg">
                                 {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                            </span>
                         </AccordionTrigger>
