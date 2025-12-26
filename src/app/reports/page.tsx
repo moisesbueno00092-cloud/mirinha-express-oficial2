@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/chart"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
-import type { DailyReport, ItemCount, Item, PredefinedItem, SelectedBomboniereItem } from '@/types';
+import type { DailyReport, ItemCount } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
 import { BOMBONIERE_ITEMS_DEFAULT } from '@/lib/constants';
 
@@ -49,11 +49,25 @@ const formatCurrency = (value: number | undefined | null) => {
     }).format(value || 0);
 };
 
-const bomboniereNames = new Set(BOMBONIERE_ITEMS_DEFAULT.map(item => item.name));
+const bomboniereNames = new Set(BOMBONIERE_ITEMS_DEFAULT.map(item => item.name.toLowerCase()));
 
 const isBomboniere = (itemName: string): boolean => {
-    const bomboniereItemDef = BOMBONIERE_ITEMS_DEFAULT.find(bi => bi.name.toLowerCase().replace(/\s+/g, '-') === itemName.toLowerCase());
-    return !!bomboniereItemDef || bomboniereNames.has(itemName) || /^\d+[a-zA-Z]+/.test(itemName) || itemName.match(/bala|chiclete|chocolate/i);
+    const lowerItemName = itemName.toLowerCase();
+    const bomboniereItemDef = BOMBONIERE_ITEMS_DEFAULT.find(bi => bi.name.toLowerCase().replace(/\s+/g, '-') === lowerItemName);
+    return !!bomboniereItemDef || bomboniereNames.has(lowerItemName) || /^\d+[a-zA-Z]+/.test(lowerItemName) || lowerItemName.includes('bala') || lowerItemName.includes('chiclete') || lowerItemName.includes('chocolate');
+};
+
+const separateItemsByCategory = (itemCount: ItemCount) => {
+    const lanches: ItemCount = {};
+    const bomboniere: ItemCount = {};
+    for (const [name, count] of Object.entries(itemCount)) {
+        if (isBomboniere(name)) {
+            bomboniere[name] = (bomboniere[name] || 0) + count;
+        } else {
+            lanches[name] = (lanches[name] || 0) + count;
+        }
+    }
+    return { lanches, bomboniere };
 };
 
 const renderItemCountList = (counts: ItemCount, title?: string) => {
@@ -98,41 +112,17 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
         "Fiado Rua": { label: "Fiado Rua", color: "hsl(var(--chart-5))" },
     };
 
-    const { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao } = useMemo(() => {
-        const lanchesSalao: ItemCount = {};
-        const bomboniereSalao: ItemCount = {};
-        const lanchesRua: ItemCount = {};
-        const bomboniereRua: ItemCount = {};
+    const { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua } = useMemo(() => {
+        const contagemSalao: ItemCount = {};
+        for (const key in report.contagemTotal) {
+            contagemSalao[key] = report.contagemTotal[key] - (report.contagemRua[key] || 0);
+        }
 
-        const processItems = (items: (PredefinedItem | SelectedBomboniereItem)[], targetLanches: ItemCount, targetBomboniere: ItemCount) => {
-            items.forEach(item => {
-                const quantity = 'quantity' in item ? item.quantity : 1;
-                if (isBomboniere(item.name)) {
-                    targetBomboniere[item.name] = (targetBomboniere[item.name] || 0) + quantity;
-                } else {
-                    targetLanches[item.name] = (targetLanches[item.name] || 0) + quantity;
-                }
-            });
-        };
-        
-        report.items.forEach(item => {
-            const isRua = item.group.includes('rua');
-            const targetLanches = isRua ? lanchesRua : lanchesSalao;
-            const targetBomboniere = isRua ? bomboniereRua : bomboniereSalao;
+        const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
+        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(report.contagemRua);
 
-            if (item.predefinedItems) {
-                processItems(item.predefinedItems, targetLanches, targetBomboniere);
-            }
-            if (item.bomboniereItems) {
-                 processItems(item.bomboniereItems, targetLanches, targetBomboniere);
-            }
-            if (item.individualPrices) {
-                targetLanches['KG'] = (targetLanches['KG'] || 0) + item.individualPrices.length;
-            }
-        });
-
-        return { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao };
-    }, [report.items]);
+        return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
+    }, [report.contagemTotal, report.contagemRua]);
 
 
   return (
@@ -160,7 +150,8 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
               <Separator/>
               <div>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center"><span>Total Bomboniere:</span> <span className="font-mono">{formatCurrency(report.totalBomboniere)}</span></div>
+                  <div className="flex justify-between items-center"><span>Bomboniere Salão:</span> <span className="font-mono">{formatCurrency(report.totalBomboniereSalao)}</span></div>
+                  <div className="flex justify-between items-center"><span>Bomboniere Rua:</span> <span className="font-mono">{formatCurrency(report.totalBomboniereRua)}</span></div>
                   <div className="flex justify-between items-center"><span>Total KG:</span> <span className="font-mono">{formatCurrency(report.totalKg)}</span></div>
                 </div>
               </div>

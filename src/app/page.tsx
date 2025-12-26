@@ -522,7 +522,7 @@ export default function Home() {
     
     let totalVendasSalao = 0, totalVendasRua = 0, totalFiadoSalao = 0, totalFiadoRua = 0;
     let totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
-    let totalBomboniere = 0;
+    let totalBomboniereSalao = 0, totalBomboniereRua = 0;
     
     const contagemTotal: ItemCount = {};
     const contagemRua: ItemCount = {};
@@ -547,6 +547,7 @@ export default function Home() {
 
     items.forEach(item => {
         const group = item.group || '';
+        const isRua = group.includes('rua');
       
         if (group === 'Vendas salão') totalVendasSalao += item.total || 0;
         else if (group === 'Vendas rua') totalVendasRua += item.total || 0;
@@ -554,16 +555,21 @@ export default function Home() {
         else if (group === 'Fiados rua') totalFiadoRua += item.total || 0;
     
         totalTaxas += item.deliveryFee || 0;
-        if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
+        if (item.deliveryFee > 0 || isRua) totalEntregas += 1;
     
-        totalBomboniere += (item.bomboniereItems || []).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+        const bomboniereValue = (item.bomboniereItems || []).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+        if (isRua) {
+            totalBomboniereRua += bomboniereValue;
+        } else {
+            totalBomboniereSalao += bomboniereValue;
+        }
         
         if (item.individualPrices) {
             totalKgValue += item.individualPrices.reduce((acc, curr) => acc + curr, 0);
         }
 
         processItemCounts(item, contagemTotal);
-        if (group.includes('rua')) {
+        if (isRua) {
           processItemCounts(item, contagemRua);
         }
     });
@@ -574,7 +580,7 @@ export default function Home() {
     const totalAVista = summary.totalAVista;
     const totalFiado = summary.totalFiado;
 
-    const newReportData: DailyReport = {
+    const newReportData: Omit<DailyReport, 'id'> = {
       userId: user.uid,
       reportDate: format(new Date(), 'yyyy-MM-dd'),
       createdAt: new Date().toISOString(),
@@ -587,7 +593,8 @@ export default function Home() {
       totalFiadoRua: totalFiadoRua,
       totalKg: totalKgValue,
       totalTaxas: totalTaxas,
-      totalBomboniere: totalBomboniere,
+      totalBomboniereSalao,
+      totalBomboniereRua,
       totalItens: totalItens,
       totalPedidos: items.length,
       totalEntregas: totalEntregas,

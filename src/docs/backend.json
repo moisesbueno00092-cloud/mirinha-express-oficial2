@@ -77,9 +77,9 @@
       "properties": {
         "name": { "type": "string" },
         "price": { "type": "number" },
-        "stock": { "type": "number" }
+        "estoque": { "type": "number" }
       },
-      "required": ["name", "price", "stock"]
+      "required": ["name", "price", "estoque"]
     },
     "DailyReport": {
       "title": "Daily Report",

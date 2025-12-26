@@ -71,7 +71,8 @@ export interface DailyReport {
   // Other financial data
   totalKg: number;
   totalTaxas: number;
-  totalBomboniere: number;
+  totalBomboniereSalao: number;
+  totalBomboniereRua: number;
   
   // Item/Order counts
   totalItens: number;
