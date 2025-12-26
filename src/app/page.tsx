@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
+import { useRouter } from 'next/navigation';
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient, DailyReport, ItemCount } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
@@ -59,6 +60,7 @@ export default function Home() {
   const firestore = useFirestore();
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
+  const router = useRouter();
   
   useEffect(() => {
     const ensureUser = async () => {
@@ -110,6 +112,9 @@ export default function Home() {
   const [itemToSaveAsFavorite, setItemToSaveAsFavorite] = useState<Item | null>(null);
   const [favoriteName, setFavoriteName] = useState("");
   const [favoriteToDelete, setFavoriteToDelete] = useState<string | null>(null);
+
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
 
   const { toast } = useToast();
 
@@ -510,7 +515,7 @@ export default function Home() {
     let totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
     let totalBomboniereSalao = 0, totalBomboniereRua = 0;
     
-    let totalGeralItens = 0, totalItensRua = 0;
+    let totalItensRua = 0;
     let contagemTotal: ItemCount = {};
     let contagemRua: ItemCount = {};
 
@@ -566,7 +571,7 @@ export default function Home() {
     });
 
     const totalItensSalao = Object.values(contagemTotal).reduce((sum, count) => sum + count, 0);
-    totalGeralItens = totalItensSalao + totalItensRua;
+    const totalGeralItens = totalItensSalao + totalItensRua;
 
     const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua;
 
@@ -629,6 +634,24 @@ export default function Home() {
       setIsSavingReport(false);
     }
   };
+
+  const handleOpenReports = () => {
+    setPasswordInput('');
+    setIsPasswordModalOpen(true);
+  }
+
+  const handlePasswordSubmit = () => {
+    if (passwordInput === 'mirinha') {
+        setIsPasswordModalOpen(false);
+        router.push('/reports');
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Senha Incorreta',
+            description: 'A senha para aceder aos relatórios está incorreta.'
+        })
+    }
+  }
 
   if (isUserLoading || !user) {
     return (
@@ -748,6 +771,40 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Acesso Restrito</DialogTitle>
+            <DialogDescription>
+              Por favor, insira a senha para ver os relatórios salvos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="password" className="text-right">
+                Senha
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="col-span-3"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handlePasswordSubmit();
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPasswordModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handlePasswordSubmit}>Aceder</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="mb-6 flex flex-col items-center justify-center text-center">
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
@@ -793,12 +850,10 @@ export default function Home() {
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Salvar Relatório Final
             </Button>
-            <Link href="/reports" className="w-full md:w-auto">
-                <Button variant="outline" className="w-full">
-                    <History className="mr-2 h-4 w-4" />
-                    Ver Relatórios Salvos
-                </Button>
-            </Link>
+            <Button variant="outline" className="w-full md:w-auto" onClick={handleOpenReports}>
+                <History className="mr-2 h-4 w-4" />
+                Ver Relatórios Salvos
+            </Button>
         </div>
       </div>
 
@@ -827,3 +882,5 @@ export default function Home() {
     </>
   );
 }
+
+    
