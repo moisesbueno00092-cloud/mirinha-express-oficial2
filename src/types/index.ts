@@ -52,8 +52,9 @@ export interface FavoriteClient {
 export type ItemCount = { [itemName: string]: number };
 
 export interface DailyReport {
-  id: string; // YYYY-MM-DD
+  id: string;
   userId: string;
+  reportDate: string; // YYYY-MM-DD
   createdAt: string; // ISO String
 
   // Main financial summary
@@ -85,5 +86,3 @@ export interface DailyReport {
   contagemTotal?: ItemCount;
   contagemRua?: ItemCount;
 }
-
-    

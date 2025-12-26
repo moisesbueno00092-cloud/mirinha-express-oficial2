@@ -2,10 +2,10 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
-import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient, DailyReport, ItemCount } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, query, where, orderBy } from "firebase/firestore";
+import { collection, doc, query, where, orderBy, deleteDoc, writeBatch } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import Link from 'next/link';
 
@@ -42,6 +42,7 @@ import BomboniereModal from "@/components/bomboniere-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -91,11 +92,12 @@ export default function Home() {
     [firestore, user]
   );
 
-  const { data: items, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
+  const { data: allItems, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   const { data: favoriteClients, isLoading: isLoadingFavorites } = useCollection<FavoriteClient>(favoriteClientsQuery);
   
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSavingReport, setIsSavingReport] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [editInputValue, setEditInputValue] = useState("");
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -108,8 +110,21 @@ export default function Home() {
   const [favoriteName, setFavoriteName] = useState("");
   const [favoriteToDelete, setFavoriteToDelete] = useState<string | null>(null);
 
-
   const { toast } = useToast();
+
+  const items = useMemo(() => {
+    if (!allItems) return [];
+    const start = startOfDay(new Date());
+    const end = endOfDay(new Date());
+    return allItems.filter(item => {
+      try {
+        if (!item.timestamp) return false;
+        return isWithinInterval(new Date(item.timestamp), { start, end });
+      } catch (e) {
+        return false;
+      }
+    });
+  }, [allItems]);
   
   useEffect(() => {
     if (firestore && !isLoadingBomboniere && bomboniereItems && bomboniereItems.length === 0) {
@@ -459,8 +474,6 @@ export default function Home() {
       handleUpsertItem(editInputValue, editingItem)
     }
   }
-
-  const displayItems = items || [];
   
   const summary = useMemo(() => {
     if (!items) {
@@ -482,6 +495,131 @@ export default function Home() {
 
     return { total, totalAVista, totalFiado };
   }, [items]);
+
+  const reportData = useMemo(() => {
+    if (!items) return null;
+
+    let totalVendasSalao = 0, totalVendasRua = 0, totalFiadoSalao = 0, totalFiadoRua = 0;
+    let totalOutros = 0, totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
+    let totalGeralItens = 0, totalItensRua = 0;
+    let contagemTotal: ItemCount = {};
+    let contagemRua: ItemCount = {};
+
+    items.forEach(item => {
+      const group = item.group || '';
+      
+      if (group === 'Vendas salão') totalVendasSalao += item.total || 0;
+      else if (group === 'Vendas rua') totalVendasRua += item.total || 0;
+      else if (group === 'Fiados salão') totalFiadoSalao += item.total || 0;
+      else if (group === 'Fiados rua') totalFiadoRua += item.total || 0;
+
+      totalTaxas += item.deliveryFee || 0;
+      if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
+
+      const processItemCounts = (itemSource: { name: string }[], isRua: boolean) => {
+        itemSource.forEach(p => {
+          const name = p.name.toUpperCase();
+          const countMatch = name.match(/^(\d+)/);
+          const baseName = name.replace(/^\d+/, '').replace(/\s+/g, '');
+          const quantity = countMatch ? parseInt(countMatch[1], 10) : 1;
+          
+          contagemTotal[baseName] = (contagemTotal[baseName] || 0) + quantity;
+          totalGeralItens += quantity;
+          if (isRua) {
+            contagemRua[baseName] = (contagemRua[baseName] || 0) + quantity;
+            totalItensRua += quantity;
+          }
+        });
+      };
+      
+      if (item.predefinedItems) processItemCounts(item.predefinedItems, group.includes('rua'));
+      
+      if (item.bomboniereItems) {
+        item.bomboniereItems.forEach(b => {
+          totalOutros += b.price * b.quantity;
+          const name = b.name.replace(/\s+/g, '').toUpperCase();
+          contagemTotal[name] = (contagemTotal[name] || 0) + b.quantity;
+          totalGeralItens += b.quantity;
+           if(group.includes('rua')){
+             contagemRua[name] = (contagemRua[name] || 0) + b.quantity;
+             totalItensRua += b.quantity;
+           }
+        })
+      }
+
+      if (item.individualPrices) {
+        item.individualPrices.forEach(price => totalKgValue += price);
+        const name = 'KG';
+        const quantity = item.individualPrices.length;
+        contagemTotal[name] = (contagemTotal[name] || 0) + quantity;
+        totalGeralItens += quantity;
+        if(group.includes('rua')){
+           contagemRua[name] = (contagemRua[name] || 0) + quantity;
+           totalItensRua += quantity;
+        }
+      }
+    });
+
+    const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua;
+
+    return {
+      faturamentoTotal, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
+      totalOutros, totalKg: totalKgValue, totalTaxas, totalEntregas, totalGeralItens,
+      totalItensRua, contagemTotal, contagemRua,
+    };
+  }, [items]);
+
+  const handleSaveReport = async () => {
+    if (!firestore || !user || !reportData || items.length === 0) {
+      toast({ variant: 'destructive', title: 'Não é possível gerar o relatório', description: 'Não há lançamentos para o dia atual.' });
+      return;
+    }
+    
+    setIsSavingReport(true);
+    
+    const newReportData: Omit<DailyReport, 'id'> = {
+      userId: user.uid,
+      reportDate: format(new Date(), 'yyyy-MM-dd'),
+      createdAt: new Date().toISOString(),
+      totalGeral: reportData.faturamentoTotal,
+      totalAVista: reportData.totalVendasSalao + reportData.totalVendasRua,
+      totalFiado: reportData.totalFiadoSalao + reportData.totalFiadoRua,
+      totalVendasSalao: reportData.totalVendasSalao,
+      totalVendasRua: reportData.totalVendasRua,
+      totalFiadoSalao: reportData.totalFiadoSalao,
+      totalFiadoRua: reportData.totalFiadoRua,
+      totalKg: reportData.totalKg,
+      totalBomboniere: reportData.totalOutros,
+      totalTaxas: reportData.totalTaxas,
+      totalItens: reportData.totalGeralItens,
+      totalPedidos: items.length,
+      totalEntregas: reportData.totalEntregas,
+      totalItensRua: reportData.totalItensRua,
+      contagemTotal: reportData.contagemTotal,
+      contagemRua: reportData.contagemRua,
+    };
+
+    try {
+      const reportsCollectionRef = collection(firestore, 'daily_reports');
+      await addDocumentNonBlocking(reportsCollectionRef, newReportData);
+
+      // Delete items from today
+      const batch = writeBatch(firestore);
+      items.forEach(item => {
+        const docRef = doc(firestore, 'order_items', item.id);
+        batch.delete(docRef);
+      });
+      await batch.commit();
+      
+      toast({ title: 'Sucesso', description: 'Relatório final salvo e lançamentos do dia limpos!' });
+
+    } catch (error) {
+      console.error("Error saving report and cleaning items:", error);
+      toast({ variant: "destructive", title: "Erro ao salvar relatório.", description: "Os lançamentos não foram limpos." });
+    } finally {
+      setIsSavingReport(false);
+    }
+  };
 
   if (isUserLoading || !user) {
     return (
@@ -601,7 +739,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-48">
+      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8">
         <header className="mb-6 flex flex-col items-center justify-center text-center">
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
           <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
@@ -627,7 +765,7 @@ export default function Home() {
           <Card>
             <CardContent className="p-2 sm:p-6">
                <ItemList
-                  items={displayItems}
+                  items={items}
                   onEdit={handleEditRequest}
                   onDelete={handleDeleteRequest}
                   isLoading={isLoadingItems}
@@ -637,20 +775,30 @@ export default function Home() {
           </Card>
         </main>
       </div>
-      <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
-        <div className="container mx-auto max-w-4xl grid grid-cols-3 items-center p-3 text-xs sm:text-sm gap-2">
+      <footer className="border-t bg-background/95 mt-8">
+        <div className="container mx-auto max-w-4xl grid grid-cols-1 md:grid-cols-3 items-center p-4 text-xs sm:text-sm gap-4">
             <div className="flex flex-col gap-1">
                 <div><span className="text-muted-foreground">À Vista:</span> <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span></div>
                 <div><span className="text-muted-foreground">Fiado:</span> <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span></div>
+                <div className="mt-1">
+                  <span className="text-muted-foreground">Faturamento do Dia:</span>
+                  <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
+                </div>
             </div>
-            <div className="text-right">
-                <span className="text-muted-foreground">Faturamento Total:</span>
-                <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
-            </div>
-             <div className="flex justify-end gap-2">
-                <Link href="/reports" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2">
-                    <History className="mr-2 h-4 w-4" />
-                    Relatórios
+            <div className="flex flex-col md:items-end gap-2">
+                <Button 
+                    onClick={handleSaveReport}
+                    disabled={isSavingReport || isLoadingItems || items.length === 0}
+                    className="w-full md:w-auto"
+                >
+                    {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Salvar Relatório Final
+                </Button>
+                <Link href="/reports" className="w-full">
+                    <Button variant="outline" className="w-full">
+                        <History className="mr-2 h-4 w-4" />
+                        Ver Relatórios Salvos
+                    </Button>
                 </Link>
             </div>
         </div>
@@ -658,5 +806,3 @@ export default function Home() {
     </>
   );
 }
-
-    
