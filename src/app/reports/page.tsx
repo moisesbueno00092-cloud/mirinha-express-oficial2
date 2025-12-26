@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/chart"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
-import type { DailyReport, ItemCount, Item } from '@/types';
+import type { DailyReport, ItemCount, Item, PredefinedItem, SelectedBomboniereItem } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
 import { BOMBONIERE_ITEMS_DEFAULT } from '@/lib/constants';
 
@@ -51,22 +51,9 @@ const formatCurrency = (value: number | undefined | null) => {
 
 const bomboniereNames = new Set(BOMBONIERE_ITEMS_DEFAULT.map(item => item.name));
 
-const separateItemsByCategory = (items: ItemCount): { lanches: ItemCount; bomboniere: ItemCount } => {
-  const lanches: ItemCount = {};
-  const bomboniere: ItemCount = {};
-
-  if (!items) return { lanches, bomboniere };
-
-  for (const [name, count] of Object.entries(items)) {
-    const bomboniereItemDef = BOMBONIERE_ITEMS_DEFAULT.find(bi => bi.name.toLowerCase().replace(/\s+/g, '-') === name.toLowerCase());
-
-    if (bomboniereItemDef || bomboniereNames.has(name) || /^\d+[a-zA-Z]+/.test(name) || name.match(/bala|chiclete|chocolate/i)) {
-      bomboniere[name] = (bomboniere[name] || 0) + count;
-    } else {
-      lanches[name] = (lanches[name] || 0) + count;
-    }
-  }
-  return { lanches, bomboniere };
+const isBomboniere = (itemName: string): boolean => {
+    const bomboniereItemDef = BOMBONIERE_ITEMS_DEFAULT.find(bi => bi.name.toLowerCase().replace(/\s+/g, '-') === itemName.toLowerCase());
+    return !!bomboniereItemDef || bomboniereNames.has(itemName) || /^\d+[a-zA-Z]+/.test(itemName) || itemName.match(/bala|chiclete|chocolate/i);
 };
 
 const renderItemCountList = (counts: ItemCount, title?: string) => {
@@ -112,21 +99,40 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
     };
 
     const { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao } = useMemo(() => {
-        const ruaCount = report.contagemRua || {};
-        const totalCount = report.contagemTotal || {};
-        const salaoCount: ItemCount = {};
+        const lanchesSalao: ItemCount = {};
+        const bomboniereSalao: ItemCount = {};
+        const lanchesRua: ItemCount = {};
+        const bomboniereRua: ItemCount = {};
 
-        for (const key in totalCount) {
-            salaoCount[key] = totalCount[key] - (ruaCount[key] || 0);
-            if (salaoCount[key] <= 0) {
-                delete salaoCount[key];
-            }
-        }
+        const processItems = (items: (PredefinedItem | SelectedBomboniereItem)[], targetLanches: ItemCount, targetBomboniere: ItemCount) => {
+            items.forEach(item => {
+                const quantity = 'quantity' in item ? item.quantity : 1;
+                if (isBomboniere(item.name)) {
+                    targetBomboniere[item.name] = (targetBomboniere[item.name] || 0) + quantity;
+                } else {
+                    targetLanches[item.name] = (targetLanches[item.name] || 0) + quantity;
+                }
+            });
+        };
         
-        const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(salaoCount);
-        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(ruaCount);
+        report.items.forEach(item => {
+            const isRua = item.group.includes('rua');
+            const targetLanches = isRua ? lanchesRua : lanchesSalao;
+            const targetBomboniere = isRua ? bomboniereRua : bomboniereSalao;
+
+            if (item.predefinedItems) {
+                processItems(item.predefinedItems, targetLanches, targetBomboniere);
+            }
+            if (item.bomboniereItems) {
+                 processItems(item.bomboniereItems, targetLanches, targetBomboniere);
+            }
+            if (item.individualPrices) {
+                targetLanches['KG'] = (targetLanches['KG'] || 0) + item.individualPrices.length;
+            }
+        });
+
         return { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao };
-    }, [report.contagemTotal, report.contagemRua]);
+    }, [report.items]);
 
 
   return (
