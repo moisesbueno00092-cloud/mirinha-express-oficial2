@@ -117,7 +117,7 @@ export default function ReportsPage() {
                   <h3 className="font-semibold mb-2">Contagem de Itens</h3>
                   <div className="grid grid-cols-2 gap-4">
                       <div>
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Total</h4>
+                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
                           {renderItemCountList(report.contagemTotal || {})}
                       </div>
                       <div>
