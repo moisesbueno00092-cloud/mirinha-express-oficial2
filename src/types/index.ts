@@ -63,27 +63,25 @@ export interface DailyReport {
   totalFiado: number;
   
   // Detailed financial breakdown
-  totalVendasSalao?: number;
-  totalVendasRua?: number;
-  totalFiadoSalao?: number;
-  totalFiadoRua?: number;
+  totalVendasSalao: number;
+  totalVendasRua: number;
+  totalFiadoSalao: number;
+  totalFiadoRua: number;
 
   // Other financial data
-  totalKg?: number;
-  totalTaxas?: number;
-  totalBomboniereSalao?: number;
-  totalBomboniereRua?: number;
+  totalKg: number;
+  totalTaxas: number;
+  totalBomboniere: number;
   
   // Item/Order counts
-  totalItens?: number;
-  totalPedidos?: number;
-  totalEntregas?: number;
-  totalItensRua?: number;
+  totalItens: number;
+  totalPedidos: number;
+  totalEntregas: number;
+  totalItensRua: number;
 
   // Detailed counts
-  contagemTotal?: ItemCount;
-  contagemRua?: ItemCount;
-  contagemSalao?: ItemCount;
+  contagemTotal: ItemCount;
+  contagemRua: ItemCount;
 
   // Raw items for the day
   items: Item[];

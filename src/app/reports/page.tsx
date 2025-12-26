@@ -98,10 +98,10 @@ const renderItemCountList = (counts: ItemCount, title?: string) => {
 
 const ReportDetail = ({ report }: { report: DailyReport }) => {
     const chartData = [
-        { name: 'Vendas Salão', value: report.totalVendasSalao || 0, fill: 'hsl(var(--primary))' },
-        { name: 'Vendas Rua', value: report.totalVendasRua || 0, fill: 'hsl(var(--chart-2))' },
-        { name: 'Fiado Salão', value: report.totalFiadoSalao || 0, fill: 'hsl(var(--chart-3))' },
-        { name: 'Fiado Rua', value: report.totalFiadoRua || 0, fill: 'hsl(var(--chart-5))' },
+        { name: 'Vendas Salão', value: report.totalVendasSalao, fill: 'hsl(var(--primary))' },
+        { name: 'Vendas Rua', value: report.totalVendasRua, fill: 'hsl(var(--chart-2))' },
+        { name: 'Fiado Salão', value: report.totalFiadoSalao, fill: 'hsl(var(--chart-3))' },
+        { name: 'Fiado Rua', value: report.totalFiadoRua, fill: 'hsl(var(--chart-5))' },
     ];
 
     const chartConfig = {
@@ -112,10 +112,21 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
     };
 
     const { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao } = useMemo(() => {
-        const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(report.contagemSalao || {});
+        const ruaCount = report.contagemRua || {};
+        const totalCount = report.contagemTotal || {};
+        const salaoCount: ItemCount = {};
+
+        for (const key in totalCount) {
+            salaoCount[key] = totalCount[key] - (ruaCount[key] || 0);
+            if (salaoCount[key] <= 0) {
+                delete salaoCount[key];
+            }
+        }
+        
+        const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(salaoCount);
         const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(report.contagemRua || {});
         return { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao };
-    }, [report.contagemSalao, report.contagemRua]);
+    }, [report.contagemTotal, report.contagemRua]);
 
 
   return (
@@ -143,8 +154,7 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
               <Separator/>
               <div>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center"><span>Bomboniere (Salão):</span> <span className="font-mono">{formatCurrency(report.totalBomboniereSalao)}</span></div>
-                  <div className="flex justify-between items-center"><span>Bomboniere (Rua):</span> <span className="font-mono">{formatCurrency(report.totalBomboniereRua)}</span></div>
+                  <div className="flex justify-between items-center"><span>Total Bomboniere:</span> <span className="font-mono">{formatCurrency(report.totalBomboniere)}</span></div>
                   <div className="flex justify-between items-center"><span>Total KG:</span> <span className="font-mono">{formatCurrency(report.totalKg)}</span></div>
                 </div>
               </div>
@@ -169,8 +179,7 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
                         </div>
                         <div>
                             <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
-                            {renderItemCountList(lanchesRua)}
-                            {renderItemCountList(bomboniereRua, "Bomboniere")}
+                            {renderItemCountList(report.contagemRua)}
                         </div>
                   </div>
               </div>

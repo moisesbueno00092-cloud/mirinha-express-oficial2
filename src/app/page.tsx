@@ -522,11 +522,10 @@ export default function Home() {
     
     let totalVendasSalao = 0, totalVendasRua = 0, totalFiadoSalao = 0, totalFiadoRua = 0;
     let totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
-    let totalBomboniereSalao = 0, totalBomboniereRua = 0;
+    let totalBomboniere = 0;
     
     const contagemTotal: ItemCount = {};
     const contagemRua: ItemCount = {};
-    const contagemSalao: ItemCount = {};
   
     const processItemCounts = (item: Item, targetCount: ItemCount) => {
         if (item.predefinedItems) {
@@ -557,13 +556,8 @@ export default function Home() {
         totalTaxas += item.deliveryFee || 0;
         if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
     
-        const bomboniereTotal = (item.bomboniereItems || []).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-        if (group.includes('rua')) {
-          totalBomboniereRua += bomboniereTotal;
-        } else {
-          totalBomboniereSalao += bomboniereTotal;
-        }
-
+        totalBomboniere += (item.bomboniereItems || []).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+        
         if (item.individualPrices) {
             totalKgValue += item.individualPrices.reduce((acc, curr) => acc + curr, 0);
         }
@@ -571,8 +565,6 @@ export default function Home() {
         processItemCounts(item, contagemTotal);
         if (group.includes('rua')) {
           processItemCounts(item, contagemRua);
-        } else {
-          processItemCounts(item, contagemSalao);
         }
     });
   
@@ -595,15 +587,13 @@ export default function Home() {
       totalFiadoRua: totalFiadoRua,
       totalKg: totalKgValue,
       totalTaxas: totalTaxas,
-      totalBomboniereSalao: totalBomboniereSalao,
-      totalBomboniereRua: totalBomboniereRua,
+      totalBomboniere: totalBomboniere,
       totalItens: totalItens,
       totalPedidos: items.length,
       totalEntregas: totalEntregas,
       totalItensRua: totalItensRua,
       contagemTotal: contagemTotal,
       contagemRua: contagemRua,
-      contagemSalao: contagemSalao,
       items: items,
     };
 
