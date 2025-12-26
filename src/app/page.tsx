@@ -46,6 +46,7 @@ import FavoritesMenu from "@/components/favorites-menu";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { Separator } from "@/components/ui/separator";
+import DailyTimelineChart from "@/components/daily-timeline-chart";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -843,16 +844,18 @@ export default function Home() {
               isLoading={isLoadingFavorites}
              />
           </ItemForm>
-
+          
           <Card>
             <CardContent className="p-2 sm:p-6">
-               <ItemList
-                  items={items}
-                  onEdit={handleEditRequest}
-                  onDelete={handleDeleteRequest}
-                  isLoading={isLoadingItems}
-                  onSaveFavorite={handleSaveFavoriteRequest}
-                />
+              <DailyTimelineChart items={items} />
+              <Separator className="my-4" />
+              <ItemList
+                items={items}
+                onEdit={handleEditRequest}
+                onDelete={handleDeleteRequest}
+                isLoading={isLoadingItems}
+                onSaveFavorite={handleSaveFavoriteRequest}
+              />
             </CardContent>
           </Card>
         </main>
