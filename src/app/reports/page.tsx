@@ -198,9 +198,9 @@ export default function ReportsPage() {
             {report.items && report.items.length > 0 && (
               <>
                 <Separator />
-                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <DailyTimelineChart items={report.items} dataType="total" title="Picos de Vendas (Valor)" />
-                   <DailyTimelineChart items={report.items} dataType="quantity" title="Picos de Vendas (Quantidade)" />
+                <div className="mt-6 grid grid-cols-1 gap-8">
+                   <DailyTimelineChart items={report.items} dataType="total" title="Picos de Vendas (Valor)" color="primary" />
+                   <DailyTimelineChart items={report.items} dataType="quantity" title="Picos de Vendas (Quantidade)" color="chart-2" />
                 </div>
               </>
             )}
@@ -254,27 +254,29 @@ export default function ReportsPage() {
             <Accordion type="single" collapsible className="w-full">
               {savedReports.map(report => (
                 <AccordionItem value={report.id} key={report.id}>
-                    <div className="flex w-full items-center">
-                        <AccordionTrigger className="py-4 pr-2 hover:no-underline flex-shrink">
-                           <span className="font-semibold text-lg">
+                  <div className="flex w-full items-center">
+                      <AccordionTrigger className="flex-1 py-4 pr-2 hover:no-underline">
+                          <div className="flex w-full items-center justify-between">
+                            <span className="font-semibold text-lg">
                                 {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                           </span>
-                        </AccordionTrigger>
-                        <span className="flex-1 text-primary font-bold text-lg px-4 text-right">
-                            {formatCurrency(report.totalGeral)}
-                        </span>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteReportRequest(report.id);
-                            }}
-                            >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </div>
+                            </span>
+                            <span className="font-bold text-lg text-primary">
+                                {formatCurrency(report.totalGeral)}
+                            </span>
+                          </div>
+                      </AccordionTrigger>
+                      <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive ml-2"
+                          onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteReportRequest(report.id);
+                          }}
+                          >
+                          <Trash2 className="h-4 w-4" />
+                      </Button>
+                  </div>
                   <AccordionContent className="p-2 pt-0">
                     {renderReportDetail(report)}
                   </AccordionContent>

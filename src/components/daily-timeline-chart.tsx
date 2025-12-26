@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -20,6 +21,7 @@ interface DailyTimelineChartProps {
   items: Item[];
   dataType: 'total' | 'quantity';
   title: string;
+  color: 'primary' | 'chart-2' | 'chart-3' | 'chart-4' | 'chart-5';
 }
 
 const START_HOUR = 10;
@@ -38,9 +40,7 @@ const formatQuantity = (value: number) => {
     return String(Math.round(value));
 }
 
-const formatHour = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
-
-export default function DailyTimelineChart({ items, dataType, title }: DailyTimelineChartProps) {
+export default function DailyTimelineChart({ items, dataType, title, color }: DailyTimelineChartProps) {
   const chartData = useMemo(() => {
     if (!items) return [];
 
@@ -59,7 +59,7 @@ export default function DailyTimelineChart({ items, dataType, title }: DailyTime
         intervals[timeKey] = 0;
       }
     }
-    intervals[`${END_HOUR}:00`] = 0;
+    intervals[`${String(END_HOUR).padStart(2, '0')}:00`] = 0;
 
     // Aggregate item data into intervals
     items.forEach(item => {
@@ -89,6 +89,7 @@ export default function DailyTimelineChart({ items, dataType, title }: DailyTime
 
   const formatter = dataType === 'total' ? formatCurrency : formatQuantity;
   const yAxisWidth = dataType === 'total' ? 80 : 40;
+  const chartColor = `hsl(var(--${color}))`;
 
   return (
     <div className="w-full">
@@ -99,23 +100,23 @@ export default function DailyTimelineChart({ items, dataType, title }: DailyTime
         config={{
           value: {
             label: dataType === 'total' ? 'Total' : 'Quantidade',
-            color: 'hsl(var(--primary))',
+            color: chartColor,
           },
         }}
         className="h-40 w-full"
       >
         <ResponsiveContainer>
-          <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: -10 }}>
+          <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
             <defs>
-              <linearGradient id="fillValue" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={`fill-${color}`} x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
-                  stopColor="hsl(var(--primary))"
+                  stopColor={chartColor}
                   stopOpacity={0.8}
                 />
                 <stop
                   offset="95%"
-                  stopColor="hsl(var(--primary))"
+                  stopColor={chartColor}
                   stopOpacity={0.1}
                 />
               </linearGradient>
@@ -162,8 +163,8 @@ export default function DailyTimelineChart({ items, dataType, title }: DailyTime
             <Area
               dataKey="value"
               type="monotone"
-              fill="url(#fillValue)"
-              stroke="hsl(var(--primary))"
+              fill={`url(#fill-${color})`}
+              stroke={chartColor}
               strokeWidth={2}
               dot={false}
             />
