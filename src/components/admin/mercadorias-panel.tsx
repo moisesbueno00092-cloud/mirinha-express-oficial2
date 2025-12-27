@@ -199,13 +199,14 @@ export default function MercadoriasPanel() {
             const fornecedorNome = fornecedores?.find(f => f.id === fornecedorId)?.nome || 'Fornecedor desconhecido';
             
             const vencimentoFinal = dataVencimento || new Date();
+            const estaPaga = !dataVencimento;
 
             const novaConta: Omit<ContaAPagar, 'id'> = {
                 descricao: `Compra de mercadorias - ${fornecedorNome}`,
                 fornecedorId: fornecedorId,
                 valor: totalCompra,
                 dataVencimento: formatDateFn(vencimentoFinal, 'yyyy-MM-dd'),
-                estaPaga: false,
+                estaPaga: estaPaga,
             };
             await addDocumentNonBlocking(collection(firestore, 'contas_a_pagar'), novaConta);
             
