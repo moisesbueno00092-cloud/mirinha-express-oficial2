@@ -8,9 +8,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { EntradaMercadoria, Fornecedor, PriceHistoryEntry } from '@/types';
 
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, Check, ChevronsUpDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -26,6 +25,9 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -42,12 +44,76 @@ const formatDate = (dateString: string) => {
     }
 }
 
+function ProductCombobox({ products, value, setValue, disabled }: { products: string[], value: string, setValue: (value: string) => void, disabled: boolean }) {
+    const [open, setOpen] = useState(false)
+ 
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+            <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between h-10"
+            disabled={disabled}
+            >
+            {value ? value : "Selecione um produto..."}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+            <Command>
+            <CommandInput placeholder="Buscar produto..." />
+            <CommandList>
+                <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                <CommandGroup>
+                {products.map((product) => (
+                    <CommandItem
+                        key={product}
+                        value={product}
+                        onSelect={(currentValue) => {
+                            setValue(currentValue === value ? "" : currentValue)
+                            setOpen(false)
+                        }}
+                    >
+                    <Check
+                        className={cn(
+                        "mr-2 h-4 w-4",
+                        value === product ? "opacity-100" : "opacity-0"
+                        )}
+                    />
+                    {product}
+                    </CommandItem>
+                ))}
+                </CommandGroup>
+            </CommandList>
+            </Command>
+        </PopoverContent>
+        </Popover>
+    )
+}
+
+
 export default function PriceHistoryPanel() {
     const firestore = useFirestore();
-    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedProduct, setSelectedProduct] = useState('');
     const [submittedSearch, setSubmittedSearch] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
 
-    const entradasQuery = useMemoFirebase(
+    const allEntradasQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'entradas_mercadorias')) : null,
+        [firestore]
+    );
+
+    const { data: allEntradas, isLoading: isLoadingAllEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
+
+    const uniqueProducts = useMemo(() => {
+        if (!allEntradas) return [];
+        const productNames = allEntradas.map(e => e.produtoNome);
+        return [...new Set(productNames)].sort((a,b) => a.localeCompare(b));
+    }, [allEntradas]);
+
+    const searchHistoryQuery = useMemoFirebase(
         () => (firestore && submittedSearch) 
             ? query(
                 collection(firestore, 'entradas_mercadorias'), 
@@ -63,7 +129,7 @@ export default function PriceHistoryPanel() {
         [firestore]
     );
 
-    const { data: entradas, isLoading: isLoadingEntradas } = useCollection<EntradaMercadoria>(entradasQuery);
+    const { data: searchResult, isLoading: isLoadingSearchResult } = useCollection<EntradaMercadoria>(searchHistoryQuery);
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
 
     const fornecedorMap = useMemo(() => {
@@ -72,12 +138,12 @@ export default function PriceHistoryPanel() {
     }, [fornecedores]);
 
     const priceHistory: PriceHistoryEntry[] = useMemo(() => {
-        if (!entradas) return [];
-        return entradas.map(e => ({
+        if (!searchResult) return [];
+        return searchResult.map(e => ({
             ...e,
             fornecedorNome: fornecedorMap.get(e.fornecedorId) || 'Desconhecido'
         })).sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
-    }, [entradas, fornecedorMap]);
+    }, [searchResult, fornecedorMap]);
 
     const chartData = useMemo(() => {
         return priceHistory.map(entry => ({
@@ -90,40 +156,48 @@ export default function PriceHistoryPanel() {
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!searchTerm.trim()) return;
-        setSubmittedSearch(searchTerm.trim());
+        if (!selectedProduct.trim()) return;
+        setIsSearching(true);
+        setSubmittedSearch(selectedProduct.trim());
     }
     
-    const isLoading = isLoadingEntradas || isLoadingFornecedores;
+    const isLoading = isLoadingSearchResult || isLoadingFornecedores;
+
+     // Effect to reset searching state
+    React.useEffect(() => {
+        if (!isLoadingSearchResult) {
+            setIsSearching(false);
+        }
+    }, [isLoadingSearchResult]);
 
     return (
         <div className="space-y-6">
             <form onSubmit={handleSearch} className="flex gap-2">
-                <Input 
-                    placeholder="Digite o nome exato do produto..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-10"
+                <ProductCombobox
+                    products={uniqueProducts}
+                    value={selectedProduct}
+                    setValue={setSelectedProduct}
+                    disabled={isLoadingAllEntradas}
                 />
-                <Button type="submit" disabled={isLoading || !searchTerm.trim()}>
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <Search className="h-4 w-4"/>}
+                <Button type="submit" disabled={isSearching || !selectedProduct.trim()}>
+                    {isSearching ? <Loader2 className="h-4 w-4 animate-spin"/> : <Search className="h-4 w-4"/>}
                     <span className="ml-2 hidden sm:inline">Buscar</span>
                 </Button>
             </form>
 
-            {isLoading && (
+            {isSearching && (
                 <div className="flex justify-center items-center p-10">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
             )}
             
-            {!isLoading && submittedSearch && priceHistory.length === 0 && (
+            {!isSearching && submittedSearch && priceHistory.length === 0 && (
                 <div className="text-center text-muted-foreground py-10">
                     Nenhum histórico de preço encontrado para "{submittedSearch}".
                 </div>
             )}
 
-            {priceHistory.length > 0 && (
+            {!isSearching && priceHistory.length > 0 && (
                 <div className="space-y-8">
                      <Card>
                         <CardHeader>
@@ -210,3 +284,5 @@ export default function PriceHistoryPanel() {
         </div>
     );
 }
+
+    
