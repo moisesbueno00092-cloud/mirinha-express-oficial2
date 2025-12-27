@@ -21,7 +21,7 @@ import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
-import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '../ui/popover';
+import { Popover, PopoverContent, PopoverAnchor } from '../ui/popover';
 import { cn } from '@/lib/utils';
 
 interface LancamentoProduto {
@@ -103,20 +103,15 @@ export default function MercadoriasPanel() {
         const value = e.target.value;
         setLancamentoInput(value);
     
-        if (value.trim()) {
-            const lastSpaceIndex = value.lastIndexOf(' ');
-            const hasPrice = lastSpaceIndex > -1 && /[\d,.]+$/.test(value.substring(lastSpaceIndex + 1));
+        const hasPrice = /\s[\d,.]+$/.test(value);
     
-            if (!hasPrice) {
-                const filteredSuggestions = uniqueProductNames.filter(name =>
-                    name.toLowerCase().startsWith(value.toLowerCase())
-                );
-                setSuggestions(filteredSuggestions);
-                setSuggestionsOpen(filteredSuggestions.length > 0);
-                setActiveSuggestionIndex(0);
-            } else {
-                setSuggestionsOpen(false);
-            }
+        if (value && !hasPrice) {
+            const filtered = uniqueProductNames.filter(name =>
+                name.toLowerCase().startsWith(value.toLowerCase())
+            );
+            setSuggestions(filtered);
+            setSuggestionsOpen(filtered.length > 0);
+            setActiveSuggestionIndex(0);
         } else {
             setSuggestionsOpen(false);
         }
@@ -138,8 +133,8 @@ export default function MercadoriasPanel() {
                 e.preventDefault();
                 setActiveSuggestionIndex(prev => Math.max(prev - 1, 0));
             } else if (e.key === 'Enter' || e.key === 'Tab') {
-                e.preventDefault();
                 if (suggestions[activeSuggestionIndex]) {
+                    e.preventDefault();
                     handleSuggestionClick(suggestions[activeSuggestionIndex]);
                 }
             } else if (e.key === 'Escape') {
@@ -181,7 +176,7 @@ export default function MercadoriasPanel() {
     const handleEditProduto = (produto: LancamentoProduto) => {
         setLancamentoInput(`${produto.produtoNome} ${String(produto.preco).replace('.', ',')}`);
         handleRemoveProduto(produto.id);
-        lancamentoInputRef.current?.focus();
+        setTimeout(() => lancamentoInputRef.current?.focus(), 0);
     }
 
     const resetForm = () => {
