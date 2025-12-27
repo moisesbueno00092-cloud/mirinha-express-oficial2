@@ -21,7 +21,7 @@ import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
-import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '../ui/popover';
+import { Popover, PopoverContent, PopoverAnchor } from '../ui/popover';
 import { cn } from '@/lib/utils';
 
 interface LancamentoProduto {
@@ -46,8 +46,9 @@ export default function MercadoriasPanel() {
     
     const lancamentoInputRef = useRef<HTMLInputElement>(null);
 
-    // Autocomplete state
+    // --- Autocomplete State ---
     const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
 
     const fornecedoresQuery = useMemoFirebase(
@@ -96,20 +97,23 @@ export default function MercadoriasPanel() {
                 name.toLowerCase().startsWith(lowercasedValue)
             );
             setSuggestions(filteredSuggestions);
+            setIsSuggestionsOpen(filteredSuggestions.length > 0);
             setActiveSuggestionIndex(0);
         } else {
             setSuggestions([]);
+            setIsSuggestionsOpen(false);
         }
     };
 
     const handleSuggestionClick = (suggestion: string) => {
         setLancamentoInput(suggestion + ' ');
         setSuggestions([]);
+        setIsSuggestionsOpen(false);
         lancamentoInputRef.current?.focus();
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (suggestions.length > 0) {
+        if (isSuggestionsOpen) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 setActiveSuggestionIndex(prev => Math.min(prev + 1, suggestions.length - 1));
@@ -123,16 +127,28 @@ export default function MercadoriasPanel() {
                 }
             } else if (e.key === 'Escape') {
                 setSuggestions([]);
+                setIsSuggestionsOpen(false);
             }
         }
     };
+    
+    useEffect(() => {
+        const suggestionsList = document.getElementById('suggestions-list');
+        if (suggestionsList) {
+            const activeItem = suggestionsList.children[activeSuggestionIndex] as HTMLElement;
+            if (activeItem) {
+                activeItem.scrollIntoView({ block: 'nearest' });
+            }
+        }
+    }, [activeSuggestionIndex]);
+
 
     const handleAddProduto = (e: React.FormEvent) => {
         e.preventDefault();
         const input = lancamentoInput.trim();
         if (!input) return;
 
-        setSuggestions([]);
+        setIsSuggestionsOpen(false);
 
         const parts = input.split(' ');
         const precoStr = parts.pop()?.replace(',', '.');
@@ -269,7 +285,7 @@ export default function MercadoriasPanel() {
             <div className="space-y-4">
                 <Label htmlFor="lancamento-produto">Lançamento de Produto</Label>
                 <form onSubmit={handleAddProduto} className="flex items-end gap-2">
-                    <Popover open={suggestions.length > 0} onOpenChange={() => setSuggestions([])}>
+                    <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
                         <PopoverAnchor asChild>
                              <div className="flex-grow">
                                 <Input 
@@ -289,7 +305,7 @@ export default function MercadoriasPanel() {
                             side="bottom"
                             align="start"
                         >
-                            <div className="max-h-60 overflow-y-auto">
+                            <div id="suggestions-list" className="max-h-60 overflow-y-auto">
                                 {suggestions.map((suggestion, index) => (
                                     <div
                                         key={suggestion}
