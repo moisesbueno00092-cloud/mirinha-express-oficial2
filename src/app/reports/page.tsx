@@ -146,6 +146,9 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
       );
     }
 
+    const totalBomboniereSalaoItens = useMemo(() => Object.values(bomboniereSalao).reduce((acc, count) => acc + count, 0), [bomboniereSalao]);
+    const totalBomboniereRuaItens = useMemo(() => Object.values(bomboniereRua).reduce((acc, count) => acc + count, 0), [bomboniereRua]);
+
 
   return (
     <Card>
@@ -198,8 +201,11 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                             {report.totalBomboniereSalao > 0 && (
                                 <div className="mt-2 pt-2 border-t border-dashed">
                                     <div className="flex justify-between items-center text-xs">
-                                        <span className="font-semibold text-purple-400">Total Bomboniere:</span>
-                                        <span className="font-bold font-mono text-purple-400">{formatCurrency(report.totalBomboniereSalao)}</span>
+                                        <span className="font-semibold text-purple-400">Total:</span>
+                                        <div className="flex flex-col items-end">
+                                            <span className="font-bold font-mono text-purple-400">{formatCurrency(report.totalBomboniereSalao)}</span>
+                                            <span className="text-muted-foreground">({totalBomboniereSalaoItens} itens)</span>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -211,8 +217,11 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                              {report.totalBomboniereRua > 0 && (
                                 <div className="mt-2 pt-2 border-t border-dashed">
                                     <div className="flex justify-between items-center text-xs">
-                                        <span className="font-semibold text-blue-400">Total Bomboniere:</span>
-                                        <span className="font-bold font-mono text-blue-400">{formatCurrency(report.totalBomboniereRua)}</span>
+                                        <span className="font-semibold text-blue-400">Total:</span>
+                                        <div className="flex flex-col items-end">
+                                            <span className="font-bold font-mono text-blue-400">{formatCurrency(report.totalBomboniereRua)}</span>
+                                            <span className="text-muted-foreground">({totalBomboniereRuaItens} itens)</span>
+                                        </div>
                                     </div>
                                 </div>
                             )}
