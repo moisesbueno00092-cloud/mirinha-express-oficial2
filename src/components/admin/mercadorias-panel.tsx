@@ -49,6 +49,7 @@ export default function MercadoriasPanel() {
     // Autocomplete state
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+    const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
     const fornecedoresQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'fornecedores'), orderBy('nome', 'asc')) : null,
@@ -68,12 +69,10 @@ export default function MercadoriasPanel() {
         return [...new Set(productNames)].sort();
     }, [allEntradas]);
     
-    const isSuggestionsOpen = suggestions.length > 0;
-
     useEffect(() => {
         const handleOutsideClick = (event: MouseEvent) => {
             if (lancamentoInputRef.current && !lancamentoInputRef.current.contains(event.target as Node)) {
-                setSuggestions([]);
+                setIsSuggestionsOpen(false);
             }
         };
         document.addEventListener('mousedown', handleOutsideClick);
@@ -104,23 +103,24 @@ export default function MercadoriasPanel() {
         const value = e.target.value;
         setLancamentoInput(value);
     
-        const endsWithPrice = /\s[\d,.]+$/.test(value);
-    
-        if (value && !endsWithPrice) {
+        if (value && !/\s[\d,.]+$/.test(value)) {
             const lowercasedValue = value.toLowerCase();
             const filteredSuggestions = uniqueProductNames.filter(name =>
                 name.toLowerCase().startsWith(lowercasedValue)
             );
             setSuggestions(filteredSuggestions);
+            setIsSuggestionsOpen(filteredSuggestions.length > 0);
             setActiveSuggestionIndex(0);
         } else {
             setSuggestions([]);
+            setIsSuggestionsOpen(false);
         }
     };
 
     const handleSuggestionClick = (suggestion: string) => {
         setLancamentoInput(suggestion + ' ');
         setSuggestions([]);
+        setIsSuggestionsOpen(false);
         lancamentoInputRef.current?.focus();
     };
 
@@ -139,6 +139,7 @@ export default function MercadoriasPanel() {
                 }
             } else if (e.key === 'Escape') {
                 setSuggestions([]);
+                setIsSuggestionsOpen(false);
             }
         }
     };
@@ -148,7 +149,7 @@ export default function MercadoriasPanel() {
         const input = lancamentoInput.trim();
         if (!input) return;
 
-        setSuggestions([]);
+        setIsSuggestionsOpen(false);
 
         const parts = input.split(' ');
         const precoStr = parts.pop()?.replace(',', '.');
@@ -285,7 +286,7 @@ export default function MercadoriasPanel() {
             <div className="space-y-4">
                 <Label htmlFor="lancamento-produto">Lançamento de Produto</Label>
                 <form onSubmit={handleAddProduto} className="flex items-end gap-2">
-                    <Popover open={isSuggestionsOpen} onOpenChange={(open) => !open && setSuggestions([])}>
+                    <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
                         <PopoverAnchor asChild>
                             <div className="flex-grow space-y-2">
                                 <Input 
