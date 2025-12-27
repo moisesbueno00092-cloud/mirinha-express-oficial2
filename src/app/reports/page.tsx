@@ -128,23 +128,23 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
     const { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua } = useMemo(() => {
         const contagemSalao: ItemCount = {};
         
-        // Calculate Salão count by subtracting Rua from Total
-        if (report.contagemTotal && report.contagemRua) {
+        // This is the logic that works for Salão.
+        if (report.contagemTotal) {
             for (const key in report.contagemTotal) {
                 const totalCount = report.contagemTotal[key] || 0;
-                const ruaCount = report.contagemRua[key] || 0;
+                const ruaCount = report.contagemRua?.[key] || 0;
                 const salaoCount = totalCount - ruaCount;
                 if (salaoCount > 0) {
                     contagemSalao[key] = salaoCount;
                 }
             }
         }
-
-        // Separate items for Salão
-        const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
         
-        // Separate items for Rua (using the direct count)
-        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(report.contagemRua);
+        // This is the direct data for Rua.
+        const contagemRua = report.contagemRua || {};
+
+        const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
+        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
         
         return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
     }, [report.contagemTotal, report.contagemRua]);
@@ -365,3 +365,5 @@ export default function ReportsPage() {
     </>
   );
 }
+
+    
