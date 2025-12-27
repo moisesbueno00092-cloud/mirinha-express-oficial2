@@ -48,7 +48,6 @@ export default function MercadoriasPanel() {
 
     // Autocomplete state
     const [suggestions, setSuggestions] = useState<string[]>([]);
-    const [isSuggestionsOpen, setSuggestionsOpen] = useState(false);
     const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
 
     const fornecedoresQuery = useMemoFirebase(
@@ -68,11 +67,13 @@ export default function MercadoriasPanel() {
         const productNames = allEntradas.map(e => e.produtoNome);
         return [...new Set(productNames)].sort();
     }, [allEntradas]);
+    
+    const isSuggestionsOpen = suggestions.length > 0;
 
     useEffect(() => {
         const handleOutsideClick = (event: MouseEvent) => {
             if (lancamentoInputRef.current && !lancamentoInputRef.current.contains(event.target as Node)) {
-                setSuggestionsOpen(false);
+                setSuggestions([]);
             }
         };
         document.addEventListener('mousedown', handleOutsideClick);
@@ -103,30 +104,23 @@ export default function MercadoriasPanel() {
         const value = e.target.value;
         setLancamentoInput(value);
     
-        // Check if the input is empty or ends with what looks like a price.
-        const endsWithPrice = /\s[\d,.]*$/.test(value);
+        const endsWithPrice = /\s[\d,.]+$/.test(value);
     
         if (value && !endsWithPrice) {
             const lowercasedValue = value.toLowerCase();
             const filteredSuggestions = uniqueProductNames.filter(name =>
                 name.toLowerCase().startsWith(lowercasedValue)
             );
-    
-            if (filteredSuggestions.length > 0) {
-                setSuggestions(filteredSuggestions);
-                setSuggestionsOpen(true);
-                setActiveSuggestionIndex(0);
-            } else {
-                setSuggestionsOpen(false);
-            }
+            setSuggestions(filteredSuggestions);
+            setActiveSuggestionIndex(0);
         } else {
-            setSuggestionsOpen(false);
+            setSuggestions([]);
         }
     };
 
     const handleSuggestionClick = (suggestion: string) => {
         setLancamentoInput(suggestion + ' ');
-        setSuggestionsOpen(false);
+        setSuggestions([]);
         lancamentoInputRef.current?.focus();
     };
 
@@ -144,7 +138,7 @@ export default function MercadoriasPanel() {
                     handleSuggestionClick(suggestions[activeSuggestionIndex]);
                 }
             } else if (e.key === 'Escape') {
-                setSuggestionsOpen(false);
+                setSuggestions([]);
             }
         }
     };
@@ -154,7 +148,7 @@ export default function MercadoriasPanel() {
         const input = lancamentoInput.trim();
         if (!input) return;
 
-        setSuggestionsOpen(false);
+        setSuggestions([]);
 
         const parts = input.split(' ');
         const precoStr = parts.pop()?.replace(',', '.');
@@ -291,7 +285,7 @@ export default function MercadoriasPanel() {
             <div className="space-y-4">
                 <Label htmlFor="lancamento-produto">Lançamento de Produto</Label>
                 <form onSubmit={handleAddProduto} className="flex items-end gap-2">
-                    <Popover open={isSuggestionsOpen} onOpenChange={setSuggestionsOpen}>
+                    <Popover open={isSuggestionsOpen} onOpenChange={(open) => !open && setSuggestions([])}>
                         <PopoverAnchor asChild>
                             <div className="flex-grow space-y-2">
                                 <Input 
