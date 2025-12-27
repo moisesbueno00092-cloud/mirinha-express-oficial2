@@ -111,6 +111,63 @@
       "required": [
         "userId", "reportDate", "createdAt", "totalGeral", "totalAVista", "totalFiado", "items"
       ]
+    },
+     "Fornecedor": {
+      "title": "Fornecedor",
+      "description": "Representa um fornecedor de mercadorias.",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" }
+      },
+      "required": ["nome"]
+    },
+    "Produto": {
+      "title": "Produto",
+      "description": "Representa um produto para controle de estoque e compras.",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "unidade": { "type": "string", "enum": ["un", "kg", "lt"] },
+        "estoqueMinimo": { "type": "number" },
+        "estoqueAtual": { "type": "number" }
+      },
+      "required": ["nome", "unidade", "estoqueAtual"]
+    },
+    "EntradaMercadoria": {
+      "title": "Entrada de Mercadoria",
+      "description": "Registra a entrada de uma mercadoria, vinculando produto e fornecedor.",
+      "type": "object",
+      "properties": {
+        "produtoId": { "type": "string" },
+        "fornecedorId": { "type": "string" },
+        "data": { "type": "string", "format": "date-time" },
+        "quantidade": { "type": "number" },
+        "precoUnitario": { "type": "number" }
+      },
+      "required": ["produtoId", "fornecedorId", "data", "quantidade", "precoUnitario"]
+    },
+    "ContaAPagar": {
+      "title": "Conta a Pagar",
+      "description": "Representa uma conta a ser paga.",
+      "type": "object",
+      "properties": {
+        "descricao": { "type": "string" },
+        "fornecedorId": { "type": "string" },
+        "valor": { "type": "number" },
+        "dataVencimento": { "type": "string", "format": "date" },
+        "estaPaga": { "type": "boolean", "default": false }
+      },
+      "required": ["descricao", "valor", "dataVencimento", "estaPaga"]
+    },
+    "Funcionario": {
+      "title": "Funcionário",
+      "description": "Representa um funcionário.",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "funcao": { "type": "string" }
+      },
+      "required": ["nome", "funcao"]
     }
   },
   "auth": {
@@ -166,6 +223,41 @@
                 "$ref": "#/backend/entities/DailyReport"
             },
             "description": "Stores consolidated daily sales reports."
+        }
+      },
+      {
+        "path": "/fornecedores/{fornecedorId}",
+        "definition": {
+          "entityName": "Fornecedor",
+          "schema": { "$ref": "#/backend/entities/Fornecedor" }
+        }
+      },
+      {
+        "path": "/produtos/{produtoId}",
+        "definition": {
+          "entityName": "Produto",
+          "schema": { "$ref": "#/backend/entities/Produto" }
+        }
+      },
+      {
+        "path": "/entradas_mercadorias/{entradaId}",
+        "definition": {
+          "entityName": "EntradaMercadoria",
+          "schema": { "$ref": "#/backend/entities/EntradaMercadoria" }
+        }
+      },
+      {
+        "path": "/contas_a_pagar/{contaId}",
+        "definition": {
+          "entityName": "ContaAPagar",
+          "schema": { "$ref": "#/backend/entities/ContaAPagar" }
+        }
+      },
+      {
+        "path": "/funcionarios/{funcionarioId}",
+        "definition": {
+          "entityName": "Funcionario",
+          "schema": { "$ref": "#/backend/entities/Funcionario" }
         }
       }
     ]
