@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, orderBy, writeBatch, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { ContaAPagar, EntradaMercadoria, Fornecedor } from '@/types';
 
@@ -60,6 +60,18 @@ export default function MercadoriasPanel() {
         [firestore]
     );
     const { data: allEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
+    
+    useEffect(() => {
+        const ensureDeliveryProvider = async () => {
+            if (!firestore || isLoadingFornecedores || !fornecedores) return;
+            const deliveryProviderExists = fornecedores.some(f => f.id === 'delivery_fees_provider');
+            if (!deliveryProviderExists) {
+                const docRef = doc(firestore, 'fornecedores', 'delivery_fees_provider');
+                await setDoc(docRef, { nome: 'Taxas de Entrega' });
+            }
+        };
+        ensureDeliveryProvider();
+    }, [firestore, fornecedores, isLoadingFornecedores]);
     
     const productSuggestions = useMemo((): ProductSuggestion[] => {
         if (!allEntradas) return [];

@@ -603,16 +603,37 @@ export default function Home() {
 
     try {
       const reportsCollectionRef = collection(firestore, 'daily_reports');
-      await addDoc(reportsCollectionRef, newReportData);
-
+      const contasAPagarCollectionRef = collection(firestore, 'contas_a_pagar');
+      
       const batch = writeBatch(firestore);
+
+      // 1. Save the new report
+      const reportDocRef = doc(reportsCollectionRef); // Create a new doc ref for the report
+      batch.set(reportDocRef, newReportData);
+
+      // 2. Create the delivery fee expense
+      if (totalTaxas > 0) {
+          const despesaTaxa = {
+              descricao: `Taxas de Entrega do Dia ${format(new Date(), 'dd/MM/yyyy')}`,
+              fornecedorId: 'delivery_fees_provider',
+              valor: totalTaxas,
+              dataVencimento: format(new Date(), 'yyyy-MM-dd'),
+              estaPaga: true,
+          };
+          const despesaDocRef = doc(contasAPagarCollectionRef); // Create a new doc ref for the expense
+          batch.set(despesaDocRef, despesaTaxa);
+      }
+
+      // 3. Delete the day's items
       items.forEach(item => {
         const docRef = doc(firestore, 'order_items', item.id);
         batch.delete(docRef);
       });
+
+      // 4. Commit all operations
       await batch.commit();
       
-      toast({ title: 'Sucesso', description: 'Relatório final salvo e lançamentos do dia limpos!' });
+      toast({ title: 'Sucesso', description: 'Relatório final salvo, despesa de taxa criada e lançamentos do dia limpos!' });
 
     } catch (error) {
       console.error("Error saving report and cleaning items:", error);
