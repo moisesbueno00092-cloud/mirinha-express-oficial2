@@ -88,7 +88,8 @@ export default function ContasAPagarPanel() {
 
     const filteredEntradas = useMemo(() => {
         if (!allEntradas) return [];
-        if (!searchQuery.trim()) return allEntradas;
+        // Only filter and return results if there is a search query.
+        if (!searchQuery.trim()) return [];
         return allEntradas.filter(entrada => 
             entrada.produtoNome.toLowerCase().includes(searchQuery.toLowerCase())
         );
@@ -208,48 +209,50 @@ export default function ContasAPagarPanel() {
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        placeholder="Buscar por nome do produto..."
+                        placeholder="Buscar por nome do produto para ver o histórico..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-10"
                     />
                 </div>
-                <div className="rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Data</TableHead>
-                                <TableHead>Produto</TableHead>
-                                <TableHead>Fornecedor</TableHead>
-                                <TableHead className="text-right">Preço Unitário</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoadingAllEntradas || isLoadingFornecedores ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
-                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                                    </TableCell>
-                                </TableRow>
-                            ) : filteredEntradas.length > 0 ? (
-                                filteredEntradas.map((entry) => (
-                                    <TableRow key={entry.id}>
-                                        <TableCell>{formatDate(entry.data, true)}</TableCell>
-                                        <TableCell className="font-medium">{entry.produtoNome}</TableCell>
-                                        <TableCell>{fornecedorMap.get(entry.fornecedorId) || 'Desconhecido'}</TableCell>
-                                        <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                                        {searchQuery ? 'Nenhum resultado para sua busca.' : 'Nenhum histórico de compras encontrado.'}
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                {searchQuery.trim() && (
+                  <div className="rounded-md border">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead>Data</TableHead>
+                                  <TableHead>Produto</TableHead>
+                                  <TableHead>Fornecedor</TableHead>
+                                  <TableHead className="text-right">Preço Unitário</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {isLoadingAllEntradas || isLoadingFornecedores ? (
+                                  <TableRow>
+                                      <TableCell colSpan={4} className="h-24 text-center">
+                                          <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                                      </TableCell>
+                                  </TableRow>
+                              ) : filteredEntradas.length > 0 ? (
+                                  filteredEntradas.map((entry) => (
+                                      <TableRow key={entry.id}>
+                                          <TableCell>{formatDate(entry.data, true)}</TableCell>
+                                          <TableCell className="font-medium">{entry.produtoNome}</TableCell>
+                                          <TableCell>{fornecedorMap.get(entry.fornecedorId) || 'Desconhecido'}</TableCell>
+                                          <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
+                                      </TableRow>
+                                  ))
+                              ) : (
+                                  <TableRow>
+                                      <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                          Nenhum resultado para sua busca.
+                                      </TableCell>
+                                  </TableRow>
+                              )}
+                          </TableBody>
+                      </Table>
+                  </div>
+                )}
             </div>
         </div>
     );
