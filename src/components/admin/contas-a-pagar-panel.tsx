@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { format, isPast, isSameMonth, isSameYear, parseISO, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { ContaAPagar, Fornecedor, EntradaMercadoria } from '@/types';
@@ -23,7 +23,8 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Trash2, Search, History } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,12 +89,38 @@ export default function ContasAPagarPanel() {
 
     const filteredEntradas = useMemo(() => {
         if (!allEntradas) return [];
-        // Only filter and return results if there is a search query.
         if (!searchQuery.trim()) return [];
         return allEntradas.filter(entrada => 
             entrada.produtoNome.toLowerCase().includes(searchQuery.toLowerCase())
         );
     }, [allEntradas, searchQuery]);
+    
+    const expenseSummary = useMemo(() => {
+        if (!contas) return { month: 0, year: 0 };
+        const now = new Date();
+        const startOfCurrentMonth = startOfMonth(now);
+
+        let monthTotal = 0;
+        let yearTotal = 0;
+
+        contas.forEach(conta => {
+            const dueDate = parseISO(conta.dataVencimento + 'T00:00:00');
+            const isDue = isPast(dueDate);
+
+            if (conta.estaPaga || isDue) {
+                 if (isSameYear(dueDate, now)) {
+                    yearTotal += conta.valor;
+                }
+                if (isSameMonth(dueDate, startOfCurrentMonth)) {
+                    monthTotal += conta.valor;
+                }
+            }
+        });
+        
+        return { month: monthTotal, year: yearTotal };
+
+    }, [contas]);
+
 
     const handleStatusChange = (conta: ContaAPagar, isPaga: boolean) => {
         if (!firestore) return;
@@ -138,7 +165,35 @@ export default function ContasAPagarPanel() {
                 </AlertDialogContent>
             </AlertDialog>
             
-            <h3 className="text-lg font-semibold text-foreground">Contas a Pagar</h3>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base font-semibold text-foreground">Resumo de Despesas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                     {isLoadingContas ? (
+                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                     ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
+                            <div className="bg-muted/50 p-4 rounded-lg">
+                                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                                    <CalendarDays className="h-4 w-4" />
+                                    <span>Despesas Este Mês</span>
+                                </div>
+                                <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(expenseSummary.month)}</p>
+                            </div>
+                             <div className="bg-muted/50 p-4 rounded-lg">
+                                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                                    <TrendingUp className="h-4 w-4" />
+                                    <span>Despesas Este Ano</span>
+                                </div>
+                                <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(expenseSummary.year)}</p>
+                            </div>
+                        </div>
+                     )}
+                </CardContent>
+            </Card>
+
+            <h3 className="text-lg font-semibold text-foreground">Contas a Pagar Pendentes e Recentes</h3>
             <div className="rounded-md border">
                 <Table>
                     <TableHeader>
