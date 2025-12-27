@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -40,6 +41,7 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
           selected={date}
           onSelect={setDate}
           initialFocus
+          locale={ptBR}
           captionLayout="dropdown-nav"
           fromYear={new Date().getFullYear() - 10}
           toYear={new Date().getFullYear() + 10}
