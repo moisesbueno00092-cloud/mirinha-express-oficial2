@@ -20,6 +20,7 @@ function Calendar({
 }: CalendarProps) {
   return (
     <DayPicker
+      captionLayout="none"
       locale={ptBR}
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
