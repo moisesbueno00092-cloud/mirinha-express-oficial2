@@ -860,7 +860,7 @@ export default function Home() {
                 <Settings className="mr-2 h-4 w-4" />
                 Gerir Estoque
             </Button>
-             <Button variant="outline" className="w-full md:w-auto" onClick={() => router.push('/admin')}>
+             <Button variant="outline" className="w-full md:w-auto" onClick={() => handleOpenPasswordModal('admin')}>
                 <Briefcase className="mr-2 h-4 w-4" />
                 Gestão Administrativa
             </Button>
