@@ -10,12 +10,12 @@ import type { ContaAPagar, EntradaMercadoria, Fornecedor } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, PlusCircle, Trash2, Pencil } from 'lucide-react';
+import { Loader2, Plus, PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format as formatDateFn } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
-import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '../ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 
@@ -82,14 +82,15 @@ export default function MercadoriasPanel() {
     }, [allEntradas]);
 
     useEffect(() => {
-      if (lancamentoInput.trim() === '') {
+      const trimmedInput = lancamentoInput.trim();
+      if (trimmedInput === '') {
           setSuggestions([]);
           setIsSuggestionsOpen(false);
           return;
       }
       
-      const lastSpaceIndex = lancamentoInput.lastIndexOf(' ');
-      const hasPrice = lastSpaceIndex > -1 && /[\d,.]+$/.test(lancamentoInput.substring(lastSpaceIndex + 1));
+      const lastSpaceIndex = trimmedInput.lastIndexOf(' ');
+      const hasPrice = lastSpaceIndex > -1 && /[\d,.]+$/.test(trimmedInput.substring(lastSpaceIndex + 1));
 
       if (hasPrice) {
           setSuggestions([]);
@@ -98,7 +99,8 @@ export default function MercadoriasPanel() {
       }
       
       const filtered = productSuggestions.filter(p => 
-          p.name.toLowerCase().startsWith(lancamentoInput.toLowerCase())
+          p.name.toLowerCase().startsWith(trimmedInput.toLowerCase()) &&
+          p.name.toLowerCase() !== trimmedInput.toLowerCase()
       );
       
       setSuggestions(filtered);
@@ -124,8 +126,8 @@ export default function MercadoriasPanel() {
         }
     };
     
-    const handleAddProduto = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleAddProduto = (e?: React.FormEvent) => {
+        e?.preventDefault();
         
         const input = lancamentoInput.trim();
         if (!input) return;
@@ -159,7 +161,14 @@ export default function MercadoriasPanel() {
     const handleSelectSuggestion = (suggestion: ProductSuggestion) => {
         setLancamentoInput(`${suggestion.name} ${String(suggestion.lastPrice).replace('.', ',')}`);
         setIsSuggestionsOpen(false);
-        setTimeout(() => lancamentoInputRef.current?.focus(), 0);
+        setTimeout(() => {
+            lancamentoInputRef.current?.focus();
+            // Move cursor to the end
+            const valLength = lancamentoInputRef.current?.value.length;
+            if (valLength) {
+                lancamentoInputRef.current?.setSelectionRange(valLength, valLength);
+            }
+        }, 0);
     }
 
     const handleRemoveProduto = (id: number) => {
@@ -277,8 +286,8 @@ export default function MercadoriasPanel() {
             <div className="space-y-2">
                 <Label htmlFor='lancamento-input'>Lançamento de Produto (Nome e Preço)</Label>
                 <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
-                    <PopoverAnchor>
-                        <form onSubmit={handleAddProduto} className="flex flex-col sm:flex-row items-start gap-2">
+                    <PopoverTrigger asChild>
+                        <form onSubmit={handleAddProduto} className="flex items-start gap-2">
                             <Input
                                 id='lancamento-input'
                                 ref={lancamentoInputRef}
@@ -288,10 +297,23 @@ export default function MercadoriasPanel() {
                                 className='w-full'
                                 autoComplete='off'
                                 onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 150)}
-                                onFocus={() => setIsSuggestionsOpen(lancamentoInput.trim() !== '' && suggestions.length > 0)}
+                                onFocus={() => {
+                                  const trimmedInput = lancamentoInput.trim();
+                                  if (trimmedInput !== '' && suggestions.length > 0) {
+                                      setIsSuggestionsOpen(true);
+                                  }
+                                }}
                             />
+                             <Button 
+                                type="submit"
+                                size="icon"
+                                className="h-10 w-10 shrink-0"
+                                disabled={!lancamentoInput.trim()}
+                            >
+                                <Plus className="h-5 w-5" />
+                            </Button>
                         </form>
-                    </PopoverAnchor>
+                    </PopoverTrigger>
                     <PopoverContent 
                       className='w-[--radix-popover-trigger-width] p-0' 
                       onOpenAutoFocus={(e) => e.preventDefault()}
@@ -304,7 +326,7 @@ export default function MercadoriasPanel() {
                             onMouseDown={() => handleSelectSuggestion(suggestion)}
                           >
                             <span>{suggestion.name}</span>
-                            <span className='text-xs text-muted-foreground font-mono'>{formatCurrency(suggestion.lastPrice)}</span>
+                            <span className='font-mono text-sm text-green-500'>{formatCurrency(suggestion.lastPrice)}</span>
                           </li>
                         ))}
                       </ul>
