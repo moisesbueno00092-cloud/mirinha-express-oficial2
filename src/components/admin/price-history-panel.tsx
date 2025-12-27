@@ -8,7 +8,9 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { EntradaMercadoria, Fornecedor, PriceHistoryEntry } from '@/types';
 
-import { Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Loader2, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -24,7 +26,22 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from "recharts";
-import { ProductCombobox } from './product-combobox';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Check, ChevronsUpDown } from "lucide-react"
+import { cn } from '@/lib/utils';
+
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -45,6 +62,9 @@ export default function PriceHistoryPanel() {
     const firestore = useFirestore();
     const [selectedProduct, setSelectedProduct] = useState('');
     const [isSearching, setIsSearching] = useState(false);
+    
+    const [openCombobox, setOpenCombobox] = useState(false);
+    const [comboboxValue, setComboboxValue] = useState("");
 
     const allEntradasQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'entradas_mercadorias')) : null,
@@ -99,12 +119,15 @@ export default function PriceHistoryPanel() {
         }));
     }, [priceHistory]);
     
-    // Effect to set searching state
+    const handleSearch = () => {
+        if(comboboxValue) {
+            setSelectedProduct(comboboxValue);
+        }
+    }
+    
     React.useEffect(() => {
         if (selectedProduct) {
             setIsSearching(true);
-        } else {
-            setIsSearching(false);
         }
     }, [selectedProduct]);
 
@@ -117,15 +140,58 @@ export default function PriceHistoryPanel() {
     return (
         <div className="space-y-6">
             <div className="flex gap-2">
-                <ProductCombobox
-                    products={uniqueProducts}
-                    value={selectedProduct}
-                    setValue={setSelectedProduct}
-                    disabled={isLoadingAllEntradas}
-                />
+                <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openCombobox}
+                            className="w-[300px] justify-between"
+                            disabled={isLoadingAllEntradas}
+                        >
+                        {comboboxValue
+                            ? uniqueProducts.find((p) => p.toLowerCase() === comboboxValue) || "Selecione o produto..."
+                            : "Selecione o produto..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0">
+                        <Command>
+                            <CommandInput placeholder="Buscar produto..." />
+                            <CommandList>
+                                <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                                <CommandGroup>
+                                {uniqueProducts.map((product) => (
+                                    <CommandItem
+                                        key={product}
+                                        value={product}
+                                        onSelect={(currentValue) => {
+                                            setComboboxValue(currentValue === comboboxValue ? "" : currentValue)
+                                            setOpenCombobox(false)
+                                        }}
+                                    >
+                                        <Check
+                                            className={cn(
+                                            "mr-2 h-4 w-4",
+                                            comboboxValue === product.toLowerCase() ? "opacity-100" : "opacity-0"
+                                            )}
+                                        />
+                                        {product}
+                                    </CommandItem>
+                                ))}
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
+
+                <Button onClick={handleSearch} disabled={!comboboxValue || isSearching}>
+                    <Search className="mr-2 h-4 w-4" />
+                    Buscar
+                </Button>
             </div>
 
-            {isSearching && (
+            {(isSearching || isLoadingSearchResult) && (
                 <div className="flex justify-center items-center p-10">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
