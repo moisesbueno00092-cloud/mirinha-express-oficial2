@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Box, Building, HandCoins, Users } from 'lucide-react';
 
@@ -9,11 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-// Placeholder components for each section
-const MercadoriasPanel = () => <div className="text-muted-foreground">Gestão de mercadorias em construção...</div>;
-const FornecedoresPanel = () => <div className="text-muted-foreground">Gestão de fornecedores em construção...</div>;
-const ContasAPagarPanel = () => <div className="text-muted-foreground">Gestão de contas a pagar em construção...</div>;
-const FuncionariosPanel = () => <div className="text-muted-foreground">Gestão de funcionários em construção...</div>;
+import FornecedoresPanel from '@/components/admin/fornecedores-panel';
+import MercadoriasPanel from '@/components/admin/mercadorias-panel';
+import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
+import FuncionariosPanel from '@/components/admin/funcionarios-panel';
 
 export default function AdminPage() {
   return (
@@ -57,7 +55,7 @@ export default function AdminPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Entrada de Mercadorias</CardTitle>
-                <CardDescription>Registe novas mercadorias e consulte o histórico de preços.</CardDescription>
+                <CardDescription>Registe novas mercadorias e o sistema criará a conta a pagar associada.</CardDescription>
               </CardHeader>
               <CardContent>
                 <MercadoriasPanel />
