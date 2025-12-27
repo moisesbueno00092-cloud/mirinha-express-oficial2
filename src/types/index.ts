@@ -1,4 +1,5 @@
 
+
 export type Group = 'Vendas salão' | 'Fiados salão' | 'Fiados rua' | 'Vendas rua';
 
 export interface PredefinedItem {
@@ -125,4 +126,8 @@ export interface Funcionario {
     id: string;
     nome: string;
     funcao: string;
+}
+
+export interface PriceHistoryEntry extends EntradaMercadoria {
+    fornecedorNome: string;
 }

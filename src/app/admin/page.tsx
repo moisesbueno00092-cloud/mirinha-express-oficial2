@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, Box, Building, HandCoins, Users } from 'lucide-react';
+import { ArrowLeft, Box, Building, HandCoins, Users, History } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MercadoriasPanel from '@/components/admin/mercadorias-panel';
 import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
 import FuncionariosPanel from '@/components/admin/funcionarios-panel';
+import PriceHistoryPanel from '@/components/admin/price-history-panel';
 
 export default function AdminPage() {
   return (
@@ -31,7 +32,7 @@ export default function AdminPage() {
 
       <main>
         <Tabs defaultValue="mercadorias" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-auto">
+          <TabsList className="grid w-full grid-cols-4 h-auto">
             <TabsTrigger value="mercadorias" className="flex flex-col sm:flex-row gap-2 py-2">
               <Box className="h-5 w-5" />
               <span>Mercadorias</span>
@@ -39,6 +40,10 @@ export default function AdminPage() {
             <TabsTrigger value="financeiro" className="flex flex-col sm:flex-row gap-2 py-2">
               <HandCoins className="h-5 w-5" />
               <span>Financeiro</span>
+            </TabsTrigger>
+             <TabsTrigger value="price-history" className="flex flex-col sm:flex-row gap-2 py-2">
+              <History className="h-5 w-5" />
+              <span>Histórico de Preços</span>
             </TabsTrigger>
             <TabsTrigger value="rh" className="flex flex-col sm:flex-row gap-2 py-2">
               <Users className="h-5 w-5" />
@@ -65,6 +70,17 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent>
                 <ContasAPagarPanel />
+              </CardContent>
+            </Card>
+          </TabsContent>
+           <TabsContent value="price-history">
+            <Card>
+              <CardHeader>
+                <CardTitle>Histórico de Preços</CardTitle>
+                <CardDescription>Consulte o histórico de preços de compra para qualquer item.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PriceHistoryPanel />
               </CardContent>
             </Card>
           </TabsContent>
