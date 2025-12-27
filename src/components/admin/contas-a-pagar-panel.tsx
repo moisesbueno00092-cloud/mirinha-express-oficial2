@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format, isPast, isSameMonth, isSameYear, parseISO, startOfMonth } from 'date-fns';
+import { format, isPast, isSameMonth, isSameYear, parseISO, startOfMonth, endOfWeek, startOfWeek, isWithinInterval, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { ContaAPagar, Fornecedor, EntradaMercadoria } from '@/types';
@@ -19,12 +19,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays } from 'lucide-react';
+import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +53,63 @@ const formatDate = (dateString: string, includeTime = false) => {
     } catch (e) {
         return dateString;
     }
+}
+
+const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest }: {
+    contas: ContaAPagar[],
+    fornecedorMap: Map<string, string>,
+    onStatusChange: (conta: ContaAPagar, isPaga: boolean) => void,
+    onDeleteRequest: (conta: ContaAPagar) => void,
+}) => {
+    if (contas.length === 0) {
+        return <p className="p-4 text-sm text-muted-foreground">Nenhuma conta neste grupo.</p>;
+    }
+
+    return (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Fornecedor/Descrição</TableHead>
+                    <TableHead>Vencimento</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {contas.map((conta) => {
+                    const isVencida = !conta.estaPaga && new Date(conta.dataVencimento) < new Date();
+                    return (
+                        <TableRow key={conta.id} className={cn(isVencida && 'text-destructive')}>
+                            <TableCell>
+                                <div className="font-medium">{fornecedorMap.get(conta.fornecedorId || '') || 'N/A'}</div>
+                                <div className="text-sm text-muted-foreground">{conta.descricao}</div>
+                            </TableCell>
+                            <TableCell>{formatDate(conta.dataVencimento)}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(conta.valor)}</TableCell>
+                            <TableCell className="text-center">
+                                <div className="flex flex-col items-center gap-1.5">
+                                    <Switch
+                                        checked={conta.estaPaga}
+                                        onCheckedChange={(isPaga) => onStatusChange(conta, isPaga)}
+                                        aria-label="Marcar como paga"
+                                    />
+                                    <Badge variant={conta.estaPaga ? 'default' : 'secondary'} className={cn(conta.estaPaga ? 'bg-green-600' : isVencida ? 'bg-destructive/80' : '', "pointer-events-none")}>
+                                        {conta.estaPaga ? 'Paga' : (isVencida ? 'Vencida' : 'Em Aberto')}
+                                    </Badge>
+                                </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" onClick={() => onDeleteRequest(conta)}>
+                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    );
+                })}
+            </TableBody>
+        </Table>
+    );
 }
 
 
@@ -95,29 +153,58 @@ export default function ContasAPagarPanel() {
         );
     }, [allEntradas, searchQuery]);
     
-    const expenseSummary = useMemo(() => {
-        if (!contas) return { month: 0, year: 0 };
+    const { groupedContas, expenseSummary } = useMemo(() => {
         const now = new Date();
         const startOfCurrentMonth = startOfMonth(now);
+        const endOfCurrentMonth = endOfMonth(now);
+        const startOfCurrentYear = startOfYear(now);
+        const endOfCurrentYear = endOfYear(now);
+        
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        
+        const startOfCurrentWeek = startOfWeek(today, { locale: ptBR });
+        const endOfCurrentWeek = endOfWeek(today, { locale: ptBR });
+        
+        const groups = {
+            vencidas: [] as ContaAPagar[],
+            semana: [] as ContaAPagar[],
+            mes: [] as ContaAPagar[],
+            proximos: [] as ContaAPagar[],
+            pagas: [] as ContaAPagar[],
+        };
 
         let monthTotal = 0;
         let yearTotal = 0;
 
+        if (!contas) return { groupedContas: groups, expenseSummary: { month: 0, year: 0 } };
+
         contas.forEach(conta => {
             const dueDate = parseISO(conta.dataVencimento + 'T00:00:00');
-            const isDue = isPast(dueDate);
+            const isVencida = !conta.estaPaga && isPast(dueDate) && !isSameMonth(dueDate, today);
 
-            if (conta.estaPaga || isDue) {
-                 if (isSameYear(dueDate, now)) {
-                    yearTotal += conta.valor;
-                }
+            if (conta.estaPaga) {
+                groups.pagas.push(conta);
                 if (isSameMonth(dueDate, startOfCurrentMonth)) {
                     monthTotal += conta.valor;
                 }
+                 if (isSameYear(dueDate, now)) {
+                    yearTotal += conta.valor;
+                }
+            } else {
+                 if(isPast(dueDate) && !isSameMonth(dueDate, startOfCurrentMonth)) {
+                     groups.vencidas.push(conta);
+                 } else if (isWithinInterval(dueDate, { start: startOfCurrentWeek, end: endOfCurrentWeek })) {
+                    groups.semana.push(conta);
+                 } else if (isWithinInterval(dueDate, { start: endOfCurrentWeek, end: endOfMonth(startOfCurrentMonth) })) {
+                    groups.mes.push(conta);
+                 } else {
+                     groups.proximos.push(conta);
+                 }
             }
         });
         
-        return { month: monthTotal, year: yearTotal };
+        return { groupedContas: groups, expenseSummary: { month: monthTotal, year: yearTotal } };
 
     }, [contas]);
 
@@ -148,6 +235,16 @@ export default function ContasAPagarPanel() {
     
     const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingAllEntradas;
 
+    const renderAccordionTrigger = (title: string, count: number, hasAlert = false) => (
+        <div className="flex w-full items-center justify-between">
+            <div className="flex items-center gap-2">
+                {hasAlert && <AlertTriangle className="h-4 w-4 text-destructive" />}
+                <span className={cn(hasAlert && "text-destructive font-semibold")}>{title}</span>
+            </div>
+            <Badge variant={hasAlert ? 'destructive' : 'secondary'}>{count}</Badge>
+        </div>
+    )
+
     return (
         <div className="space-y-6">
             <AlertDialog open={!!contaToDelete} onOpenChange={(open) => !open && setContaToDelete(null)}>
@@ -167,7 +264,7 @@ export default function ContasAPagarPanel() {
             
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base font-semibold text-foreground">Resumo de Despesas</CardTitle>
+                    <CardTitle className="text-base font-semibold text-foreground">Resumo de Despesas Pagas</CardTitle>
                 </CardHeader>
                 <CardContent>
                      {isLoadingContas ? (
@@ -177,14 +274,14 @@ export default function ContasAPagarPanel() {
                             <div className="bg-muted/50 p-4 rounded-lg">
                                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                                     <CalendarDays className="h-4 w-4" />
-                                    <span>Despesas Este Mês</span>
+                                    <span>Pagas Este Mês</span>
                                 </div>
                                 <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(expenseSummary.month)}</p>
                             </div>
                              <div className="bg-muted/50 p-4 rounded-lg">
                                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                                     <TrendingUp className="h-4 w-4" />
-                                    <span>Despesas Este Ano</span>
+                                    <span>Pagas Este Ano</span>
                                 </div>
                                 <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(expenseSummary.year)}</p>
                             </div>
@@ -193,67 +290,47 @@ export default function ContasAPagarPanel() {
                 </CardContent>
             </Card>
 
-            <h3 className="text-lg font-semibold text-foreground">Contas a Pagar Pendentes e Recentes</h3>
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Fornecedor/Descrição</TableHead>
-                            <TableHead>Vencimento</TableHead>
-                            <TableHead className="text-right">Valor</TableHead>
-                            <TableHead className="text-center">Status</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoadingContas ? (
-                            <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
-                                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                                </TableCell>
-                            </TableRow>
-                        ) : contas && contas.length > 0 ? (
-                            contas.map((conta) => {
-                                const isVencida = !conta.estaPaga && new Date(conta.dataVencimento) < new Date();
-                                return (
-                                    <TableRow key={conta.id} className={cn(isVencida && 'text-destructive')}>
-                                        <TableCell>
-                                            <div className="font-medium">{fornecedorMap.get(conta.fornecedorId || '') || 'N/A'}</div>
-                                            <div className="text-sm text-muted-foreground">{conta.descricao}</div>
-                                        </TableCell>
-                                        <TableCell>{formatDate(conta.dataVencimento)}</TableCell>
-                                        <TableCell className="text-right font-mono">{formatCurrency(conta.valor)}</TableCell>
-                                        <TableCell className="text-center">
-                                            <div className="flex flex-col items-center gap-1.5">
-                                                <Switch
-                                                    checked={conta.estaPaga}
-                                                    onCheckedChange={(isPaga) => handleStatusChange(conta, isPaga)}
-                                                    aria-label="Marcar como paga"
-                                                />
-                                                <Badge variant={conta.estaPaga ? 'default' : 'secondary'} className={cn(conta.estaPaga ? 'bg-green-600' : isVencida ? 'bg-destructive/80' : '', "pointer-events-none")}>
-                                                    {conta.estaPaga ? 'Paga' : (isVencida ? 'Vencida' : 'Em Aberto')}
-                                                </Badge>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => handleDeleteRequest(conta)}>
-                                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                                    Nenhuma conta a pagar encontrada.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+            <h3 className="text-lg font-semibold text-foreground">Contas a Pagar</h3>
             
+            {isLoading ? (
+                <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+            ) : (
+                <Accordion type="multiple" className="w-full" defaultValue={['vencidas', 'semana']}>
+                    <AccordionItem value="vencidas">
+                        <AccordionTrigger>{renderAccordionTrigger('Vencidas', groupedContas.vencidas.length, groupedContas.vencidas.length > 0)}</AccordionTrigger>
+                        <AccordionContent>
+                            <ContasTable contas={groupedContas.vencidas} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
+                        </AccordionContent>
+                    </AccordionItem>
+                     <AccordionItem value="semana">
+                        <AccordionTrigger>{renderAccordionTrigger('Vencendo esta Semana', groupedContas.semana.length)}</AccordionTrigger>
+                        <AccordionContent>
+                            <ContasTable contas={groupedContas.semana} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
+                        </AccordionContent>
+                    </AccordionItem>
+                     <AccordionItem value="mes">
+                        <AccordionTrigger>{renderAccordionTrigger('Vencendo este Mês', groupedContas.mes.length)}</AccordionTrigger>
+                        <AccordionContent>
+                            <ContasTable contas={groupedContas.mes} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
+                        </AccordionContent>
+                    </AccordionItem>
+                     <AccordionItem value="proximos">
+                        <AccordionTrigger>{renderAccordionTrigger('Próximos Meses', groupedContas.proximos.length)}</AccordionTrigger>
+                        <AccordionContent>
+                             <ContasTable contas={groupedContas.proximos} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
+                        </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="pagas">
+                        <AccordionTrigger>{renderAccordionTrigger('Pagas', groupedContas.pagas.length)}</AccordionTrigger>
+                        <AccordionContent>
+                             <ContasTable contas={groupedContas.pagas} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+            )}
+
             <Separator className="my-8" />
 
             <div className="space-y-4">
@@ -312,3 +389,5 @@ export default function ContasAPagarPanel() {
         </div>
     );
 }
+
+    
