@@ -375,5 +375,6 @@ export default function MercadoriasPanel() {
 
         </div>
     );
+}
 
     
