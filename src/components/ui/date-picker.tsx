@@ -1,19 +1,10 @@
-
 "use client"
 
 import * as React from "react"
 import { format } from "date-fns"
-import { Calendar as CalendarIcon } from "lucide-react"
-import { ptBR } from 'date-fns/locale';
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
 
 interface DatePickerProps {
     date: Date | undefined;
@@ -21,32 +12,33 @@ interface DatePickerProps {
 }
 
 export function DatePicker({ date, setDate }: DatePickerProps) {
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const dateValue = e.target.value; // Returns "YYYY-MM-DD"
+    if (dateValue) {
+      // The input value is in "YYYY-MM-DD", which the Date constructor parses correctly in UTC.
+      // To avoid timezone shifts, we construct the date this way.
+      const [year, month, day] = dateValue.split('-').map(Number);
+      const newDate = new Date(year, month - 1, day);
+      setDate(newDate);
+    } else {
+      setDate(undefined);
+    }
+  };
+
+  const formattedDate = date ? format(date, "yyyy-MM-dd") : "";
+
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant={"outline"}
-          className={cn(
+    <div className="relative">
+       <Input
+        type="date"
+        value={formattedDate}
+        onChange={handleDateChange}
+        className={cn(
             "w-full justify-start text-left font-normal",
             !date && "text-muted-foreground"
-          )}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0">
-        <Calendar
-          mode="single"
-          selected={date}
-          onSelect={setDate}
-          initialFocus
-          locale={ptBR}
-          captionLayout="dropdown-nav"
-          fromYear={new Date().getFullYear() - 10}
-          toYear={new Date().getFullYear() + 10}
-        />
-      </PopoverContent>
-    </Popover>
+        )}
+      />
+    </div>
   )
 }
