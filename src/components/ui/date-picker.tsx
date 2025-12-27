@@ -42,7 +42,7 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
           initialFocus
           captionLayout="dropdown-nav"
           fromYear={new Date().getFullYear() - 10}
-          toYear={new Date().getFullYear()}
+          toYear={new Date().getFullYear() + 10}
         />
       </PopoverContent>
     </Popover>
