@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, PlusCircle, Trash2 } from 'lucide-react';
+import { Loader2, Plus, PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -42,6 +42,8 @@ export default function MercadoriasPanel() {
     
     const [newFornecedorName, setNewFornecedorName] = useState('');
     const [isAddingFornecedor, setIsAddingFornecedor] = useState(false);
+    
+    const lancamentoInputRef = useRef<HTMLInputElement>(null);
 
     const fornecedoresQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'fornecedores'), orderBy('nome', 'asc')) : null,
@@ -95,6 +97,12 @@ export default function MercadoriasPanel() {
         setProdutosLancados(prev => prev.filter(p => p.id !== id));
     }
     
+    const handleEditProduto = (produto: LancamentoProduto) => {
+        setLancamentoInput(produto.texto);
+        handleRemoveProduto(produto.id);
+        lancamentoInputRef.current?.focus();
+    }
+
     const resetForm = () => {
         setFornecedorId(undefined);
         setDataVencimento(undefined);
@@ -206,6 +214,7 @@ export default function MercadoriasPanel() {
                         <Label htmlFor="lancamento-produto">Lançamento de Produto (Nome e Preço)</Label>
                         <Input 
                             id="lancamento-produto"
+                            ref={lancamentoInputRef}
                             placeholder="Ex: Arroz 5kg 25,90"
                             value={lancamentoInput}
                             onChange={(e) => setLancamentoInput(e.target.value)}
@@ -226,6 +235,9 @@ export default function MercadoriasPanel() {
                                 <span>{p.produtoNome}</span>
                                 <div className="flex items-center gap-2">
                                     <span className="font-mono">{formatCurrency(p.preco || 0)}</span>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditProduto(p)}>
+                                        <Pencil className="h-4 w-4 text-blue-500" />
+                                    </Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveProduto(p.id)}>
                                         <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
