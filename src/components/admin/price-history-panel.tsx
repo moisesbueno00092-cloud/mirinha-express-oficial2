@@ -10,8 +10,8 @@ import { ptBR } from 'date-fns/locale';
 import type { EntradaMercadoria, Fornecedor, PriceHistoryEntry } from '@/types';
 
 import { Button } from '@/components/ui/button';
-import { Loader2, Search, Check, ChevronsUpDown } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, Check, ChevronsUpDown } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -101,7 +101,6 @@ function ProductCombobox({ products, value, setValue, disabled }: { products: st
 export default function PriceHistoryPanel() {
     const firestore = useFirestore();
     const [selectedProduct, setSelectedProduct] = useState('');
-    const [submittedSearch, setSubmittedSearch] = useState('');
     const [isSearching, setIsSearching] = useState(false);
 
     const allEntradasQuery = useMemoFirebase(
@@ -118,14 +117,14 @@ export default function PriceHistoryPanel() {
     }, [allEntradas]);
 
     const searchHistoryQuery = useMemoFirebase(
-        () => (firestore && submittedSearch) 
+        () => (firestore && selectedProduct) 
             ? query(
                 collection(firestore, 'entradas_mercadorias'), 
-                where('produtoNome', '==', submittedSearch),
+                where('produtoNome', '==', selectedProduct),
                 orderBy('data', 'asc')
               ) 
             : null,
-        [firestore, submittedSearch]
+        [firestore, selectedProduct]
     );
 
     const fornecedoresQuery = useMemoFirebase(
@@ -156,18 +155,16 @@ export default function PriceHistoryPanel() {
             supplier: entry.fornecedorNome,
         }));
     }, [priceHistory]);
-
-
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedProduct.trim()) return;
-        setIsSearching(true);
-        setSubmittedSearch(selectedProduct.trim());
-    }
     
     const isLoading = isLoadingSearchResult || isLoadingFornecedores;
 
-     // Effect to reset searching state
+     // Effect to set searching state
+    React.useEffect(() => {
+        if (selectedProduct) {
+            setIsSearching(true);
+        }
+    }, [selectedProduct]);
+
     React.useEffect(() => {
         if (!isLoadingSearchResult) {
             setIsSearching(false);
@@ -176,18 +173,14 @@ export default function PriceHistoryPanel() {
 
     return (
         <div className="space-y-6">
-            <form onSubmit={handleSearch} className="flex gap-2">
+            <div className="flex gap-2">
                 <ProductCombobox
                     products={uniqueProducts}
                     value={selectedProduct}
                     setValue={setSelectedProduct}
                     disabled={isLoadingAllEntradas}
                 />
-                <Button type="submit" disabled={isSearching || !selectedProduct.trim()}>
-                    {isSearching ? <Loader2 className="h-4 w-4 animate-spin"/> : <Search className="h-4 w-4"/>}
-                    <span className="ml-2 hidden sm:inline">Buscar</span>
-                </Button>
-            </form>
+            </div>
 
             {isSearching && (
                 <div className="flex justify-center items-center p-10">
@@ -195,9 +188,9 @@ export default function PriceHistoryPanel() {
                 </div>
             )}
             
-            {!isSearching && submittedSearch && priceHistory.length === 0 && (
+            {!isSearching && selectedProduct && priceHistory.length === 0 && (
                 <div className="text-center text-muted-foreground py-10">
-                    Nenhum histórico de preço encontrado para "{submittedSearch}".
+                    Nenhum histórico de preço encontrado para "{selectedProduct}".
                 </div>
             )}
 
@@ -205,7 +198,7 @@ export default function PriceHistoryPanel() {
                 <div className="space-y-8">
                      <Card>
                         <CardHeader>
-                            <CardTitle>Variação de Preço de "{submittedSearch}"</CardTitle>
+                            <CardTitle>Variação de Preço de "{selectedProduct}"</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <ChartContainer config={{}} className="h-64 w-full">
