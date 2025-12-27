@@ -62,7 +62,8 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
 
     const isBomboniere = (itemName: string): boolean => {
       const lowerItemName = itemName.toLowerCase();
-      return bomboniereNames.has(lowerItemName) || bomboniereNameMap.has(lowerItemName);
+      // Also check for the original name in the map in case it's not a standard item.
+      return bomboniereNames.has(lowerItemName) || bomboniereNameMap.has(lowerItemName) || bomboniereItems.some(bi => bi.name.toLowerCase() === lowerItemName);
     };
     
     const separateItemsByCategory = (itemCount: ItemCount) => {
@@ -72,7 +73,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
 
         for (const [name, count] of Object.entries(itemCount)) {
             if (isBomboniere(name)) {
-                const officialName = bomboniereNameMap.get(name.toLowerCase()) || name;
+                const officialName = bomboniereNameMap.get(name.toLowerCase().replace(/\s+/g, '-')) || bomboniereNameMap.get(name.toLowerCase()) || name;
                 bomboniere[officialName] = (bomboniere[officialName] || 0) + count;
             } else {
                 lanches[name] = (lanches[name] || 0) + count;
@@ -115,7 +116,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
         const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
         
         return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
-    }, [report.contagemTotal, report.contagemRua, separateItemsByCategory]);
+    }, [report.contagemTotal, report.contagemRua, separateItemsByCategory, bomboniereItems]);
 
     const renderItemCountList = (counts: ItemCount, title?: string) => {
       if (!counts || Object.keys(counts).length === 0) {
@@ -190,12 +191,12 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                   <h3 className="font-semibold mb-2">Contagem de Itens</h3>
                   <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
+                            <h4 className="font-medium text-sm text-purple-400 mb-1">Salão</h4>
                             {renderItemCountList(lanchesSalao)}
                             {renderItemCountList(bomboniereSalao, "Bomboniere")}
                         </div>
                         <div>
-                            <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
+                            <h4 className="font-medium text-sm text-blue-400 mb-1">Rua</h4>
                             {renderItemCountList(lanchesRua)}
                             {renderItemCountList(bomboniereRua, "Bomboniere")}
                         </div>
@@ -363,5 +364,3 @@ export default function ReportsPage() {
     </>
   );
 }
-
-    
