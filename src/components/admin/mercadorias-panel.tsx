@@ -189,20 +189,22 @@ export default function MercadoriasPanel() {
     }
 
     const handleRegisterEntry = async () => {
-        if (!firestore || !fornecedorId || !dataVencimento || produtosLancados.length === 0) {
-            toast({ variant: 'destructive', title: 'Faltam dados', description: 'Por favor, preencha todos os campos e adicione pelo menos um produto.' });
+        if (!firestore || !fornecedorId || produtosLancados.length === 0) {
+            toast({ variant: 'destructive', title: 'Faltam dados', description: 'Por favor, selecione um fornecedor e adicione pelo menos um produto.' });
             return;
         }
         setIsSubmitting(true);
 
         try {
             const fornecedorNome = fornecedores?.find(f => f.id === fornecedorId)?.nome || 'Fornecedor desconhecido';
+            
+            const vencimentoFinal = dataVencimento || new Date();
 
             const novaConta: Omit<ContaAPagar, 'id'> = {
                 descricao: `Compra de mercadorias - ${fornecedorNome}`,
                 fornecedorId: fornecedorId,
                 valor: totalCompra,
-                dataVencimento: formatDateFn(dataVencimento, 'yyyy-MM-dd'),
+                dataVencimento: formatDateFn(vencimentoFinal, 'yyyy-MM-dd'),
                 estaPaga: false,
             };
             await addDocumentNonBlocking(collection(firestore, 'contas_a_pagar'), novaConta);
@@ -364,7 +366,7 @@ export default function MercadoriasPanel() {
             <div className="flex justify-end pt-4">
                 <Button 
                     onClick={handleRegisterEntry}
-                    disabled={isSubmitting || !fornecedorId || !dataVencimento || produtosLancados.length === 0}
+                    disabled={isSubmitting || !fornecedorId || produtosLancados.length === 0}
                 >
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Registar Entrada e Criar Conta a Pagar
