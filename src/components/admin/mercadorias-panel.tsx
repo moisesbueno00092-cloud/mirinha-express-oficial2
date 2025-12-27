@@ -22,7 +22,7 @@ import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
-import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '../ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { cn } from '@/lib/utils';
 
 
@@ -40,17 +40,15 @@ export default function MercadoriasPanel() {
     const [dataVencimento, setDataVencimento] = useState<Date | undefined>();
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // States for the new product entry form
     const [lancamento, setLancamento] = useState('');
     const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
     
     const [newFornecedorName, setNewFornecedorName] = useState('');
     const [isAddingFornecedor, setIsAddingFornecedor] = useState(false);
     
-    // Autocomplete state
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
-    const [activeIndex, setActiveIndex] = useState(-1);
+    const [activeIndex, setActiveIndex] = useState(0);
     const lancamentoInputRef = useRef<HTMLInputElement>(null);
 
     const fornecedoresQuery = useMemoFirebase(
@@ -92,13 +90,14 @@ export default function MercadoriasPanel() {
     const handleLancamentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setLancamento(value);
+        setActiveIndex(0);
 
         if (value.trim() && !/\s\d/.test(value)) {
-            const filteredSuggestions = uniqueProductNames.filter(name =>
-                name.toLowerCase().startsWith(value.toLowerCase())
+            const filtered = uniqueProductNames.filter(name =>
+                name.toLowerCase().includes(value.toLowerCase())
             );
-            setSuggestions(filteredSuggestions);
-            setIsSuggestionsOpen(filteredSuggestions.length > 0);
+            setSuggestions(filtered);
+            setIsSuggestionsOpen(filtered.length > 0);
         } else {
             setSuggestions([]);
             setIsSuggestionsOpen(false);
@@ -113,37 +112,32 @@ export default function MercadoriasPanel() {
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (isSuggestionsOpen) {
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setActiveIndex(prev => (prev + 1) % suggestions.length);
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setActiveIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
-            } else if ((e.key === 'Enter' || e.key === 'Tab') && activeIndex >= 0) {
+        if (!isSuggestionsOpen) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActiveIndex(prev => (prev + 1) % suggestions.length);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActiveIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+             if (suggestions.length > 0 && activeIndex >= 0) {
                 e.preventDefault();
                 handleSuggestionClick(suggestions[activeIndex]);
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                setIsSuggestionsOpen(false);
             }
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setIsSuggestionsOpen(false);
         }
     };
-
-    useEffect(() => {
-        if (isSuggestionsOpen) {
-            setActiveIndex(-1); // Reset active index when suggestions open
-        }
-    }, [isSuggestionsOpen]);
 
 
     const handleAddProduto = (e: React.FormEvent) => {
         e.preventDefault();
         const trimmedLancamento = lancamento.trim();
         
-        // Find the last space to separate product name and price
         const lastSpaceIndex = trimmedLancamento.lastIndexOf(' ');
-        if (lastSpaceIndex === -1) {
+        if (lastSpaceIndex === -1 || !/\d/.test(trimmedLancamento.substring(lastSpaceIndex + 1))) {
              toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Formato inválido. Use "Nome do Produto Preço".' });
             return;
         }
@@ -164,6 +158,7 @@ export default function MercadoriasPanel() {
         }]);
 
         setLancamento('');
+        setIsSuggestionsOpen(false);
         lancamentoInputRef.current?.focus();
     }
 
@@ -283,7 +278,7 @@ export default function MercadoriasPanel() {
                 <Label htmlFor='lancamento-produto'>Lançamento de Produto</Label>
                 <form onSubmit={handleAddProduto} className="flex items-start gap-2">
                      <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
-                        <PopoverAnchor asChild>
+                        <PopoverTrigger asChild>
                             <Input
                                 id="lancamento-produto" 
                                 ref={lancamentoInputRef}
@@ -291,11 +286,11 @@ export default function MercadoriasPanel() {
                                 value={lancamento}
                                 onChange={handleLancamentoChange}
                                 onKeyDown={handleKeyDown}
-                                onBlur={() => setIsSuggestionsOpen(false)}
+                                onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 150)}
                                 autoComplete="off"
                                 className='flex-grow'
                             />
-                        </PopoverAnchor>
+                        </PopoverTrigger>
                         <PopoverContent 
                             className="w-[--radix-popover-trigger-width] p-0" 
                             align="start"
@@ -367,3 +362,4 @@ export default function MercadoriasPanel() {
         </div>
     );
 }
+
