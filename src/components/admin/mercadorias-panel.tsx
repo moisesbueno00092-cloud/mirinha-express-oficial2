@@ -103,20 +103,26 @@ export default function MercadoriasPanel() {
         const value = e.target.value;
         setLancamentoInput(value);
     
-        const hasPrice = /\s[\d,.]+$/.test(value);
+        // Check if the input is empty or ends with what looks like a price.
+        const endsWithPrice = /\s[\d,.]*$/.test(value);
     
-        if (value && !hasPrice) {
-            const filtered = uniqueProductNames.filter(name =>
-                name.toLowerCase().startsWith(value.toLowerCase())
+        if (value && !endsWithPrice) {
+            const lowercasedValue = value.toLowerCase();
+            const filteredSuggestions = uniqueProductNames.filter(name =>
+                name.toLowerCase().startsWith(lowercasedValue)
             );
-            setSuggestions(filtered);
-            setSuggestionsOpen(filtered.length > 0);
-            setActiveSuggestionIndex(0);
+    
+            if (filteredSuggestions.length > 0) {
+                setSuggestions(filteredSuggestions);
+                setSuggestionsOpen(true);
+                setActiveSuggestionIndex(0);
+            } else {
+                setSuggestionsOpen(false);
+            }
         } else {
             setSuggestionsOpen(false);
         }
     };
-    
 
     const handleSuggestionClick = (suggestion: string) => {
         setLancamentoInput(suggestion + ' ');
@@ -133,7 +139,7 @@ export default function MercadoriasPanel() {
                 e.preventDefault();
                 setActiveSuggestionIndex(prev => Math.max(prev - 1, 0));
             } else if (e.key === 'Enter' || e.key === 'Tab') {
-                if (suggestions[activeSuggestionIndex]) {
+                 if (suggestions[activeSuggestionIndex]) {
                     e.preventDefault();
                     handleSuggestionClick(suggestions[activeSuggestionIndex]);
                 }
