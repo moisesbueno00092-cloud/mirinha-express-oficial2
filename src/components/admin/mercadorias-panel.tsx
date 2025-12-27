@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, PlusCircle, Trash2, Pencil, ChevronsUpDown, Check } from 'lucide-react';
+import { Loader2, Plus, PlusCircle, Trash2, Pencil, Check, ChevronsUpDown } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -338,5 +337,4 @@ export default function MercadoriasPanel() {
 
         </div>
     );
-
-    
+}
