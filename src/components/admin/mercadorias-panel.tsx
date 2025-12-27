@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +22,7 @@ import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '../ui/popover';
 import { cn } from '@/lib/utils';
 
 
@@ -90,14 +90,14 @@ export default function MercadoriasPanel() {
     const handleLancamentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setLancamento(value);
-        setActiveIndex(0);
-
-        if (value.trim() && !/\s\d/.test(value)) {
-            const filtered = uniqueProductNames.filter(name =>
+        
+        if (value && !/\s\d/.test(value)) {
+            const filteredSuggestions = uniqueProductNames.filter(name => 
                 name.toLowerCase().startsWith(value.toLowerCase())
             );
-            setSuggestions(filtered);
-            setIsSuggestionsOpen(filtered.length > 0);
+            setSuggestions(filteredSuggestions);
+            setIsSuggestionsOpen(filteredSuggestions.length > 0);
+            setActiveIndex(0);
         } else {
             setSuggestions([]);
             setIsSuggestionsOpen(false);
@@ -106,7 +106,6 @@ export default function MercadoriasPanel() {
 
     const handleSuggestionClick = (suggestion: string) => {
         setLancamento(suggestion + ' ');
-        setSuggestions([]);
         setIsSuggestionsOpen(false);
         lancamentoInputRef.current?.focus();
     };
@@ -130,7 +129,6 @@ export default function MercadoriasPanel() {
             }
         }
     };
-
 
     const handleAddProduto = (e: React.FormEvent) => {
         e.preventDefault();
@@ -279,17 +277,19 @@ export default function MercadoriasPanel() {
                 <form onSubmit={handleAddProduto} className="flex items-start gap-2">
                      <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
                         <PopoverTrigger asChild>
-                            <Input
-                                id="lancamento-produto" 
-                                ref={lancamentoInputRef}
-                                placeholder="Nome do Produto Preço (ex: Arroz 25,90)"
-                                value={lancamento}
-                                onChange={handleLancamentoChange}
-                                onKeyDown={handleKeyDown}
-                                onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 150)}
-                                autoComplete="off"
-                                className='flex-grow'
-                            />
+                           <div className="relative w-full">
+                                <Input
+                                    id="lancamento-produto" 
+                                    ref={lancamentoInputRef}
+                                    placeholder="Nome do Produto Preço (ex: Arroz 25,90)"
+                                    value={lancamento}
+                                    onChange={handleLancamentoChange}
+                                    onKeyDown={handleKeyDown}
+                                    onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 150)}
+                                    autoComplete="off"
+                                    className='flex-grow'
+                                />
+                            </div>
                         </PopoverTrigger>
                         <PopoverContent 
                             className="w-[--radix-popover-trigger-width] p-0" 
@@ -362,3 +362,4 @@ export default function MercadoriasPanel() {
         </div>
     );
 }
+
