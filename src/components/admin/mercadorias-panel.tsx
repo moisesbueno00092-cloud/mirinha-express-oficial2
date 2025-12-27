@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -16,14 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, PlusCircle, Trash2, Pencil, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, Plus, PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
+import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '../ui/popover';
 import { cn } from '@/lib/utils';
+
 
 interface LancamentoProduto {
     id: number;
@@ -40,16 +41,17 @@ export default function MercadoriasPanel() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // States for the new product entry form
-    const [produtoNome, setProdutoNome] = useState('');
-    const [produtoPreco, setProdutoPreco] = useState('');
+    const [lancamento, setLancamento] = useState('');
     const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
     
     const [newFornecedorName, setNewFornecedorName] = useState('');
     const [isAddingFornecedor, setIsAddingFornecedor] = useState(false);
     
     // Autocomplete state
-    const [isComboboxOpen, setIsComboboxOpen] = useState(false);
-    const precoInputRef = useRef<HTMLInputElement>(null);
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(-1);
+    const lancamentoInputRef = useRef<HTMLInputElement>(null);
 
     const fornecedoresQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'fornecedores'), orderBy('nome', 'asc')) : null,
@@ -86,14 +88,66 @@ export default function MercadoriasPanel() {
             setIsAddingFornecedor(false);
         }
     };
+    
+    const handleLancamentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setLancamento(value);
+        setActiveIndex(-1);
+
+        if (value && !/\s\d/.test(value)) {
+            const filteredSuggestions = uniqueProductNames.filter(name =>
+                name.toLowerCase().startsWith(value.toLowerCase())
+            );
+            setSuggestions(filteredSuggestions);
+            setIsSuggestionsOpen(filteredSuggestions.length > 0);
+        } else {
+            setSuggestions([]);
+            setIsSuggestionsOpen(false);
+        }
+    };
+
+    const handleSuggestionClick = (suggestion: string) => {
+        setLancamento(suggestion + ' ');
+        setSuggestions([]);
+        setIsSuggestionsOpen(false);
+        lancamentoInputRef.current?.focus();
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!isSuggestionsOpen) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActiveIndex(prevIndex => (prevIndex + 1) % suggestions.length);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActiveIndex(prevIndex => (prevIndex - 1 + suggestions.length) % suggestions.length);
+        } else if ((e.key === 'Enter' || e.key === 'Tab') && activeIndex >= 0) {
+            e.preventDefault();
+            handleSuggestionClick(suggestions[activeIndex]);
+        } else if (e.key === 'Escape') {
+            setIsSuggestionsOpen(false);
+        }
+    };
+
 
     const handleAddProduto = (e: React.FormEvent) => {
         e.preventDefault();
-        const nome = produtoNome.trim();
-        const preco = parseFloat(produtoPreco.replace(',', '.'));
+        const trimmedLancamento = lancamento.trim();
         
+        // Find the last space to separate product name and price
+        const lastSpaceIndex = trimmedLancamento.lastIndexOf(' ');
+        if (lastSpaceIndex === -1) {
+             toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Formato inválido. Use "Nome do Produto Preço".' });
+            return;
+        }
+
+        const nome = trimmedLancamento.substring(0, lastSpaceIndex).trim();
+        const precoStr = trimmedLancamento.substring(lastSpaceIndex + 1).replace(',', '.');
+        const preco = parseFloat(precoStr);
+
         if (!nome || isNaN(preco) || preco <= 0) {
-            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Por favor, preencha o nome e um preço válido para o produto.' });
+            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Por favor, preencha o nome e um preço válido.' });
             return;
         }
 
@@ -103,10 +157,8 @@ export default function MercadoriasPanel() {
             preco,
         }]);
 
-        setProdutoNome('');
-        setProdutoPreco('');
-        setIsComboboxOpen(false); 
-        // We can't focus the combobox trigger directly, so we let the user click to open it again.
+        setLancamento('');
+        lancamentoInputRef.current?.focus();
     }
 
     const handleRemoveProduto = (id: number) => {
@@ -114,18 +166,16 @@ export default function MercadoriasPanel() {
     }
     
     const handleEditProduto = (produto: LancamentoProduto) => {
-        setProdutoNome(produto.produtoNome);
-        setProdutoPreco(String(produto.preco).replace('.', ','));
+        setLancamento(`${produto.produtoNome} ${String(produto.preco).replace('.', ',')}`);
         handleRemoveProduto(produto.id);
-        setIsComboboxOpen(true);
+        lancamentoInputRef.current?.focus();
     }
 
     const resetForm = () => {
         setFornecedorId(undefined);
         setDataVencimento(undefined);
         setProdutosLancados([]);
-        setProdutoNome('');
-        setProdutoPreco('');
+        setLancamento('');
     }
 
     const handleRegisterEntry = async () => {
@@ -224,77 +274,47 @@ export default function MercadoriasPanel() {
             <Separator />
 
             <div className="space-y-4">
-                <Label>Lançamento de Produto</Label>
-                <form onSubmit={handleAddProduto} className="flex items-end gap-2">
-                    <div className='flex-grow'>
-                        <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={isComboboxOpen}
-                                    className="w-full justify-between font-normal"
-                                >
-                                    <span className="truncate">{produtoNome || "Nome do Produto..."}</span>
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                                <Command
-                                  // This filter is important to allow creating new items
-                                  filter={(value, search) => {
-                                      if (value.toLowerCase().includes(search.toLowerCase())) return 1;
-                                      return 0;
-                                  }}
-                                >
-                                    <CommandInput 
-                                      placeholder="Buscar produto ou criar novo..." 
-                                      value={produtoNome}
-                                      onValueChange={setProdutoNome}
-                                    />
-                                    <CommandList>
-                                        <CommandEmpty>
-                                            <div className="p-4 text-sm text-center">
-                                                <p>Nenhum produto encontrado.</p>
-                                                <p className="text-xs text-muted-foreground">Pode criar um novo ao digitar e pressionar Enter.</p>
-                                            </div>
-                                        </CommandEmpty>
-                                        <CommandGroup>
-                                            {uniqueProductNames.map((name) => (
-                                                <CommandItem
-                                                    key={name}
-                                                    value={name}
-                                                    onSelect={(currentValue) => {
-                                                        setProdutoNome(currentValue === produtoNome ? "" : currentValue);
-                                                        setIsComboboxOpen(false);
-                                                        precoInputRef.current?.focus();
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            produtoNome.toLowerCase() === name.toLowerCase() ? "opacity-100" : "opacity-0"
-                                                        )}
-                                                    />
-                                                    {name}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
-                    </div>
+                <Label htmlFor='lancamento-produto'>Lançamento de Produto</Label>
+                <form onSubmit={handleAddProduto} className="flex items-start gap-2">
+                     <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
+                        <PopoverAnchor asChild>
+                            <Input
+                                id="lancamento-produto" 
+                                ref={lancamentoInputRef}
+                                placeholder="Nome do Produto Preço (ex: Arroz 25,90)"
+                                value={lancamento}
+                                onChange={handleLancamentoChange}
+                                onKeyDown={handleKeyDown}
+                                autoComplete="off"
+                                className='flex-grow'
+                            />
+                        </PopoverAnchor>
+                        <PopoverContent 
+                            className="w-[--radix-popover-trigger-width] p-0" 
+                            align="start"
+                            onOpenAutoFocus={(e) => e.preventDefault()} // Prevent focus stealing
+                        >
+                            <div className="max-h-60 overflow-y-auto">
+                                {suggestions.map((s, i) => (
+                                    <div
+                                        key={s}
+                                        className={cn(
+                                            "p-2 text-sm cursor-pointer hover:bg-accent",
+                                            i === activeIndex && "bg-accent"
+                                        )}
+                                        onMouseDown={(e) => { // Use onMouseDown to prevent blur event from firing first
+                                            e.preventDefault();
+                                            handleSuggestionClick(s);
+                                        }}
+                                    >
+                                        {s}
+                                    </div>
+                                ))}
+                            </div>
+                        </PopoverContent>
+                    </Popover>
 
-                    <div className='w-28'>
-                        <Input 
-                            ref={precoInputRef}
-                            placeholder="Preço"
-                            value={produtoPreco}
-                            onChange={(e) => setProdutoPreco(e.target.value)}
-                        />
-                    </div>
-                     <Button type="submit" size="icon" disabled={!produtoNome.trim() || !produtoPreco.trim()}>
+                     <Button type="submit" size="icon" disabled={!lancamento.trim()}>
                         <Plus className="h-4 w-4"/>
                     </Button>
                 </form>
