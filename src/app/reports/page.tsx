@@ -189,7 +189,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
             <div className="text-right">
                 <p className="text-3xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Faturamento à Vista: <span className="font-semibold text-foreground">{formatCurrency(report.totalAVista)}</span>
+                    Faturamento à Vista: <span className="font-semibold text-green-500">{formatCurrency(report.totalAVista)}</span>
                 </p>
             </div>
         </CardHeader>
@@ -214,7 +214,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
               <Separator/>
               <div>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center text-destructive"><span>Total Entregas:</span> <span className="font-mono font-bold text-destructive">{report.totalEntregas || 0} ({formatCurrency(report.totalTaxas)})</span></div>
+                  <div className="flex justify-between items-center text-destructive"><span>Total Entregas:</span> <span className="font-mono font-bold">{report.totalEntregas || 0} ({formatCurrency(report.totalTaxas)})</span></div>
                   <div className="flex justify-between items-center text-muted-foreground"><span>Total Geral (Itens):</span> <span className="font-mono font-bold text-foreground">{report.totalItens || 0}</span></div>
                 </div>
               </div>
@@ -443,3 +443,5 @@ export default function ReportsPage() {
     </>
   );
 }
+
+    

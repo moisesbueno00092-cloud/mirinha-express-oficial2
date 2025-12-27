@@ -866,7 +866,7 @@ export default function Home() {
           <div className="flex flex-col items-center justify-center">
              <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">À Vista:</span>
-                <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span>
+                <span className="font-bold text-green-500">{formatCurrency(summary.totalAVista)}</span>
              </div>
              <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">Fiado:</span>
@@ -886,6 +886,8 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     
 
