@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { Separator } from '../ui/separator';
-import { format } from 'date-fns';
+import { format as formatDateFn } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '../ui/popover';
@@ -23,6 +23,11 @@ interface LancamentoProduto {
     id: number;
     produtoNome: string;
     preco: number;
+}
+
+interface ProductSuggestion {
+    name: string;
+    lastPrice: number;
 }
 
 export default function MercadoriasPanel() {
@@ -39,7 +44,7 @@ export default function MercadoriasPanel() {
     const [isAddingFornecedor, setIsAddingFornecedor] = useState(false);
     
     const [lancamentoInput, setLancamentoInput] = useState('');
-    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const lancamentoInputRef = useRef<HTMLInputElement>(null);
 
@@ -51,15 +56,27 @@ export default function MercadoriasPanel() {
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
     
     const allEntradasQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'entradas_mercadorias')) : null,
+        () => firestore ? query(collection(firestore, 'entradas_mercadorias'), orderBy('data', 'desc')) : null,
         [firestore]
     );
     const { data: allEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
     
-    const uniqueProductNames = useMemo(() => {
+    const productSuggestions = useMemo((): ProductSuggestion[] => {
         if (!allEntradas) return [];
-        const productNames = allEntradas.map(e => e.produtoNome);
-        return [...new Set(productNames)].sort();
+        const latestEntries = new Map<string, EntradaMercadoria>();
+        
+        for (const entry of allEntradas) {
+            if (!latestEntries.has(entry.produtoNome)) {
+                latestEntries.set(entry.produtoNome, entry);
+            }
+        }
+        
+        return Array.from(latestEntries.values())
+          .map(entry => ({
+            name: entry.produtoNome,
+            lastPrice: entry.precoUnitario,
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name));
     }, [allEntradas]);
 
     useEffect(() => {
@@ -68,19 +85,18 @@ export default function MercadoriasPanel() {
           return;
       }
       const lastSpaceIndex = lancamentoInput.lastIndexOf(' ');
-      const potentialPrice = lancamentoInput.substring(lastSpaceIndex + 1);
       const namePart = lancamentoInput.substring(0, lastSpaceIndex > -1 ? lastSpaceIndex : lancamentoInput.length).toLowerCase();
 
-      if (lastSpaceIndex > -1 && /[\d,.]+$/.test(potentialPrice)) {
+      if (lastSpaceIndex > -1 && /[\d,.]+$/.test(lancamentoInput.substring(lastSpaceIndex + 1))) {
           setIsSuggestionsOpen(false);
           return;
       }
       
-      const filtered = uniqueProductNames.filter(p => p.toLowerCase().startsWith(lancamentoInput.toLowerCase()));
+      const filtered = productSuggestions.filter(p => p.name.toLowerCase().startsWith(lancamentoInput.toLowerCase()));
       setSuggestions(filtered);
       setIsSuggestionsOpen(filtered.length > 0);
 
-    }, [lancamentoInput, uniqueProductNames]);
+    }, [lancamentoInput, productSuggestions]);
     
     const handleAddFornecedor = async () => {
         if (!firestore || !newFornecedorName.trim()) return;
@@ -131,8 +147,8 @@ export default function MercadoriasPanel() {
         setLancamentoInput('');
     }
 
-    const handleSelectSuggestion = (suggestion: string) => {
-        setLancamentoInput(suggestion + ' ');
+    const handleSelectSuggestion = (suggestion: ProductSuggestion) => {
+        setLancamentoInput(`${suggestion.name} ${String(suggestion.lastPrice).replace('.', ',')}`);
         setIsSuggestionsOpen(false);
         lancamentoInputRef.current?.focus();
     }
@@ -168,7 +184,7 @@ export default function MercadoriasPanel() {
                 descricao: `Compra de mercadorias - ${fornecedorNome}`,
                 fornecedorId: fornecedorId,
                 valor: totalCompra,
-                dataVencimento: format(dataVencimento, 'yyyy-MM-dd'),
+                dataVencimento: formatDateFn(dataVencimento, 'yyyy-MM-dd'),
                 estaPaga: false,
             };
             await addDocumentNonBlocking(collection(firestore, 'contas_a_pagar'), novaConta);
@@ -273,10 +289,11 @@ export default function MercadoriasPanel() {
                         {suggestions.map((suggestion, index) => (
                           <li
                             key={index}
-                            className='px-3 py-2 text-sm cursor-pointer hover:bg-accent'
+                            className='px-3 py-2 text-sm cursor-pointer hover:bg-accent flex justify-between items-center'
                             onMouseDown={() => handleSelectSuggestion(suggestion)}
                           >
-                            {suggestion}
+                            <span>{suggestion.name}</span>
+                            <span className='text-xs text-muted-foreground font-mono'>{formatCurrency(suggestion.lastPrice)}</span>
                           </li>
                         ))}
                       </ul>
@@ -323,5 +340,6 @@ export default function MercadoriasPanel() {
 
         </div>
     );
+}
 
-    
+  
