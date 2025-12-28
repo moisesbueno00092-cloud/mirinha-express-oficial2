@@ -482,6 +482,7 @@ export default function Home() {
   const handleSaveEdit = async () => {
     if (editingItem && editInputValue) {
       await handleUpsertItem(editInputValue, editingItem);
+      // Logic to close the dialog is now handled by DialogClose in the button
     }
     setEditingItem(null);
   };
@@ -741,9 +742,11 @@ export default function Home() {
             <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancelar</Button>
             </DialogClose>
-            <Button type="submit" onClick={handleSaveEdit} disabled={isProcessing}>
-                <Save className="mr-2 h-4 w-4" /> Salvar
-            </Button>
+            <DialogClose asChild>
+              <Button type="submit" onClick={handleSaveEdit} disabled={isProcessing}>
+                  <Save className="mr-2 h-4 w-4" /> Salvar
+              </Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -940,7 +943,5 @@ export default function Home() {
     </>
   );
 }
-
-    
 
     
