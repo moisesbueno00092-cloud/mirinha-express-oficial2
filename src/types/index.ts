@@ -94,6 +94,7 @@ export interface DailyReport {
 export interface Fornecedor {
   id: string;
   nome: string;
+  color: string;
 }
 
 export interface ContaAPagar {

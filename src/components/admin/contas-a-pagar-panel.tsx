@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -69,7 +70,7 @@ const getStatus = (conta: ContaAPagar): { text: string; className: string; isUrg
 
 const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest }: {
     contas: ContaAPagar[],
-    fornecedorMap: Map<string, string>,
+    fornecedorMap: Map<string, Fornecedor>,
     onStatusChange: (conta: ContaAPagar, isPaga: boolean) => void,
     onDeleteRequest: (conta: ContaAPagar) => void,
 }) => {
@@ -92,11 +93,15 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest }:
                 <TableBody>
                     {contas.map((conta) => {
                         const status = getStatus(conta);
+                        const fornecedor = fornecedorMap.get(conta.fornecedorId || '');
                         return (
                             <TableRow key={conta.id} className={cn(status.isUrgent && 'bg-destructive/10')}>
                                 <TableCell>
-                                    <div className="font-medium">{fornecedorMap.get(conta.fornecedorId || '') || 'N/A'}</div>
-                                    <div className="text-sm text-muted-foreground">{conta.descricao}</div>
+                                    <div className="font-medium flex items-center gap-2">
+                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: fornecedor?.color || '#ccc' }}></div>
+                                        {fornecedor?.nome || 'N/A'}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground pl-5">{conta.descricao}</div>
                                 </TableCell>
                                 <TableCell className={cn(status.isUrgent && 'font-semibold text-foreground')}>{formatDate(conta.dataVencimento)}</TableCell>
                                 <TableCell>
@@ -158,8 +163,8 @@ export default function ContasAPagarPanel() {
 
 
     const fornecedorMap = useMemo(() => {
-        if (!fornecedores) return new Map<string, string>();
-        return new Map(fornecedores.map(f => [f.id, f.nome]));
+        if (!fornecedores) return new Map<string, Fornecedor>();
+        return new Map(fornecedores.map(f => [f.id, f]));
     }, [fornecedores]);
 
     const filteredEntradas = useMemo(() => {
@@ -400,7 +405,12 @@ export default function ContasAPagarPanel() {
                                       <TableRow key={entry.id}>
                                           <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
                                           <TableCell className="font-medium">{entry.produtoNome}</TableCell>
-                                          <TableCell>{fornecedorMap.get(entry.fornecedorId) || 'Desconhecido'}</TableCell>
+                                          <TableCell>
+                                            <div className='flex items-center gap-2'>
+                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: fornecedorMap.get(entry.fornecedorId)?.color || '#ccc' }}></div>
+                                                {fornecedorMap.get(entry.fornecedorId)?.nome || 'Desconhecido'}
+                                            </div>
+                                          </TableCell>
                                           <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
                                       </TableRow>
                                   ))

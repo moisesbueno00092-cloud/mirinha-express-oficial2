@@ -117,9 +117,10 @@
         "description": "Representa um fornecedor de mercadorias.",
         "type": "object",
         "properties": {
-            "nome": { "type": "string" }
+            "nome": { "type": "string" },
+            "color": { "type": "string" }
         },
-        "required": ["nome"]
+        "required": ["nome", "color"]
     },
     "ContaAPagar": {
         "title": "Conta a Pagar",

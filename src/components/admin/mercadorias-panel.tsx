@@ -35,6 +35,13 @@ interface ProductSuggestion {
     lastPrice: number;
 }
 
+const generatePastelColor = () => {
+  const h = Math.floor(Math.random() * 360);
+  const s = Math.floor(Math.random() * 20) + 70; // 70-90% saturation
+  const l = Math.floor(Math.random() * 20) + 75; // 75-95% lightness
+  return `hsl(${h}, ${s}%, ${l}%)`;
+};
+
 
 export default function MercadoriasPanel() {
     const firestore = useFirestore();
@@ -76,7 +83,7 @@ export default function MercadoriasPanel() {
             const deliveryProviderExists = fornecedores.some(f => f.id === 'delivery_fees_provider');
             if (!deliveryProviderExists) {
                 const docRef = doc(firestore, 'fornecedores', 'delivery_fees_provider');
-                await setDoc(docRef, { nome: 'Taxas de Entrega' });
+                await setDoc(docRef, { nome: 'Taxas de Entrega', color: '#9ca3af' });
             }
         };
         ensureDeliveryProvider();
@@ -143,9 +150,12 @@ export default function MercadoriasPanel() {
 
         setIsAddingFornecedor(true);
         try {
-            await addDocumentNonBlocking(collection(firestore, 'fornecedores'), {
+            const newColor = generatePastelColor();
+            const newFornecedor = {
                 nome: newFornecedorName.trim(),
-            });
+                color: newColor
+            };
+            const docRef = await addDocumentNonBlocking(collection(firestore, 'fornecedores'), newFornecedor);
             toast({ title: 'Sucesso', description: 'Fornecedor adicionado.' });
             setNewFornecedorName('');
         } catch (error) {

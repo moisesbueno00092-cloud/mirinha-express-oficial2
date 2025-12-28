@@ -95,6 +95,7 @@ export default function FornecedoresEditModal({ isOpen, onClose, fornecedores: i
                 break;
             }
             const docRef = doc(fornecedoresCollectionRef, fornecedor.id);
+            // Only update name, not color
             updateDocumentNonBlocking(docRef, { nome: fornecedor.nome.trim() });
           }
       }
@@ -102,7 +103,7 @@ export default function FornecedoresEditModal({ isOpen, onClose, fornecedores: i
       setIsProcessing(false);
       
       if (!hasError) {
-        toast({ title: "Sucesso", description: "Fornecedores atualizados." });
+        toast({ title: "Sucesso", description: "Nomes dos fornecedores atualizados." });
         onClose();
       }
   };
@@ -145,6 +146,7 @@ export default function FornecedoresEditModal({ isOpen, onClose, fornecedores: i
               <div className="px-6 divide-y divide-border">
                 {filteredFornecedores.map((fornecedor) => (
                     <div key={fornecedor.id} className="flex items-center gap-x-4 py-2">
+                        <div className="w-5 h-5 rounded-full shrink-0" style={{ backgroundColor: fornecedor.color }}></div>
                         <Input
                             value={fornecedor.nome}
                             onChange={(e) => handleNameChange(fornecedor.id, e.target.value)}
