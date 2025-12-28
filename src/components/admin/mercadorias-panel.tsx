@@ -5,6 +5,8 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { ContaAPagar, EntradaMercadoria, Fornecedor } from '@/types';
+import usePersistentState from '@/hooks/use-persistent-state';
+
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,15 +34,29 @@ interface ProductSuggestion {
     lastPrice: number;
 }
 
+const parseDateString = (date: string | undefined): Date | undefined => {
+    if (!date) return undefined;
+    try {
+        const parsed = new Date(date);
+        return isNaN(parsed.getTime()) ? undefined : parsed;
+    } catch {
+        return undefined;
+    }
+}
+
+
 export default function MercadoriasPanel() {
     const firestore = useFirestore();
     const { toast } = useToast();
 
-    const [fornecedorId, setFornecedorId] = useState<string | undefined>();
-    const [dataVencimento, setDataVencimento] = useState<Date | undefined>();
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [fornecedorId, setFornecedorId] = usePersistentState<string | undefined>('mercadorias.fornecedorId', undefined);
+    const [rawVencimento, setRawVencimento] = usePersistentState<string | undefined>('mercadorias.dataVencimento', undefined);
+    const [produtosLancados, setProdutosLancados] = usePersistentState<LancamentoProduto[]>('mercadorias.produtosLancados', []);
+
+    const dataVencimento = useMemo(() => parseDateString(rawVencimento), [rawVencimento]);
+    const setDataVencimento = (date: Date | undefined) => setRawVencimento(date?.toISOString());
     
-    const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [newFornecedorName, setNewFornecedorName] = useState('');
     const [isAddingFornecedor, setIsAddingFornecedor] = useState(false);
@@ -163,17 +179,21 @@ export default function MercadoriasPanel() {
             return;
         }
 
-        const unRegex = /^(.*?)\s*(\d+)un$/i;
+        const unRegex = /(.*?)\s*(\d+)un$/i;
         const unMatch = nomeParte.match(unRegex);
 
         let quantidade = 1;
         let precoTotal = precoUnitario;
         let nomeFinal = nomeParte;
+        let nomeSalvo = nomeParte;
+        let precoUnitarioFinal = precoUnitario;
 
         if (unMatch) {
             nomeFinal = unMatch[1].trim(); 
             quantidade = parseInt(unMatch[2], 10);
             precoTotal = quantidade * precoUnitario;
+        } else {
+            nomeSalvo = nomeParte;
         }
 
         if (!nomeFinal.trim()) {
@@ -183,10 +203,10 @@ export default function MercadoriasPanel() {
 
         setProdutosLancados(prev => [...prev, {
             id: Date.now(),
-            produtoNome: nomeParte, // Usa a `nomeParte` original para manter a visualização "5un"
+            produtoNome: nomeSalvo, 
             preco: precoTotal,
             quantidade,
-            precoUnitario,
+            precoUnitario: precoUnitarioFinal,
         }]);
 
         setLancamentoInput('');
@@ -211,9 +231,7 @@ export default function MercadoriasPanel() {
     }
     
     const handleEditProduto = (produto: LancamentoProduto) => {
-        const inputToEdit = produto.quantidade > 1 
-            ? `${produto.produtoNome} ${String(produto.precoUnitario).replace('.', ',')}` 
-            : `${produto.produtoNome} ${String(produto.preco).replace('.', ',')}`;
+        const inputToEdit = `${produto.produtoNome} ${String(produto.precoUnitario).replace('.', ',')}`;
 
         setLancamentoInput(inputToEdit);
         handleRemoveProduto(produto.id);
@@ -222,7 +240,7 @@ export default function MercadoriasPanel() {
 
     const resetForm = () => {
         setFornecedorId(undefined);
-        setDataVencimento(undefined);
+        setRawVencimento(undefined);
         setProdutosLancados([]);
         setLancamentoInput('');
     }
@@ -255,7 +273,6 @@ export default function MercadoriasPanel() {
             const unRegex = /\s*(\d+)un\b/i;
 
             produtosLancados.forEach(produto => {
-                 // Remove o "Xun" do nome do produto antes de salvar no histórico
                 const unMatch = produto.produtoNome.match(unRegex);
                 const produtoNomeLimpo = unMatch ? produto.produtoNome.replace(unMatch[0], '').trim() : produto.produtoNome;
 
