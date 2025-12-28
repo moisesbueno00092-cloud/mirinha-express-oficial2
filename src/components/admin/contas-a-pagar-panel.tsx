@@ -130,17 +130,9 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest }:
     );
 }
 
-type FilterType = 'all' | 'vencidas' | 'hoje' | 'semana' | 'mes';
+type ExpenseReportPeriod = 'week' | 'month' | 'year';
 
-type SalesReportPeriod = 'week' | 'month' | 'year';
-
-interface AggregatedItem {
-    name: string;
-    quantity: number;
-    totalValue: number;
-}
-
-const SalesReport = ({ reports, period }: { reports: DailyReport[], period: SalesReportPeriod }) => {
+const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: ContaAPagar[], fornecedorMap: Map<string, Fornecedor>, period: ExpenseReportPeriod }) => {
     const aggregatedData = useMemo(() => {
         const now = new Date();
         let startDate: Date;
@@ -153,81 +145,40 @@ const SalesReport = ({ reports, period }: { reports: DailyReport[], period: Sale
             startDate = startOfYear(now);
         }
 
-        const relevantReports = reports.filter(r => isWithinInterval(parseISO(r.reportDate + 'T00:00:00'), { start: startDate, end: now }));
+        const relevantContas = contasPagas.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startDate, end: now }));
         
-        if (relevantReports.length === 0) {
-            return { items: [], totalRevenue: 0, totalItems: 0 };
+        if (relevantContas.length === 0) {
+            return { suppliers: [], totalExpenses: 0, totalCount: 0 };
         }
 
-        const itemMap = new Map<string, { quantity: number, totalValue: number }>();
-        let totalRevenue = 0;
+        const supplierMap = new Map<string, { count: number, totalValue: number }>();
+        let totalExpenses = 0;
 
-        for (const report of relevantReports) {
-            totalRevenue += report.totalGeral;
-            for (const item of report.items) {
-                const processItems = (itemsToProcess: any[], priceField: string, qtyField: string, nameField: string) => {
-                    if (!itemsToProcess) return;
-                    for (const subItem of itemsToProcess) {
-                        const name = subItem[nameField];
-                        const quantity = subItem[qtyField];
-                        const price = subItem[priceField];
-                        const value = price * quantity;
-                        
-                        const existing = itemMap.get(name) || { quantity: 0, totalValue: 0 };
-                        itemMap.set(name, {
-                            quantity: existing.quantity + quantity,
-                            totalValue: existing.totalValue + value,
-                        });
-                    }
-                };
-                
-                // Predefined Items (sandwiches etc)
-                if (item.predefinedItems) {
-                    const groupedByName = item.predefinedItems.reduce((acc, p) => {
-                        acc[p.name] = (acc[p.name] || 0) + 1;
-                        return acc;
-                    }, {} as Record<string, number>);
-                    
-                    for (const name in groupedByName) {
-                        const quantity = groupedByName[name];
-                        const price = item.predefinedItems.find(p => p.name === name)!.price;
-                        const value = price * quantity;
-
-                        const existing = itemMap.get(name) || { quantity: 0, totalValue: 0 };
-                        itemMap.set(name, {
-                            quantity: existing.quantity + quantity,
-                            totalValue: existing.totalValue + value,
-                        });
-                    }
-                }
-                
-                // Bomboniere Items
-                processItems(item.bomboniereItems || [], 'price', 'quantity', 'name');
-                
-                // KG items
-                if (item.individualPrices) {
-                    const name = 'KG';
-                    const quantity = item.individualPrices.length;
-                    const value = item.individualPrices.reduce((sum, p) => sum + p, 0);
-
-                    const existing = itemMap.get(name) || { quantity: 0, totalValue: 0 };
-                    itemMap.set(name, {
-                        quantity: existing.quantity + quantity,
-                        totalValue: existing.totalValue + value,
-                    });
-                }
-            }
+        for (const conta of relevantContas) {
+            totalExpenses += conta.valor;
+            const supplierId = conta.fornecedorId;
+            
+            const existing = supplierMap.get(supplierId) || { count: 0, totalValue: 0 };
+            supplierMap.set(supplierId, {
+                count: existing.count + 1,
+                totalValue: existing.totalValue + conta.valor,
+            });
         }
         
-        const items = Array.from(itemMap.entries())
-            .map(([name, data]) => ({ name, ...data }))
-            .sort((a,b) => b.quantity - a.quantity);
+        const suppliers = Array.from(supplierMap.entries())
+            .map(([supplierId, data]) => ({
+                id: supplierId,
+                name: fornecedorMap.get(supplierId)?.nome || 'Desconhecido',
+                color: fornecedorMap.get(supplierId)?.color || '#ffffff',
+                ...data
+            }))
+            .sort((a,b) => b.totalValue - a.totalValue);
         
-        const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+        const totalCount = suppliers.reduce((sum, s) => sum + s.count, 0);
 
-        return { items, totalRevenue, totalItems };
+        return { suppliers, totalExpenses, totalCount };
 
-    }, [reports, period]);
+    }, [contasPagas, fornecedorMap, period]);
 
     const periodLabel = { week: 'Semanal', month: 'Mensal', year: 'Anual' }[period];
     
@@ -236,35 +187,35 @@ const SalesReport = ({ reports, period }: { reports: DailyReport[], period: Sale
             <CardHeader>
                 <div className="flex justify-between items-center">
                   <div>
-                    <CardTitle>Relatório de Vendas {periodLabel}</CardTitle>
-                    <CardDescription>Resumo de itens vendidos e faturamento no período.</CardDescription>
+                    <CardTitle>Relatório de Despesas {periodLabel}</CardTitle>
+                    <CardDescription>Resumo de contas pagas por fornecedor no período.</CardDescription>
                   </div>
                   <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Faturamento Total</p>
-                      <p className="text-2xl font-bold text-primary">{formatCurrency(aggregatedData.totalRevenue)}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{aggregatedData.totalItems} itens vendidos</p>
+                      <p className="text-xs text-muted-foreground">Despesa Total</p>
+                      <p className="text-2xl font-bold text-destructive">{formatCurrency(aggregatedData.totalExpenses)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{aggregatedData.totalCount} contas pagas</p>
                   </div>
                 </div>
             </CardHeader>
             <CardContent>
-                {aggregatedData.items.length === 0 ? (
-                    <p className="p-8 text-center text-sm text-muted-foreground">Nenhum dado de vendas encontrado para este período.</p>
+                {aggregatedData.suppliers.length === 0 ? (
+                    <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma despesa paga encontrada para este período.</p>
                 ) : (
                     <div className="rounded-md border max-h-[400px] overflow-y-auto">
                         <Table>
                             <TableHeader className="sticky top-0 bg-muted">
                                 <TableRow>
-                                    <TableHead>Item</TableHead>
-                                    <TableHead className="text-right">Quantidade</TableHead>
+                                    <TableHead>Fornecedor</TableHead>
+                                    <TableHead className="text-right">Nº de Contas</TableHead>
                                     <TableHead className="text-right">Valor Total</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {aggregatedData.items.map(item => (
-                                    <TableRow key={item.name}>
-                                        <TableCell className="font-medium">{item.name}</TableCell>
-                                        <TableCell className="text-right font-mono">{item.quantity}</TableCell>
-                                        <TableCell className="text-right font-mono font-semibold">{formatCurrency(item.totalValue)}</TableCell>
+                                {aggregatedData.suppliers.map(supplier => (
+                                    <TableRow key={supplier.id}>
+                                        <TableCell className="font-medium" style={{ color: supplier.color }}>{supplier.name}</TableCell>
+                                        <TableCell className="text-right font-mono">{supplier.count}</TableCell>
+                                        <TableCell className="text-right font-mono font-semibold">{formatCurrency(supplier.totalValue)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -283,7 +234,7 @@ export default function ContasAPagarPanel() {
     const [contaToDelete, setContaToDelete] = useState<ContaAPagar | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-    const [salesReportPeriod, setSalesReportPeriod] = useState<SalesReportPeriod>('week');
+    const [expenseReportPeriod, setExpenseReportPeriod] = useState<ExpenseReportPeriod>('week');
 
 
     const contasQuery = useMemoFirebase(
@@ -301,16 +252,9 @@ export default function ContasAPagarPanel() {
         [firestore]
     );
 
-    const dailyReportsQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'desc')) : null,
-        [firestore]
-    );
-
-
     const { data: allContas, isLoading: isLoadingContas } = useCollection<ContaAPagar>(contasQuery);
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
     const { data: allEntradas, isLoading: isLoadingAllEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
-    const { data: dailyReports, isLoading: isLoadingDailyReports } = useCollection<DailyReport>(dailyReportsQuery);
 
 
     const fornecedorMap = useMemo(() => {
@@ -431,7 +375,7 @@ export default function ContasAPagarPanel() {
         setContaToDelete(null);
     };
     
-    const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingAllEntradas || isLoadingDailyReports;
+    const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingAllEntradas;
 
     const FilterButton = ({ filter, label, count }: { filter: FilterType, label: string, count: number }) => (
         <Button
@@ -488,35 +432,35 @@ export default function ContasAPagarPanel() {
             <div className="space-y-4">
                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                     <AreaChart className="h-5 w-5" />
-                    Relatórios de Vendas
+                    Relatórios de Despesas
                 </h3>
                 <div className="flex flex-wrap items-center gap-2">
                      <Button
-                        variant={salesReportPeriod === 'week' ? "default" : "outline"}
+                        variant={expenseReportPeriod === 'week' ? "default" : "outline"}
                         size="sm"
-                        onClick={() => setSalesReportPeriod('week')}
+                        onClick={() => setExpenseReportPeriod('week')}
                     >
                         Semanal
                     </Button>
                      <Button
-                        variant={salesReportPeriod === 'month' ? "default" : "outline"}
+                        variant={expenseReportPeriod === 'month' ? "default" : "outline"}
                         size="sm"
-                        onClick={() => setSalesReportPeriod('month')}
+                        onClick={() => setExpenseReportPeriod('month')}
                     >
                         Mensal
                     </Button>
                      <Button
-                        variant={salesReportPeriod === 'year' ? "default" : "outline"}
+                        variant={expenseReportPeriod === 'year' ? "default" : "outline"}
                         size="sm"
-                        onClick={() => setSalesReportPeriod('year')}
+                        onClick={() => setExpenseReportPeriod('year')}
                     >
                         Anual
                     </Button>
                 </div>
-                {isLoadingDailyReports ? (
+                {isLoading ? (
                      <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
                 ) : (
-                    <SalesReport reports={dailyReports || []} period={salesReportPeriod} />
+                    <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={expenseReportPeriod} />
                 )}
             </div>
 
