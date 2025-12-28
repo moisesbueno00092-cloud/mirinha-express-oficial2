@@ -234,5 +234,3 @@ export default function ItemList({ items, onEdit, onDelete, isLoading, onSaveFav
     </div>
   );
 }
-
-    

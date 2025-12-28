@@ -37,14 +37,14 @@ import { Save, Loader2, History, Settings, Wrench, X } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
-import ItemList from "@/components/item-list";
+import ItemList, { renderItemName, groupBadgeStyles } from "@/components/item-list";
 import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
-import LastItemDisplay from "@/components/last-item-display";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -825,11 +825,35 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {lastAddedItem && (
+        <div className="fixed bottom-24 right-4 z-50 w-full max-w-sm">
+          <Card className="shadow-2xl border-primary/20 bg-card/95 backdrop-blur-sm">
+            <CardHeader className="flex-row items-center justify-between p-3">
+                <CardTitle className="text-base">{lastAddedItem.title}</CardTitle>
+                <button onClick={() => setLastAddedItem(null)} className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                   <X className="h-4 w-4" />
+                   <span className="sr-only">Fechar</span>
+                </button>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="grid grid-cols-[1fr_auto] items-start gap-4">
+                <div className="flex flex-col gap-1.5">
+                  {renderItemName(lastAddedItem.item)}
+                  <div className={cn("whitespace-nowrap w-fit px-2.5 py-0.5 text-xs font-semibold rounded-full", groupBadgeStyles[lastAddedItem.item.group] || "bg-gray-500")}>
+                    {lastAddedItem.item.group}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-xl text-primary">{formatCurrency(lastAddedItem.item.total)}</div>
+                  {lastAddedItem.item.deliveryFee > 0 && <div className="text-xs text-muted-foreground">Taxa: {formatCurrency(lastAddedItem.item.deliveryFee)}</div>}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      <LastItemDisplay 
-        data={lastAddedItem}
-        onClose={() => setLastAddedItem(null)}
-      />
 
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="mb-6 flex flex-col items-center justify-center text-center">
@@ -916,7 +940,3 @@ export default function Home() {
     </>
   );
 }
-
-    
-
-    
