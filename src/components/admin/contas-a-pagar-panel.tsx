@@ -400,19 +400,19 @@ export default function ContasAPagarPanel() {
                                       </TableCell>
                                   </TableRow>
                               ) : filteredEntradas.length > 0 ? (
-                                  filteredEntradas.map((entry) => (
-                                      <TableRow key={entry.id}>
-                                          <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
-                                          <TableCell className="font-medium">{entry.produtoNome}</TableCell>
-                                          <TableCell>
-                                            <div className='flex items-center gap-2'>
-                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: fornecedorMap.get(entry.fornecedorId)?.color || '#ccc' }}></div>
-                                                {fornecedorMap.get(entry.fornecedorId)?.nome || 'Desconhecido'}
-                                            </div>
-                                          </TableCell>
-                                          <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
-                                      </TableRow>
-                                  ))
+                                  filteredEntradas.map((entry) => {
+                                      const fornecedor = fornecedorMap.get(entry.fornecedorId);
+                                      return (
+                                        <TableRow key={entry.id}>
+                                            <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
+                                            <TableCell className="font-medium">{entry.produtoNome}</TableCell>
+                                            <TableCell style={{ color: fornecedor?.color || 'inherit' }}>
+                                                {fornecedor?.nome || 'Desconhecido'}
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
+                                        </TableRow>
+                                      )
+                                  })
                               ) : (
                                   <TableRow>
                                       <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">

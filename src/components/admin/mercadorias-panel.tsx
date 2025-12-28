@@ -37,8 +37,8 @@ interface ProductSuggestion {
 
 const generateStrongColor = () => {
   const h = Math.floor(Math.random() * 360);
-  const s = Math.floor(Math.random() * 21) + 80; // 80-100% saturation
-  const l = Math.floor(Math.random() * 21) + 40; // 40-60% lightness
+  const s = Math.floor(Math.random() * 30) + 70; // 70-100% saturation
+  const l = Math.floor(Math.random() * 20) + 50; // 50-70% lightness
   return `hsl(${h}, ${s}%, ${l}%)`;
 };
 
@@ -537,3 +537,5 @@ export default function MercadoriasPanel() {
         </>
     );
 }
+
+    
