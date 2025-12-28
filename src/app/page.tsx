@@ -369,6 +369,7 @@ export default function Home() {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
             await setDoc(docRef, finalItem, { merge: true });
             setLastAddedItem({ item: { ...finalItem, id: currentItem.id }, title: displayTitle });
+            setEditingItem(null);
         } else {
             const displayTitle = "Lançamento Adicionado";
             const docRef = await addDoc(orderItemsCollectionRef, finalItem);
@@ -482,7 +483,6 @@ export default function Home() {
   const handleSaveEdit = async () => {
     if (editingItem && editInputValue) {
       await handleUpsertItem(editInputValue, editingItem);
-      setEditingItem(null);
     }
   };
   
