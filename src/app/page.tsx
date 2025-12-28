@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
@@ -369,6 +370,7 @@ export default function Home() {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
             await setDoc(docRef, finalItem, { merge: true });
             setLastAddedItem({ item: { ...finalItem, id: currentItem.id }, title: displayTitle });
+            setEditingItem(null);
         } else {
             const docRef = await addDoc(orderItemsCollectionRef, finalItem);
             setLastAddedItem({ item: { ...finalItem, id: docRef.id }, title: displayTitle });
@@ -385,9 +387,7 @@ export default function Home() {
         });
     } finally {
         setIsProcessing(false);
-        if (editingItem) {
-          setEditingItem(null);
-        } else {
+        if (!editingItem) {
           setRawInput("");
           if (inputRef.current) {
             inputRef.current.focus();
