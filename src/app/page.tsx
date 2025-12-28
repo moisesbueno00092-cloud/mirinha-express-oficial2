@@ -827,7 +827,7 @@ export default function Home() {
       </Dialog>
 
       <LastItemDisplay 
-        data={lastAddedItem} 
+        data={lastAddedItem}
         onClose={() => setLastAddedItem(null)}
       />
 
@@ -916,3 +916,5 @@ export default function Home() {
     </>
   );
 }
+
+    
