@@ -33,7 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, History, Settings, Wrench } from "lucide-react";
+import { Save, Loader2, History, Settings, Wrench, X } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -42,7 +42,7 @@ import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
-import LastItemToast from "@/components/last-item-toast";
+import LastItemDisplay from "@/components/last-item-display";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 
@@ -113,6 +113,8 @@ export default function Home() {
   const [itemToSaveAsFavorite, setItemToSaveAsFavorite] = useState<Item | null>(null);
   const [favoriteName, setFavoriteName] = useState("");
   const [favoriteToDelete, setFavoriteToDelete] = useState<string | null>(null);
+  
+  const [lastAddedItem, setLastAddedItem] = useState<{ item: Item, title: string } | null>(null);
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -361,18 +363,16 @@ export default function Home() {
         };
 
         const orderItemsCollectionRef = collection(firestore, "order_items");
+        let displayTitle = "Lançamento Adicionado";
 
         if (currentItem?.id) {
+            displayTitle = "Lançamento Atualizado";
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
             await setDoc(docRef, finalItem, { merge: true });
-            toast({
-                component: <LastItemToast item={{...finalItem, id: currentItem.id}} title="Lançamento Atualizado" />
-            });
+            setLastAddedItem({ item: { ...finalItem, id: currentItem.id }, title: displayTitle });
         } else {
             const docRef = await addDoc(orderItemsCollectionRef, finalItem);
-            toast({
-                component: <LastItemToast item={{...finalItem, id: docRef.id }} title="Lançamento Adicionado" />
-            });
+            setLastAddedItem({ item: { ...finalItem, id: docRef.id }, title: displayTitle });
         }
         
         setRawInput("");
@@ -829,6 +829,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
+      <LastItemDisplay data={lastAddedItem} onClose={() => setLastAddedItem(null)} />
 
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="mb-6 flex flex-col items-center justify-center text-center">
@@ -915,3 +916,5 @@ export default function Home() {
     </>
   );
 }
+
+    
