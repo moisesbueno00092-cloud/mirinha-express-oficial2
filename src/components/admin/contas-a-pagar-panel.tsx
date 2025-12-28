@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format, isPast, isSameMonth, isSameYear, parseISO, startOfMonth, endOfWeek, startOfWeek, isWithinInterval, endOfMonth, startOfYear, endOfYear } from 'date-fns';
+import { format, isPast, isSameMonth, isSameYear, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isToday, isWithinInterval, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { ContaAPagar, Fornecedor, EntradaMercadoria } from '@/types';
@@ -19,12 +18,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays, AlertTriangle } from 'lucide-react';
 import {
   AlertDialog,
@@ -45,15 +44,28 @@ const formatCurrency = (value: number) => {
     }).format(value);
 };
 
-const formatDate = (dateString: string, includeTime = false) => {
+const formatDate = (dateString: string) => {
     try {
-        const formatString = includeTime ? "dd/MM/yy 'às' HH:mm" : "dd 'de' MMM, yyyy";
-        // Add time to avoid timezone issues with format() for date-only strings
-        return format(new Date(dateString.includes('T') ? dateString : dateString + 'T00:00:00'), formatString, { locale: ptBR });
+        return format(parseISO(dateString + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR });
     } catch (e) {
         return dateString;
     }
 }
+
+const getStatus = (conta: ContaAPagar): { text: string; className: string; isUrgent?: boolean } => {    
+    if (conta.estaPaga) {
+        return { text: 'Paga', className: 'bg-green-600' };
+    }
+    const dueDate = parseISO(conta.dataVencimento + 'T00:00:00');
+    if (isPast(dueDate) && !isToday(dueDate)) {
+        return { text: 'Vencida', className: 'bg-destructive animate-pulse', isUrgent: true };
+    }
+    if (isToday(dueDate)) {
+        return { text: 'Vence Hoje', className: 'bg-yellow-500 text-black', isUrgent: true };
+    }
+    return { text: 'Em Aberto', className: 'bg-muted-foreground/50' };
+};
+
 
 const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest }: {
     contas: ContaAPagar[],
@@ -62,56 +74,59 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest }:
     onDeleteRequest: (conta: ContaAPagar) => void,
 }) => {
     if (contas.length === 0) {
-        return <p className="p-4 text-sm text-muted-foreground">Nenhuma conta neste grupo.</p>;
+        return <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma conta encontrada para os filtros selecionados.</p>;
     }
 
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Fornecedor/Descrição</TableHead>
-                    <TableHead>Vencimento</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {contas.map((conta) => {
-                    const isVencida = !conta.estaPaga && new Date(conta.dataVencimento) < new Date();
-                    return (
-                        <TableRow key={conta.id} className={cn(isVencida && 'text-destructive')}>
-                            <TableCell>
-                                <div className="font-medium">{fornecedorMap.get(conta.fornecedorId || '') || 'N/A'}</div>
-                                <div className="text-sm text-muted-foreground">{conta.descricao}</div>
-                            </TableCell>
-                            <TableCell>{formatDate(conta.dataVencimento)}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(conta.valor)}</TableCell>
-                            <TableCell className="text-center">
-                                <div className="flex flex-col items-center gap-1.5">
-                                    <Switch
-                                        checked={conta.estaPaga}
-                                        onCheckedChange={(isPaga) => onStatusChange(conta, isPaga)}
-                                        aria-label="Marcar como paga"
-                                    />
-                                    <Badge variant={conta.estaPaga ? 'default' : 'secondary'} className={cn(conta.estaPaga ? 'bg-green-600' : isVencida ? 'bg-destructive/80' : '', "pointer-events-none")}>
-                                        {conta.estaPaga ? 'Paga' : (isVencida ? 'Vencida' : 'Em Aberto')}
+        <div className="rounded-md border mt-4">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Fornecedor/Descrição</TableHead>
+                        <TableHead>Vencimento</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {contas.map((conta) => {
+                        const status = getStatus(conta);
+                        return (
+                            <TableRow key={conta.id} className={cn(status.isUrgent && 'bg-destructive/10')}>
+                                <TableCell>
+                                    <div className="font-medium">{fornecedorMap.get(conta.fornecedorId || '') || 'N/A'}</div>
+                                    <div className="text-sm text-muted-foreground">{conta.descricao}</div>
+                                </TableCell>
+                                <TableCell className={cn(status.isUrgent && 'font-semibold text-foreground')}>{formatDate(conta.dataVencimento)}</TableCell>
+                                <TableCell>
+                                    <Badge variant={conta.estaPaga ? 'default' : 'secondary'} className={cn('pointer-events-none', status.className)}>
+                                        {status.text}
                                     </Badge>
-                                </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" onClick={() => onDeleteRequest(conta)}>
-                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                                </Button>
-                            </TableCell>
-                        </TableRow>
-                    );
-                })}
-            </TableBody>
-        </Table>
+                                </TableCell>
+                                <TableCell className="text-right font-mono font-semibold">{formatCurrency(conta.valor)}</TableCell>
+                                <TableCell className="text-right">
+                                     <div className="flex items-center justify-end gap-1">
+                                        <Switch
+                                            checked={conta.estaPaga}
+                                            onCheckedChange={(isPaga) => onStatusChange(conta, isPaga)}
+                                            aria-label="Marcar como paga"
+                                        />
+                                        <Button variant="ghost" size="icon" onClick={() => onDeleteRequest(conta)}>
+                                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
+                </TableBody>
+            </Table>
+        </div>
     );
 }
 
+type FilterType = 'all' | 'vencidas' | 'hoje' | 'semana' | 'mes';
 
 export default function ContasAPagarPanel() {
     const firestore = useFirestore();
@@ -119,6 +134,8 @@ export default function ContasAPagarPanel() {
 
     const [contaToDelete, setContaToDelete] = useState<ContaAPagar | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+
 
     const contasQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null,
@@ -135,7 +152,7 @@ export default function ContasAPagarPanel() {
         [firestore]
     );
 
-    const { data: contas, isLoading: isLoadingContas } = useCollection<ContaAPagar>(contasQuery);
+    const { data: allContas, isLoading: isLoadingContas } = useCollection<ContaAPagar>(contasQuery);
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
     const { data: allEntradas, isLoading: isLoadingAllEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
 
@@ -153,60 +170,81 @@ export default function ContasAPagarPanel() {
         );
     }, [allEntradas, searchQuery]);
     
-    const { groupedContas, expenseSummary } = useMemo(() => {
+    const { contasAPagar, contasPagas, expenseSummary, counts } = useMemo(() => {
         const now = new Date();
         const startOfCurrentMonth = startOfMonth(now);
         const endOfCurrentMonth = endOfMonth(now);
         const startOfCurrentYear = startOfYear(now);
         const endOfCurrentYear = endOfYear(now);
         
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        
-        const startOfCurrentWeek = startOfWeek(today, { locale: ptBR });
-        const endOfCurrentWeek = endOfWeek(today, { locale: ptBR });
-        
-        const groups = {
-            vencidas: [] as ContaAPagar[],
-            semana: [] as ContaAPagar[],
-            mes: [] as ContaAPagar[],
-            proximos: [] as ContaAPagar[],
-            pagas: [] as ContaAPagar[],
-        };
-
         let monthTotal = 0;
         let yearTotal = 0;
+        let aPagar: ContaAPagar[] = [];
+        let pagas: ContaAPagar[] = [];
 
-        if (!contas) return { groupedContas: groups, expenseSummary: { month: 0, year: 0 } };
+        if (!allContas) return { contasAPagar: [], contasPagas: [], expenseSummary: { month: 0, year: 0 }, counts: { vencidas: 0, hoje: 0, semana: 0, mes: 0 } };
 
-        contas.forEach(conta => {
+        allContas.forEach(conta => {
             const dueDate = parseISO(conta.dataVencimento + 'T00:00:00');
-            const isVencida = !conta.estaPaga && isPast(dueDate) && !isSameMonth(dueDate, today);
-
             if (conta.estaPaga) {
-                groups.pagas.push(conta);
-                if (isSameMonth(dueDate, startOfCurrentMonth)) {
+                pagas.push(conta);
+                 if (isWithinInterval(dueDate, { start: startOfCurrentMonth, end: endOfCurrentMonth })) {
                     monthTotal += conta.valor;
                 }
-                 if (isSameYear(dueDate, now)) {
+                 if (isWithinInterval(dueDate, { start: startOfCurrentYear, end: endOfCurrentYear })) {
                     yearTotal += conta.valor;
                 }
             } else {
-                 if(isPast(dueDate) && !isSameMonth(dueDate, startOfCurrentMonth)) {
-                     groups.vencidas.push(conta);
-                 } else if (isWithinInterval(dueDate, { start: startOfCurrentWeek, end: endOfCurrentWeek })) {
-                    groups.semana.push(conta);
-                 } else if (isWithinInterval(dueDate, { start: endOfCurrentWeek, end: endOfMonth(startOfCurrentMonth) })) {
-                    groups.mes.push(conta);
-                 } else {
-                     groups.proximos.push(conta);
-                 }
+                aPagar.push(conta);
             }
         });
-        
-        return { groupedContas: groups, expenseSummary: { month: monthTotal, year: yearTotal } };
 
-    }, [contas]);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const startOfCurrentWeek = startOfWeek(today, { locale: ptBR });
+        const endOfCurrentWeek = endOfWeek(today, { locale: ptBR });
+
+        const countVencidas = aPagar.filter(c => isPast(parseISO(c.dataVencimento + 'T00:00:00')) && !isToday(parseISO(c.dataVencimento + 'T00:00:00'))).length;
+        const countHoje = aPagar.filter(c => isToday(parseISO(c.dataVencimento + 'T00:00:00'))).length;
+        const countSemana = aPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: today, end: endOfCurrentWeek })).length;
+        const countMes = aPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: today, end: endOfCurrentMonth })).length;
+        
+        pagas.sort((a, b) => new Date(b.dataVencimento).getTime() - new Date(a.dataVencimento).getTime());
+
+        return { 
+            contasAPagar: aPagar, 
+            contasPagas: pagas, 
+            expenseSummary: { month: monthTotal, year: yearTotal },
+            counts: { vencidas: countVencidas, hoje: countHoje, semana: countSemana, mes: countMes }
+        };
+
+    }, [allContas]);
+
+    const filteredContasAPagar = useMemo(() => {
+        if (activeFilter === 'all') return contasAPagar;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (activeFilter === 'vencidas') {
+            return contasAPagar.filter(c => isPast(parseISO(c.dataVencimento + 'T00:00:00')) && !isToday(parseISO(c.dataVencimento + 'T00:00:00')));
+        }
+        if (activeFilter === 'hoje') {
+            return contasAPagar.filter(c => isToday(parseISO(c.dataVencimento + 'T00:00:00')));
+        }
+        if (activeFilter === 'semana') {
+            const startOfCurrentWeek = startOfWeek(today, { locale: ptBR });
+            const endOfCurrentWeek = endOfWeek(today, { locale: ptBR });
+            return contasAPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startOfCurrentWeek, end: endOfCurrentWeek }));
+        }
+        if (activeFilter === 'mes') {
+            const startOfCurrentMonth = startOfMonth(today);
+            const endOfCurrentMonth = endOfMonth(today);
+            return contasAPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startOfCurrentMonth, end: endOfCurrentMonth }));
+        }
+        return [];
+
+    }, [contasAPagar, activeFilter]);
 
 
     const handleStatusChange = (conta: ContaAPagar, isPaga: boolean) => {
@@ -235,14 +273,16 @@ export default function ContasAPagarPanel() {
     
     const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingAllEntradas;
 
-    const renderAccordionTrigger = (title: string, count: number, hasAlert = false) => (
-        <div className="flex w-full items-center justify-between">
-            <div className="flex items-center gap-2">
-                {hasAlert && <AlertTriangle className="h-4 w-4 text-destructive" />}
-                <span className={cn(hasAlert && "text-destructive font-semibold")}>{title}</span>
-            </div>
-            <Badge variant={hasAlert ? 'destructive' : 'secondary'}>{count}</Badge>
-        </div>
+    const FilterButton = ({ filter, label, count }: { filter: FilterType, label: string, count: number }) => (
+        <Button
+            variant={activeFilter === filter ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveFilter(filter)}
+            className="flex items-center gap-2"
+        >
+            {label}
+            {count > 0 && <Badge variant={activeFilter === filter ? 'secondary' : 'default'} className="bg-red-500">{count}</Badge>}
+        </Button>
     )
 
     return (
@@ -262,74 +302,64 @@ export default function ContasAPagarPanel() {
                 </AlertDialogContent>
             </AlertDialog>
             
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium">Pagas Este Mês</CardTitle>
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        {isLoadingContas ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{formatCurrency(expenseSummary.month)}</div>}
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle className="text-sm font-medium">Pagas Este Ano</CardTitle>
+                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        {isLoadingContas ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{formatCurrency(expenseSummary.year)}</div>}
+                    </CardContent>
+                </Card>
+            </div>
+
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base font-semibold text-foreground">Resumo de Despesas Pagas</CardTitle>
+                    <CardTitle>Controle de Contas a Pagar</CardTitle>
+                    <CardDescription>Gira as suas contas pendentes e já pagas.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                     {isLoadingContas ? (
-                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center">
-                            <div className="bg-muted/50 p-4 rounded-lg">
-                                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                                    <CalendarDays className="h-4 w-4" />
-                                    <span>Pagas Este Mês</span>
+                    <Tabs defaultValue="a-pagar" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="a-pagar">A Pagar</TabsTrigger>
+                            <TabsTrigger value="pagas">Pagas</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="a-pagar">
+                            <div className="mt-4 space-y-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <FilterButton filter="all" label="Todas" count={0} />
+                                    <FilterButton filter="vencidas" label="Vencidas" count={counts.vencidas} />
+                                    <FilterButton filter="hoje" label="Vence Hoje" count={counts.hoje} />
+                                    <FilterButton filter="semana" label="Esta Semana" count={counts.semana} />
+                                    <FilterButton filter="mes" label="Este Mês" count={counts.mes} />
                                 </div>
-                                <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(expenseSummary.month)}</p>
+                                {isLoading ? (
+                                    <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                                ) : (
+                                    <ContasTable contas={filteredContasAPagar} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
+                                )}
                             </div>
-                             <div className="bg-muted/50 p-4 rounded-lg">
-                                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                                    <TrendingUp className="h-4 w-4" />
-                                    <span>Pagas Este Ano</span>
-                                </div>
-                                <p className="text-2xl font-bold text-foreground mt-1">{formatCurrency(expenseSummary.year)}</p>
-                            </div>
-                        </div>
-                     )}
+                        </TabsContent>
+                        <TabsContent value="pagas">
+                            {isLoading ? (
+                                <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                            ) : (
+                                <ContasTable contas={contasPagas} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
+                            )}
+                        </TabsContent>
+                    </Tabs>
                 </CardContent>
             </Card>
-
-            <h3 className="text-lg font-semibold text-foreground">Contas a Pagar</h3>
-            
-            {isLoading ? (
-                <div className="flex justify-center items-center h-40">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-            ) : (
-                <Accordion type="multiple" className="w-full" defaultValue={['vencidas', 'semana']}>
-                    <AccordionItem value="vencidas">
-                        <AccordionTrigger>{renderAccordionTrigger('Vencidas', groupedContas.vencidas.length, groupedContas.vencidas.length > 0)}</AccordionTrigger>
-                        <AccordionContent>
-                            <ContasTable contas={groupedContas.vencidas} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
-                        </AccordionContent>
-                    </AccordionItem>
-                     <AccordionItem value="semana">
-                        <AccordionTrigger>{renderAccordionTrigger('Vencendo esta Semana', groupedContas.semana.length)}</AccordionTrigger>
-                        <AccordionContent>
-                            <ContasTable contas={groupedContas.semana} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
-                        </AccordionContent>
-                    </AccordionItem>
-                     <AccordionItem value="mes">
-                        <AccordionTrigger>{renderAccordionTrigger('Vencendo este Mês', groupedContas.mes.length)}</AccordionTrigger>
-                        <AccordionContent>
-                            <ContasTable contas={groupedContas.mes} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
-                        </AccordionContent>
-                    </AccordionItem>
-                     <AccordionItem value="proximos">
-                        <AccordionTrigger>{renderAccordionTrigger('Próximos Meses', groupedContas.proximos.length)}</AccordionTrigger>
-                        <AccordionContent>
-                             <ContasTable contas={groupedContas.proximos} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
-                        </AccordionContent>
-                    </AccordionItem>
-                    <AccordionItem value="pagas">
-                        <AccordionTrigger>{renderAccordionTrigger('Pagas', groupedContas.pagas.length)}</AccordionTrigger>
-                        <AccordionContent>
-                             <ContasTable contas={groupedContas.pagas} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
-            )}
 
             <Separator className="my-8" />
 
@@ -368,7 +398,7 @@ export default function ContasAPagarPanel() {
                               ) : filteredEntradas.length > 0 ? (
                                   filteredEntradas.map((entry) => (
                                       <TableRow key={entry.id}>
-                                          <TableCell>{formatDate(entry.data, true)}</TableCell>
+                                          <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
                                           <TableCell className="font-medium">{entry.produtoNome}</TableCell>
                                           <TableCell>{fornecedorMap.get(entry.fornecedorId) || 'Desconhecido'}</TableCell>
                                           <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
@@ -389,5 +419,3 @@ export default function ContasAPagarPanel() {
         </div>
     );
 }
-
-    
