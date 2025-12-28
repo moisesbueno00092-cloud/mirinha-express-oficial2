@@ -82,7 +82,7 @@ const getItemBadgeStyle = (itemName: string) => {
   return "bg-gray-500 text-white border-transparent";
 }
 
-const renderItemName = (item: Item) => {
+export const renderItemName = (item: Item) => {
     const itemElements = [];
 
     // Handle predefined items by counting them
@@ -234,5 +234,3 @@ export default function ItemList({ items, onEdit, onDelete, isLoading, onSaveFav
     </div>
   );
 }
-
-    

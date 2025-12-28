@@ -42,6 +42,7 @@ import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
+import LastItemToast from "@/components/last-item-toast";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 
@@ -364,10 +365,15 @@ export default function Home() {
         if (currentItem?.id) {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
             setDocumentNonBlocking(docRef, finalItem, { merge: true });
-            toast({ title: "Sucesso", description: "Lançamento atualizado." });
+            toast({
+                component: <LastItemToast item={{...finalItem, id: currentItem.id}} title="Lançamento Atualizado" />
+            });
         } else {
-            addDocumentNonBlocking(orderItemsCollectionRef, finalItem);
-            toast({ title: "Sucesso", description: "Lançamento adicionado." });
+            addDocumentNonBlocking(orderItemsCollectionRef, finalItem).then(docRef => {
+                 toast({
+                    component: <LastItemToast item={{...finalItem, id: docRef?.id || 'temp-id' }} title="Lançamento Adicionado" />
+                });
+            });
         }
         
         setRawInput("");
@@ -403,6 +409,7 @@ export default function Home() {
     toast({
       title: "Sucesso",
       description: "Item removido.",
+      variant: 'destructive'
     });
     setItemToDelete(null);
   };
@@ -468,7 +475,7 @@ export default function Home() {
     if (!firestore || !favoriteToDelete || !user) return;
     const docRef = doc(firestore, "favorite_clients", favoriteToDelete);
     deleteDocumentNonBlocking(docRef);
-    toast({ title: 'Sucesso', description: 'Favorito removido.' });
+    toast({ title: 'Sucesso', description: 'Favorito removido.', variant: 'destructive' });
     setFavoriteToDelete(null);
   };
 
