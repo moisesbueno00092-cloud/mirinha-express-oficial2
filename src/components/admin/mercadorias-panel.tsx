@@ -163,8 +163,7 @@ export default function MercadoriasPanel() {
             return;
         }
 
-        // Regex para encontrar "Xun" (ex: 5un, 10un)
-        const unRegex = /(\d+)(un)\b/i;
+        const unRegex = /^(.*?)\s*(\d+)un$/i;
         const unMatch = nomeParte.match(unRegex);
 
         let quantidade = 1;
@@ -172,11 +171,9 @@ export default function MercadoriasPanel() {
         let nomeFinal = nomeParte;
 
         if (unMatch) {
-            quantidade = parseInt(unMatch[1], 10);
+            nomeFinal = unMatch[1].trim(); 
+            quantidade = parseInt(unMatch[2], 10);
             precoTotal = quantidade * precoUnitario;
-            // O nome final mantém a sigla "Xun" para visualização, mas o nome do produto real é sem a sigla.
-            // O nome do produto será extraído antes de salvar.
-            nomeFinal = nomeParte;
         }
 
         if (!nomeFinal.trim()) {
@@ -186,7 +183,7 @@ export default function MercadoriasPanel() {
 
         setProdutosLancados(prev => [...prev, {
             id: Date.now(),
-            produtoNome: nomeFinal,
+            produtoNome: nomeParte, // Usa a `nomeParte` original para manter a visualização "5un"
             preco: precoTotal,
             quantidade,
             precoUnitario,
@@ -214,7 +211,11 @@ export default function MercadoriasPanel() {
     }
     
     const handleEditProduto = (produto: LancamentoProduto) => {
-        setLancamentoInput(`${produto.produtoNome} ${String(produto.precoUnitario).replace('.', ',')}`);
+        const inputToEdit = produto.quantidade > 1 
+            ? `${produto.produtoNome} ${String(produto.precoUnitario).replace('.', ',')}` 
+            : `${produto.produtoNome} ${String(produto.preco).replace('.', ',')}`;
+
+        setLancamentoInput(inputToEdit);
         handleRemoveProduto(produto.id);
         setTimeout(() => lancamentoInputRef.current?.focus(), 0);
     }
@@ -251,11 +252,12 @@ export default function MercadoriasPanel() {
             const batch = writeBatch(firestore);
             const entradasCollection = collection(firestore, 'entradas_mercadorias');
             
-            const unRegex = /\s*\d+un\b/i;
+            const unRegex = /\s*(\d+)un\b/i;
 
             produtosLancados.forEach(produto => {
                  // Remove o "Xun" do nome do produto antes de salvar no histórico
-                const produtoNomeLimpo = produto.produtoNome.replace(unRegex, '').trim();
+                const unMatch = produto.produtoNome.match(unRegex);
+                const produtoNomeLimpo = unMatch ? produto.produtoNome.replace(unMatch[0], '').trim() : produto.produtoNome;
 
                 const novaEntrada: Omit<EntradaMercadoria, 'id'> = {
                     produtoNome: produtoNomeLimpo,
