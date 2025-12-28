@@ -364,7 +364,7 @@ export default function Home() {
 
         if (currentItem?.id) {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
-            setDocumentNonBlocking(docRef, finalItem, { merge: true });
+            await setDoc(docRef, finalItem, { merge: true });
             toast({
                 component: <LastItemToast item={{...finalItem, id: currentItem.id}} title="Lançamento Atualizado" />
             });
@@ -447,7 +447,7 @@ export default function Home() {
     setIsSaveFavoriteOpen(true);
   };
 
-  const confirmSaveFavorite = () => {
+  const confirmSaveFavorite = async () => {
     if (!firestore || !user || !itemToSaveAsFavorite || !favoriteName.trim() || !itemToSaveAsFavorite.originalCommand) return;
     
     const newFavorite: Omit<FavoriteClient, 'id'> = {
@@ -457,7 +457,7 @@ export default function Home() {
     };
     
     const favClientsCollectionRef = collection(firestore, "favorite_clients");
-    addDocumentNonBlocking(favClientsCollectionRef, newFavorite);
+    await addDoc(favClientsCollectionRef, newFavorite);
     toast({ title: 'Sucesso', description: `"${favoriteName.trim()}" foi salvo como favorito.` });
     setIsSaveFavoriteOpen(false);
   };
@@ -483,9 +483,9 @@ export default function Home() {
     setEditInputValue(item.originalCommand || '');
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if(editingItem && editInputValue) {
-      handleUpsertItem(editInputValue, editingItem)
+      await handleUpsertItem(editInputValue, editingItem);
     }
   }
   
@@ -733,9 +733,9 @@ export default function Home() {
               onChange={(e) => setEditInputValue(e.target.value)}
               placeholder="Comando original..."
               className="h-10 flex-1 sm:h-12 text-base"
-              onKeyDown={(e) => {
+              onKeyDown={async (e) => {
                 if (e.key === 'Enter') {
-                  handleSaveEdit();
+                  await handleSaveEdit();
                 }
               }}
             />
@@ -783,8 +783,8 @@ export default function Home() {
                 onChange={(e) => setFavoriteName(e.target.value)}
                 className="col-span-3"
                 autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') confirmSaveFavorite();
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter') await confirmSaveFavorite();
                 }}
               />
             </div>
