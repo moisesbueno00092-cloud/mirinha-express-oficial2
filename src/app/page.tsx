@@ -482,9 +482,8 @@ export default function Home() {
   const handleSaveEdit = async () => {
     if (editingItem && editInputValue) {
       await handleUpsertItem(editInputValue, editingItem);
-      // Logic to close the dialog is now handled by DialogClose in the button
+      setEditingItem(null);
     }
-    setEditingItem(null);
   };
   
   const summary = useMemo(() => {
@@ -733,20 +732,18 @@ export default function Home() {
               className="h-10 flex-1 sm:h-12 text-base"
               onKeyDown={async (e) => {
                 if (e.key === 'Enter') {
+                  e.preventDefault();
                   await handleSaveEdit();
                 }
               }}
             />
           </div>
           <DialogFooter>
-            <DialogClose asChild>
-                <Button type="button" variant="secondary">Cancelar</Button>
-            </DialogClose>
-            <DialogClose asChild>
-              <Button type="submit" onClick={handleSaveEdit} disabled={isProcessing}>
-                  <Save className="mr-2 h-4 w-4" /> Salvar
-              </Button>
-            </DialogClose>
+            <Button type="button" variant="secondary" onClick={() => setEditingItem(null)}>Cancelar</Button>
+            <Button type="submit" onClick={handleSaveEdit} disabled={isProcessing}>
+                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                 Salvar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -943,5 +940,7 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     
