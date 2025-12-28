@@ -115,7 +115,6 @@ export default function Home() {
   const [favoriteToDelete, setFavoriteToDelete] = useState<string | null>(null);
   
   const [lastAddedItem, setLastAddedItem] = useState<{ item: Item, title: string } | null>(null);
-  const [justEditedItemId, setJustEditedItemId] = useState<string | null>(null);
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -138,17 +137,6 @@ export default function Home() {
     });
   }, [allItems]);
 
-  useEffect(() => {
-    if (justEditedItemId && items) {
-      const editedItem = items.find(i => i.id === justEditedItemId);
-      if (editedItem) {
-        setLastAddedItem({ item: editedItem, title: "Lançamento Atualizado" });
-        setEditingItem(null); // Close the dialog here
-        setJustEditedItemId(null); // Reset after showing notification
-      }
-    }
-  }, [justEditedItemId, items]);
-  
   useEffect(() => {
     if (firestore && !isLoadingBomboniere && bomboniereItems && bomboniereItems.length === 0) {
       const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
@@ -199,7 +187,7 @@ export default function Home() {
             mainInput = mainInput.substring(3).trim();
         } else if (upperCaseProcessedInput.startsWith("F ")) {
             group = 'Fiados salão';
-            originalGroup = group;
+originalGroup = group;
             mainInput = mainInput.substring(2).trim();
         }
         
@@ -379,6 +367,7 @@ export default function Home() {
         if (currentItem?.id) {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
             await setDoc(docRef, finalItem, { merge: true });
+            setLastAddedItem({ item: { ...finalItem, id: currentItem.id }, title: "Lançamento Atualizado" });
         } else {
             const displayTitle = "Lançamento Adicionado";
             const docRef = await addDoc(orderItemsCollectionRef, finalItem);
@@ -492,7 +481,7 @@ export default function Home() {
   const handleSaveEdit = async () => {
     if (editingItem && editInputValue) {
       await handleUpsertItem(editInputValue, editingItem);
-      setJustEditedItemId(editingItem.id);
+      setEditingItem(null);
     }
   };
   
@@ -951,3 +940,5 @@ export default function Home() {
     </>
   );
 }
+
+    
