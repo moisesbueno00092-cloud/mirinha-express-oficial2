@@ -10,7 +10,7 @@ import { X } from "lucide-react";
 
 interface LastItemDisplayProps {
     data: { item: Item, title: string } | null;
-    onClose?: () => void;
+    onClose: () => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -28,16 +28,14 @@ export default function LastItemDisplay({ data, onClose }: LastItemDisplayProps)
     const { item, title } = data;
 
     return (
-        <div className="fixed bottom-4 right-4 z-50 w-full max-w-sm">
+        <div className="fixed bottom-4 right-4 z-50 w-full max-w-sm animate-in slide-in-from-bottom-5 fade-in-50">
             <Card className="shadow-2xl border-primary/20 bg-card/95 backdrop-blur-sm">
                 <CardHeader className="flex-row items-center justify-between p-3">
                     <CardTitle className="text-base">{title}</CardTitle>
-                    {onClose && (
-                        <button onClick={onClose} className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                           <X className="h-4 w-4" />
-                           <span className="sr-only">Fechar</span>
-                        </button>
-                    )}
+                    <button onClick={onClose} className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                       <X className="h-4 w-4" />
+                       <span className="sr-only">Fechar</span>
+                    </button>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
                     <div className="grid grid-cols-[1fr_auto] items-start gap-4">
