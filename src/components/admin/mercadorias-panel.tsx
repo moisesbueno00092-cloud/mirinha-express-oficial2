@@ -5,7 +5,6 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { ContaAPagar, EntradaMercadoria, Fornecedor } from '@/types';
-import usePersistentState from '@/hooks/use-persistent-state';
 
 
 import { Button } from '@/components/ui/button';
@@ -34,26 +33,14 @@ interface ProductSuggestion {
     lastPrice: number;
 }
 
-const parseDateString = (date: string | undefined): Date | undefined => {
-    if (!date) return undefined;
-    try {
-        const parsed = new Date(date);
-        return isNaN(parsed.getTime()) ? undefined : parsed;
-    } catch {
-        return undefined;
-    }
-}
-
 
 export default function MercadoriasPanel() {
     const firestore = useFirestore();
     const { toast } = useToast();
 
-    const [fornecedorId, setFornecedorId] = usePersistentState<string | undefined>('mercadorias.fornecedorId', undefined);
-    const [rawVencimento, setRawVencimento] = usePersistentState<string | undefined>('mercadorias.dataVencimento', undefined);
-    const [produtosLancados, setProdutosLancados] = usePersistentState<LancamentoProduto[]>('mercadorias.produtosLancados', []);
-
-    const dataVencimento = useMemo(() => parseDateString(rawVencimento), [rawVencimento]);
+    const [fornecedorId, setFornecedorId] = useState<string | undefined>(undefined);
+    const [dataVencimento, setDataVencimento] = usePersistentState<Date | undefined>('mercadorias.dataVencimento', undefined);
+    const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -162,49 +149,53 @@ export default function MercadoriasPanel() {
         const input = lancamentoInput.trim();
         if (!input) return;
 
-        const lastSpaceIndex = input.lastIndexOf(' ');
+        let nomeParte = input;
+        let precoUnitarioStr: string | undefined;
+        let quantidade = 1;
         
-        if (lastSpaceIndex === -1 || lastSpaceIndex === input.length -1) {
-            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Formato inválido. Use: <Nome do Produto> <Preço>'});
+        const unRegex = /^(.*)\s+(\d+)un\s+([\d,.]+)$/i;
+        const unMatch = input.match(unRegex);
+
+        if (unMatch) {
+            nomeParte = `${unMatch[1].trim()} ${unMatch[2]}un`;
+            quantidade = parseInt(unMatch[2], 10);
+            precoUnitarioStr = unMatch[3];
+        } else {
+            const lastSpaceIndex = input.lastIndexOf(' ');
+            if (lastSpaceIndex > -1 && lastSpaceIndex < input.length - 1) {
+                const potentialPrice = input.substring(lastSpaceIndex + 1);
+                if (/^[\d,.]+$/.test(potentialPrice)) {
+                    nomeParte = input.substring(0, lastSpaceIndex).trim();
+                    precoUnitarioStr = potentialPrice;
+                }
+            }
+        }
+        
+        if (!precoUnitarioStr) {
+            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Formato inválido. Use: <Nome> <Preço> ou <Nome> <Qtd>un <Preço Unit>.'});
             return;
         }
 
-        let nomeParte = input.substring(0, lastSpaceIndex).trim();
-        const precoStr = input.substring(lastSpaceIndex + 1).replace(',', '.');
-        const precoUnitario = parseFloat(precoStr);
+        const precoUnitario = parseFloat(precoUnitarioStr.replace(',', '.'));
 
         if (isNaN(precoUnitario) || precoUnitario <= 0) {
             toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Preço do produto inválido.' });
             return;
         }
 
-        const unRegex = /^(.*?)\s*(\d+)un$/i;
-        const unMatch = nomeParte.match(unRegex);
-
-        let quantidade = 1;
-        let precoTotal = precoUnitario;
-        let nomeSalvo = nomeParte;
-        let precoUnitarioFinal = precoUnitario;
-        
-        if (unMatch) {
-            nomeSalvo = nomeParte; // Full name with '5un'
-            nomeParte = unMatch[1].trim(); // Name part only
-            quantidade = parseInt(unMatch[2], 10);
-            precoTotal = quantidade * precoUnitario;
-        }
-
-
         if (!nomeParte.trim()) {
              toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Nome do produto não pode ser vazio.' });
             return;
         }
+        
+        const precoTotal = quantidade * precoUnitario;
 
         setProdutosLancados(prev => [...prev, {
             id: Date.now(),
-            produtoNome: nomeSalvo, 
+            produtoNome: nomeParte, 
             preco: precoTotal,
             quantidade,
-            precoUnitario: precoUnitarioFinal,
+            precoUnitario: precoUnitario,
         }]);
 
         setLancamentoInput('');
@@ -229,8 +220,8 @@ export default function MercadoriasPanel() {
     }
     
     const handleEditProduto = (produto: LancamentoProduto) => {
-        const inputToEdit = `${produto.produtoNome} ${String(produto.precoUnitario).replace('.', ',')}`;
-
+        const inputToEdit = `${produto.produtoNome} ${String(produto.precoUnitario).replace('.', ',')}`.replace(/\s+\d+un/, ` ${produto.quantidade}un`);
+        
         setLancamentoInput(inputToEdit);
         handleRemoveProduto(produto.id);
         setTimeout(() => lancamentoInputRef.current?.focus(), 0);
@@ -238,7 +229,7 @@ export default function MercadoriasPanel() {
 
     const resetForm = () => {
         setFornecedorId(undefined);
-        setRawVencimento(undefined);
+        setDataVencimento(undefined);
         setProdutosLancados([]);
         setLancamentoInput('');
     }
@@ -351,7 +342,7 @@ export default function MercadoriasPanel() {
                     </div>
                     <div className="space-y-2 self-end">
                         <Label htmlFor="vencimento">Data de Vencimento da Fatura</Label>
-                        <DatePicker date={dataVencimento} setDate={(date) => setRawVencimento(date?.toISOString())} />
+                        <DatePicker date={dataVencimento} setDate={setDataVencimento} />
                         <p className="text-xs text-muted-foreground">Deixe em branco para pagamento no dia (à vista).</p>
                     </div>
                 </div>
