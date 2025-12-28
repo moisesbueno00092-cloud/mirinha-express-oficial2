@@ -1,44 +1,39 @@
 
 "use client";
 
-import { useState, useEffect, Dispatch, SetStateAction } from 'react';
+import { useState, useEffect, Dispatch, SetStateAction, useCallback } from 'react';
 
 function usePersistentState<T>(key: string, initialState: T): [T, Dispatch<SetStateAction<T>>] {
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [state, setState] = useState<T>(initialState);
-
-  useEffect(() => {
-    // This effect should only run on the client, after the component has mounted.
-    // It's safe to access localStorage here.
-    setIsInitialized(true);
+  const [state, setState] = useState<T>(() => {
+    // This function now runs only on initial render on the client.
+    // It avoids the need for a separate initialization effect.
+    if (typeof window === 'undefined') {
+      return initialState;
+    }
     try {
       const item = window.localStorage.getItem(key);
-      // Ensure the item is not null, not undefined, and not the string 'undefined'
       if (item && item !== 'undefined') {
-        setState(JSON.parse(item));
+        return JSON.parse(item);
       }
+      return initialState;
     } catch (error) {
       console.error(`Error reading localStorage key “${key}”:`, error);
-      // We can fallback to initialState if there's an error.
-      setState(initialState);
+      return initialState;
     }
-  }, [key, initialState]); // The dependencies are correct as they are.
+  });
 
   useEffect(() => {
-    // This effect runs whenever 'state' changes, but only after initialization.
-    if (isInitialized) {
-      try {
-        // Prevent storing 'undefined' as a string
-        if (state === undefined) {
-          window.localStorage.removeItem(key);
-        } else {
-          window.localStorage.setItem(key, JSON.stringify(state));
-        }
-      } catch (error) {
-        console.error(`Error setting localStorage key “${key}”:`, error);
+    // This effect now only handles writing to localStorage when state changes.
+    try {
+      if (state === undefined) {
+        window.localStorage.removeItem(key);
+      } else {
+        window.localStorage.setItem(key, JSON.stringify(state));
       }
+    } catch (error) {
+      console.error(`Error setting localStorage key “${key}”:`, error);
     }
-  }, [key, state, isInitialized]);
+  }, [key, state]);
 
   return [state, setState];
 }
