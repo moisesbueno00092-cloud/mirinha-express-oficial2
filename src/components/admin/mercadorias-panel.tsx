@@ -10,13 +10,14 @@ import type { ContaAPagar, EntradaMercadoria, Fornecedor } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, PlusCircle, Trash2, Pencil } from 'lucide-react';
+import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format as formatDateFn } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import FornecedoresEditModal from './fornecedores-edit-modal';
 
 
 interface LancamentoProduto {
@@ -47,6 +48,7 @@ export default function MercadoriasPanel() {
     const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const lancamentoInputRef = useRef<HTMLInputElement>(null);
+    const [isFornecedoresModalOpen, setIsFornecedoresModalOpen] = useState(false);
 
 
     const fornecedoresQuery = useMemoFirebase(
@@ -262,132 +264,142 @@ export default function MercadoriasPanel() {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="fornecedor">Fornecedor</Label>
-                    <div className='flex items-center gap-2'>
-                        <Input
-                            id="new-fornecedor"
-                            placeholder="Adicionar novo fornecedor..."
-                            value={newFornecedorName}
-                            onChange={(e) => setNewFornecedorName(e.target.value)}
-                            disabled={isAddingFornecedor}
-                            className="h-9"
-                        />
-                        <Button type="button" size="icon" className="h-9 w-9 shrink-0" onClick={handleAddFornecedor} disabled={isAddingFornecedor || !newFornecedorName.trim()}>
-                            {isAddingFornecedor ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
-                        </Button>
-                    </div>
-                    <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                        <SelectTrigger id="fornecedor" disabled={isLoadingFornecedores}>
-                            <SelectValue placeholder={isLoadingFornecedores ? "A carregar..." : "Selecione um fornecedor"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {fornecedores?.map(f => (
-                                <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-2 self-end">
-                    <Label htmlFor="vencimento">Data de Vencimento da Fatura</Label>
-                    <DatePicker date={dataVencimento} setDate={setDataVencimento} />
-                </div>
-            </div>
-            
-            <Separator />
-
-            <div className="space-y-2">
-                <Label htmlFor='lancamento-input'>Lançamento de Produto (Nome e Preço)</Label>
-                <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
-                    <PopoverTrigger asChild>
-                        <form onSubmit={handleAddProduto} className="flex items-start gap-2">
+        <>
+            <FornecedoresEditModal
+                isOpen={isFornecedoresModalOpen}
+                onClose={() => setIsFornecedoresModalOpen(false)}
+                fornecedores={fornecedores || []}
+            />
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="fornecedor">Fornecedor</Label>
+                        <div className='flex items-center gap-2'>
                             <Input
-                                id='lancamento-input'
-                                ref={lancamentoInputRef}
-                                placeholder="Ex: Coca-cola 2L 10,50"
-                                value={lancamentoInput}
-                                onChange={(e) => setLancamentoInput(e.target.value)}
-                                className='w-full'
-                                autoComplete='off'
-                                onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 150)}
-                                onFocus={() => {
-                                  const trimmedInput = lancamentoInput.trim();
-                                  if (trimmedInput !== '' && suggestions.length > 0) {
-                                      setIsSuggestionsOpen(true);
-                                  }
-                                }}
+                                id="new-fornecedor"
+                                placeholder="Adicionar novo fornecedor..."
+                                value={newFornecedorName}
+                                onChange={(e) => setNewFornecedorName(e.target.value)}
+                                disabled={isAddingFornecedor}
+                                className="h-9"
                             />
-                             <Button 
-                                type="submit"
-                                size="icon"
-                                className="h-10 w-10 shrink-0"
-                                disabled={!lancamentoInput.trim()}
-                            >
-                                <Plus className="h-5 w-5" />
+                            <Button type="button" size="icon" className="h-9 w-9 shrink-0" onClick={handleAddFornecedor} disabled={isAddingFornecedor || !newFornecedorName.trim()}>
+                                {isAddingFornecedor ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
                             </Button>
-                        </form>
-                    </PopoverTrigger>
-                    <PopoverContent 
-                      className='w-[--radix-popover-trigger-width] p-0' 
-                      onOpenAutoFocus={(e) => e.preventDefault()}
-                    >
-                      <ul className='max-h-60 overflow-y-auto'>
-                        {suggestions.map((suggestion, index) => (
-                          <li
-                            key={index}
-                            className='px-3 py-2 text-sm cursor-pointer hover:bg-accent flex items-center gap-2'
-                            onMouseDown={() => handleSelectSuggestion(suggestion)}
-                          >
-                            <span>{suggestion.name}</span>
-                            <span className='font-mono text-sm text-green-500'>{formatCurrency(suggestion.lastPrice)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </PopoverContent>
-                </Popover>
-            </div>
-            
-            {produtosLancados.length > 0 && (
-                 <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">Produtos nesta Entrada</h3>
-                    <div className="rounded-md border">
-                        {produtosLancados.map(p => (
-                            <div key={p.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
-                                <span>{p.produtoNome}</span>
-                                <div className="flex items-center gap-2">
-                                    <span className="font-mono">{formatCurrency(p.preco || 0)}</span>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditProduto(p)}>
-                                        <Pencil className="h-4 w-4 text-blue-500" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveProduto(p.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Select value={fornecedorId} onValueChange={setFornecedorId}>
+                                <SelectTrigger id="fornecedor" disabled={isLoadingFornecedores}>
+                                    <SelectValue placeholder={isLoadingFornecedores ? "A carregar..." : "Selecione um fornecedor"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {fornecedores?.map(f => (
+                                        <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => setIsFornecedoresModalOpen(true)} disabled={isLoadingFornecedores}>
+                                <Settings className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
-                     <div className="flex justify-end items-center gap-4 pt-2 font-semibold">
-                        <span>Total da Compra:</span>
-                        <span className="text-xl text-primary">{formatCurrency(totalCompra)}</span>
+                    <div className="space-y-2 self-end">
+                        <Label htmlFor="vencimento">Data de Vencimento da Fatura</Label>
+                        <DatePicker date={dataVencimento} setDate={setDataVencimento} />
                     </div>
                 </div>
-            )}
+                
+                <Separator />
+
+                <div className="space-y-2">
+                    <Label htmlFor='lancamento-input'>Lançamento de Produto (Nome e Preço)</Label>
+                    <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
+                        <PopoverTrigger asChild>
+                            <form onSubmit={handleAddProduto} className="flex items-start gap-2">
+                                <Input
+                                    id='lancamento-input'
+                                    ref={lancamentoInputRef}
+                                    placeholder="Ex: Coca-cola 2L 10,50"
+                                    value={lancamentoInput}
+                                    onChange={(e) => setLancamentoInput(e.target.value)}
+                                    className='w-full'
+                                    autoComplete='off'
+                                    onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 150)}
+                                    onFocus={() => {
+                                      const trimmedInput = lancamentoInput.trim();
+                                      if (trimmedInput !== '' && suggestions.length > 0) {
+                                          setIsSuggestionsOpen(true);
+                                      }
+                                    }}
+                                />
+                                 <Button 
+                                    type="submit"
+                                    size="icon"
+                                    className="h-10 w-10 shrink-0"
+                                    disabled={!lancamentoInput.trim()}
+                                >
+                                    <Plus className="h-5 w-5" />
+                                </Button>
+                            </form>
+                        </PopoverTrigger>
+                        <PopoverContent 
+                          className='w-[--radix-popover-trigger-width] p-0' 
+                          onOpenAutoFocus={(e) => e.preventDefault()}
+                        >
+                          <ul className='max-h-60 overflow-y-auto'>
+                            {suggestions.map((suggestion, index) => (
+                              <li
+                                key={index}
+                                className='px-3 py-2 text-sm cursor-pointer hover:bg-accent flex items-center gap-2'
+                                onMouseDown={() => handleSelectSuggestion(suggestion)}
+                              >
+                                <span>{suggestion.name}</span>
+                                <span className='font-mono text-sm text-green-500'>{formatCurrency(suggestion.lastPrice)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </PopoverContent>
+                    </Popover>
+                </div>
+                
+                {produtosLancados.length > 0 && (
+                     <div className="space-y-2">
+                        <h3 className="text-sm font-medium text-muted-foreground">Produtos nesta Entrada</h3>
+                        <div className="rounded-md border">
+                            {produtosLancados.map(p => (
+                                <div key={p.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
+                                    <span>{p.produtoNome}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-mono">{formatCurrency(p.preco || 0)}</span>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditProduto(p)}>
+                                            <Pencil className="h-4 w-4 text-blue-500" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveProduto(p.id)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                         <div className="flex justify-end items-center gap-4 pt-2 font-semibold">
+                            <span>Total da Compra:</span>
+                            <span className="text-xl text-primary">{formatCurrency(totalCompra)}</span>
+                        </div>
+                    </div>
+                )}
 
 
-            <div className="flex justify-end pt-4">
-                <Button 
-                    onClick={handleRegisterEntry}
-                    disabled={isSubmitting || !fornecedorId || produtosLancados.length === 0}
-                >
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Registar Entrada e Criar Conta a Pagar
-                </Button>
+                <div className="flex justify-end pt-4">
+                    <Button 
+                        onClick={handleRegisterEntry}
+                        disabled={isSubmitting || !fornecedorId || produtosLancados.length === 0}
+                    >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Registar Entrada e Criar Conta a Pagar
+                    </Button>
+                </div>
+
             </div>
-
-        </div>
+        </>
     );
 }
-
-    
