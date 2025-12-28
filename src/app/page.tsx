@@ -384,7 +384,7 @@ export default function Home() {
         });
     } finally {
         setIsProcessing(false);
-        if (!editingItem) {
+        if (!currentItem) {
           setRawInput("");
         }
         setTimeout(() => {
@@ -913,6 +913,8 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     
 
