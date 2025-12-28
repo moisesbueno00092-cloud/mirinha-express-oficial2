@@ -143,6 +143,7 @@ export default function Home() {
       const editedItem = items.find(i => i.id === justEditedItemId);
       if (editedItem) {
         setLastAddedItem({ item: editedItem, title: "Lançamento Atualizado" });
+        setEditingItem(null); // Close the dialog here
         setJustEditedItemId(null); // Reset after showing notification
       }
     }
@@ -492,9 +493,6 @@ export default function Home() {
     if (editingItem && editInputValue) {
       await handleUpsertItem(editInputValue, editingItem);
       setJustEditedItemId(editingItem.id);
-      setTimeout(() => {
-        setEditingItem(null);
-      }, 0);
     }
   };
   
