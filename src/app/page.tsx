@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient, DailyReport, ItemCount } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, addDoc } from "firebase/firestore";
+import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 
 import { Button } from "@/components/ui/button";
@@ -364,16 +364,17 @@ export default function Home() {
 
         if (currentItem?.id) {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
-            setDocumentNonBlocking(docRef, finalItem, { merge: true });
+            await setDocumentNonBlocking(docRef, finalItem, { merge: true });
             toast({
                 component: <LastItemToast item={{...finalItem, id: currentItem.id}} title="Lançamento Atualizado" />
             });
         } else {
-            addDocumentNonBlocking(orderItemsCollectionRef, finalItem).then(docRef => {
+            const docRef = await addDocumentNonBlocking(orderItemsCollectionRef, finalItem);
+            if (docRef) {
                  toast({
-                    component: <LastItemToast item={{...finalItem, id: docRef?.id || 'temp-id' }} title="Lançamento Adicionado" />
+                    component: <LastItemToast item={{...finalItem, id: docRef.id }} title="Lançamento Adicionado" />
                 });
-            });
+            }
         }
         
         setRawInput("");
