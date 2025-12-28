@@ -5,10 +5,10 @@ import { useMemo, useState } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format, isPast, isSameMonth, isSameYear, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isToday, isWithinInterval, startOfWeek, endOfWeek } from 'date-fns';
+import { format, isPast, isSameMonth, isSameYear, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isToday, isWithinInterval, startOfWeek, endOfWeek, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { ContaAPagar, Fornecedor, EntradaMercadoria } from '@/types';
+import type { ContaAPagar, Fornecedor, EntradaMercadoria, DailyReport, ItemCount } from '@/types';
 import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 import {
@@ -25,7 +25,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays, AlertTriangle } from 'lucide-react';
+import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays, AlertTriangle, AreaChart } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -132,6 +132,150 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest }:
 
 type FilterType = 'all' | 'vencidas' | 'hoje' | 'semana' | 'mes';
 
+type SalesReportPeriod = 'week' | 'month' | 'year';
+
+interface AggregatedItem {
+    name: string;
+    quantity: number;
+    totalValue: number;
+}
+
+const SalesReport = ({ reports, period }: { reports: DailyReport[], period: SalesReportPeriod }) => {
+    const aggregatedData = useMemo(() => {
+        const now = new Date();
+        let startDate: Date;
+
+        if (period === 'week') {
+            startDate = startOfWeek(now, { locale: ptBR });
+        } else if (period === 'month') {
+            startDate = startOfMonth(now);
+        } else { // year
+            startDate = startOfYear(now);
+        }
+
+        const relevantReports = reports.filter(r => isWithinInterval(parseISO(r.reportDate + 'T00:00:00'), { start: startDate, end: now }));
+        
+        if (relevantReports.length === 0) {
+            return { items: [], totalRevenue: 0, totalItems: 0 };
+        }
+
+        const itemMap = new Map<string, { quantity: number, totalValue: number }>();
+        let totalRevenue = 0;
+
+        for (const report of relevantReports) {
+            totalRevenue += report.totalGeral;
+            for (const item of report.items) {
+                const processItems = (itemsToProcess: any[], priceField: string, qtyField: string, nameField: string) => {
+                    if (!itemsToProcess) return;
+                    for (const subItem of itemsToProcess) {
+                        const name = subItem[nameField];
+                        const quantity = subItem[qtyField];
+                        const price = subItem[priceField];
+                        const value = price * quantity;
+                        
+                        const existing = itemMap.get(name) || { quantity: 0, totalValue: 0 };
+                        itemMap.set(name, {
+                            quantity: existing.quantity + quantity,
+                            totalValue: existing.totalValue + value,
+                        });
+                    }
+                };
+                
+                // Predefined Items (sandwiches etc)
+                if (item.predefinedItems) {
+                    const groupedByName = item.predefinedItems.reduce((acc, p) => {
+                        acc[p.name] = (acc[p.name] || 0) + 1;
+                        return acc;
+                    }, {} as Record<string, number>);
+                    
+                    for (const name in groupedByName) {
+                        const quantity = groupedByName[name];
+                        const price = item.predefinedItems.find(p => p.name === name)!.price;
+                        const value = price * quantity;
+
+                        const existing = itemMap.get(name) || { quantity: 0, totalValue: 0 };
+                        itemMap.set(name, {
+                            quantity: existing.quantity + quantity,
+                            totalValue: existing.totalValue + value,
+                        });
+                    }
+                }
+                
+                // Bomboniere Items
+                processItems(item.bomboniereItems || [], 'price', 'quantity', 'name');
+                
+                // KG items
+                if (item.individualPrices) {
+                    const name = 'KG';
+                    const quantity = item.individualPrices.length;
+                    const value = item.individualPrices.reduce((sum, p) => sum + p, 0);
+
+                    const existing = itemMap.get(name) || { quantity: 0, totalValue: 0 };
+                    itemMap.set(name, {
+                        quantity: existing.quantity + quantity,
+                        totalValue: existing.totalValue + value,
+                    });
+                }
+            }
+        }
+        
+        const items = Array.from(itemMap.entries())
+            .map(([name, data]) => ({ name, ...data }))
+            .sort((a,b) => b.quantity - a.quantity);
+        
+        const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+
+        return { items, totalRevenue, totalItems };
+
+    }, [reports, period]);
+
+    const periodLabel = { week: 'Semanal', month: 'Mensal', year: 'Anual' }[period];
+    
+    return (
+        <Card className="mt-6">
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Relatório de Vendas {periodLabel}</CardTitle>
+                    <CardDescription>Resumo de itens vendidos e faturamento no período.</CardDescription>
+                  </div>
+                  <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Faturamento Total</p>
+                      <p className="text-2xl font-bold text-primary">{formatCurrency(aggregatedData.totalRevenue)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{aggregatedData.totalItems} itens vendidos</p>
+                  </div>
+                </div>
+            </CardHeader>
+            <CardContent>
+                {aggregatedData.items.length === 0 ? (
+                    <p className="p-8 text-center text-sm text-muted-foreground">Nenhum dado de vendas encontrado para este período.</p>
+                ) : (
+                    <div className="rounded-md border max-h-[400px] overflow-y-auto">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-muted">
+                                <TableRow>
+                                    <TableHead>Item</TableHead>
+                                    <TableHead className="text-right">Quantidade</TableHead>
+                                    <TableHead className="text-right">Valor Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {aggregatedData.items.map(item => (
+                                    <TableRow key={item.name}>
+                                        <TableCell className="font-medium">{item.name}</TableCell>
+                                        <TableCell className="text-right font-mono">{item.quantity}</TableCell>
+                                        <TableCell className="text-right font-mono font-semibold">{formatCurrency(item.totalValue)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
+
 export default function ContasAPagarPanel() {
     const firestore = useFirestore();
     const { toast } = useToast();
@@ -139,6 +283,7 @@ export default function ContasAPagarPanel() {
     const [contaToDelete, setContaToDelete] = useState<ContaAPagar | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+    const [salesReportPeriod, setSalesReportPeriod] = useState<SalesReportPeriod>('week');
 
 
     const contasQuery = useMemoFirebase(
@@ -156,9 +301,16 @@ export default function ContasAPagarPanel() {
         [firestore]
     );
 
+    const dailyReportsQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'desc')) : null,
+        [firestore]
+    );
+
+
     const { data: allContas, isLoading: isLoadingContas } = useCollection<ContaAPagar>(contasQuery);
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
     const { data: allEntradas, isLoading: isLoadingAllEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
+    const { data: dailyReports, isLoading: isLoadingDailyReports } = useCollection<DailyReport>(dailyReportsQuery);
 
 
     const fornecedorMap = useMemo(() => {
@@ -189,17 +341,21 @@ export default function ContasAPagarPanel() {
         if (!allContas) return { contasAPagar: [], contasPagas: [], expenseSummary: { month: 0, year: 0 }, counts: { vencidas: 0, hoje: 0, semana: 0, mes: 0 } };
 
         allContas.forEach(conta => {
-            const dueDate = parseISO(conta.dataVencimento + 'T00:00:00');
-            if (conta.estaPaga) {
-                pagas.push(conta);
-                 if (isWithinInterval(dueDate, { start: startOfCurrentMonth, end: endOfCurrentMonth })) {
-                    monthTotal += conta.valor;
+            try {
+                const dueDate = parseISO(conta.dataVencimento + 'T00:00:00');
+                if (conta.estaPaga) {
+                    pagas.push(conta);
+                    if (isWithinInterval(dueDate, { start: startOfCurrentMonth, end: endOfCurrentMonth })) {
+                        monthTotal += conta.valor;
+                    }
+                    if (isWithinInterval(dueDate, { start: startOfCurrentYear, end: endOfCurrentYear })) {
+                        yearTotal += conta.valor;
+                    }
+                } else {
+                    aPagar.push(conta);
                 }
-                 if (isWithinInterval(dueDate, { start: startOfCurrentYear, end: endOfCurrentYear })) {
-                    yearTotal += conta.valor;
-                }
-            } else {
-                aPagar.push(conta);
+            } catch(e) {
+                console.error("Invalid date for account:", conta);
             }
         });
 
@@ -275,7 +431,7 @@ export default function ContasAPagarPanel() {
         setContaToDelete(null);
     };
     
-    const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingAllEntradas;
+    const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingAllEntradas || isLoadingDailyReports;
 
     const FilterButton = ({ filter, label, count }: { filter: FilterType, label: string, count: number }) => (
         <Button
@@ -326,6 +482,45 @@ export default function ContasAPagarPanel() {
                     </CardContent>
                 </Card>
             </div>
+
+            <Separator />
+            
+            <div className="space-y-4">
+                 <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <AreaChart className="h-5 w-5" />
+                    Relatórios de Vendas
+                </h3>
+                <div className="flex flex-wrap items-center gap-2">
+                     <Button
+                        variant={salesReportPeriod === 'week' ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSalesReportPeriod('week')}
+                    >
+                        Semanal
+                    </Button>
+                     <Button
+                        variant={salesReportPeriod === 'month' ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSalesReportPeriod('month')}
+                    >
+                        Mensal
+                    </Button>
+                     <Button
+                        variant={salesReportPeriod === 'year' ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSalesReportPeriod('year')}
+                    >
+                        Anual
+                    </Button>
+                </div>
+                {isLoadingDailyReports ? (
+                     <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                ) : (
+                    <SalesReport reports={dailyReports || []} period={salesReportPeriod} />
+                )}
+            </div>
+
+            <Separator />
 
             <Card>
                 <CardHeader>
@@ -428,5 +623,3 @@ export default function ContasAPagarPanel() {
         </div>
     );
 }
-
-    
