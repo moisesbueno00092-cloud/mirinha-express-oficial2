@@ -482,8 +482,8 @@ export default function Home() {
   const handleSaveEdit = async () => {
     if(editingItem && editInputValue) {
       await handleUpsertItem(editInputValue, editingItem);
-      setEditingItem(null);
     }
+    setEditingItem(null);
   }
   
   const summary = useMemo(() => {
@@ -826,7 +826,11 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <LastItemDisplay data={lastAddedItem} />
+      <LastItemDisplay 
+        key={lastAddedItem?.item.id} 
+        data={lastAddedItem} 
+        onClose={() => setLastAddedItem(null)}
+      />
 
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="mb-6 flex flex-col items-center justify-center text-center">

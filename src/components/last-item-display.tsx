@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { groupBadgeStyles, renderItemName } from "@/components/item-list";
+import { X } from "lucide-react";
 
 interface LastItemDisplayProps {
     data: { item: Item, title: string } | null;
+    onClose?: () => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -18,7 +20,7 @@ const formatCurrency = (value: number) => {
     }).format(value);
 };
 
-export default function LastItemDisplay({ data }: LastItemDisplayProps) {
+export default function LastItemDisplay({ data, onClose }: LastItemDisplayProps) {
     if (!data) {
         return null;
     }
@@ -27,9 +29,15 @@ export default function LastItemDisplay({ data }: LastItemDisplayProps) {
 
     return (
         <div className="fixed bottom-4 right-4 z-50 w-full max-w-sm">
-            <Card className="shadow-2xl animate-in slide-in-from-bottom-5 fade-in-50">
+            <Card className="shadow-2xl border-primary/20 bg-card/95 backdrop-blur-sm">
                 <CardHeader className="flex-row items-center justify-between p-3">
                     <CardTitle className="text-base">{title}</CardTitle>
+                    {onClose && (
+                        <button onClick={onClose} className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                           <X className="h-4 w-4" />
+                           <span className="sr-only">Fechar</span>
+                        </button>
+                    )}
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
                     <div className="grid grid-cols-[1fr_auto] items-start gap-4">
