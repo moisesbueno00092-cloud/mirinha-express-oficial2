@@ -1,3 +1,4 @@
+
 'use client';
     
 import {
@@ -37,8 +38,8 @@ export function setDocumentNonBlocking(docRef: DocumentReference, data: any, opt
  * Does NOT await the write operation internally.
  * Returns the Promise for the new doc ref, but typically not awaited by caller.
  */
-export function addDocumentNonBlocking<T>(colRef: CollectionReference<T>, data: T): Promise<DocumentReference<T, DocumentData> | void> {
-    return addDoc(colRef, data).catch(error => {
+export function addDocumentNonBlocking<T>(colRef: CollectionReference<T>, data: T) {
+    addDoc(colRef, data).catch(error => {
         errorEmitter.emit(
             'permission-error',
             new FirestorePermissionError({
@@ -47,8 +48,6 @@ export function addDocumentNonBlocking<T>(colRef: CollectionReference<T>, data: 
                 requestResourceData: data,
             })
         );
-        // Explicitly return void or undefined in the catch block to satisfy promise type
-        return;
     });
 }
 
