@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient, DailyReport, ItemCount } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc } from "firebase/firestore";
+import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, setDoc } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 
 import { Button } from "@/components/ui/button";
@@ -457,7 +457,7 @@ export default function Home() {
     };
     
     const favClientsCollectionRef = collection(firestore, "favorite_clients");
-    await addDoc(favClientsCollectionRef, newFavorite);
+    addDocumentNonBlocking(favClientsCollectionRef, newFavorite);
     toast({ title: 'Sucesso', description: `"${favoriteName.trim()}" foi salvo como favorito.` });
     setIsSaveFavoriteOpen(false);
   };

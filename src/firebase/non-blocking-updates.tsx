@@ -38,7 +38,7 @@ export function setDocumentNonBlocking(docRef: DocumentReference, data: any, opt
  * Does NOT await the write operation internally.
  * Returns the Promise for the new doc ref, but typically not awaited by caller.
  */
-export function addDocumentNonBlocking<T>(colRef: CollectionReference<T>, data: T) {
+export function addDocumentNonBlocking<T extends DocumentData>(colRef: CollectionReference<T>, data: T) {
     addDoc(colRef, data).catch(error => {
         errorEmitter.emit(
             'permission-error',

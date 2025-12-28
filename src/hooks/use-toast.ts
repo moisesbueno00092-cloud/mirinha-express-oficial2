@@ -8,8 +8,6 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1;
-
 type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
@@ -20,6 +18,7 @@ type ToasterToast = ToastProps & {
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
+  UPDATE_TOAST: "UPDATE_TOAST",
   DISMISS_TOAST: "DISMISS_TOAST",
   REMOVE_TOAST: "REMOVE_TOAST",
 } as const
@@ -39,6 +38,10 @@ type Action =
       toast: ToasterToast
     }
   | {
+      type: ActionType["UPDATE_TOAST"]
+      toast: Partial<ToasterToast>
+    }
+  | {
       type: ActionType["DISMISS_TOAST"]
       toastId?: ToasterToast["id"]
     }
@@ -51,33 +54,77 @@ interface State {
   toasts: ToasterToast[]
 }
 
+const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
+
+const addToRemoveQueue = (toastId: string) => {
+  if (toastTimeouts.has(toastId)) {
+    return
+  }
+
+  const timeout = setTimeout(() => {
+    toastTimeouts.delete(toastId)
+    dispatch({
+      type: "REMOVE_TOAST",
+      toastId: toastId,
+    })
+  }, 1000)
+
+  toastTimeouts.set(toastId, timeout)
+}
+
 const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
-      // Always replace existing toasts when a new one is added
       return {
         ...state,
+        // Always replace existing toasts
         toasts: [action.toast],
-      };
+      }
 
-    case "DISMISS_TOAST":
+    case "UPDATE_TOAST":
       return {
         ...state,
         toasts: state.toasts.map((t) =>
-          t.id === action.toastId || action.toastId === undefined
+          t.id === action.toast.id ? { ...t, ...action.toast } : t
+        ),
+      }
+
+    case "DISMISS_TOAST":
+      const { toastId } = action
+
+      // If toastId is undefined, dismiss all toasts
+      if (toastId === undefined) {
+        return {
+          ...state,
+          toasts: state.toasts.map((t) => ({
+            ...t,
+            open: false,
+          })),
+        }
+      }
+
+      return {
+        ...state,
+        toasts: state.toasts.map((t) =>
+          t.id === toastId
             ? {
                 ...t,
                 open: false,
               }
             : t
         ),
-      };
-      
+      }
     case "REMOVE_TOAST":
+      if (action.toastId === undefined) {
+        return {
+          ...state,
+          toasts: [],
+        }
+      }
       return {
         ...state,
         toasts: state.toasts.filter((t) => t.id !== action.toastId),
-      };
+      }
   }
 }
 
@@ -97,6 +144,11 @@ type Toast = Omit<ToasterToast, "id">
 function toast(props: Toast) {
   const id = genId()
 
+  const update = (props: Partial<ToasterToast>) =>
+    dispatch({
+      type: "UPDATE_TOAST",
+      toast: { ...props, id },
+    })
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
   dispatch({
@@ -105,9 +157,12 @@ function toast(props: Toast) {
       ...props,
       id,
       open: true,
-      duration: Infinity, // Keep the toast open until a new one replaces it
       onOpenChange: (open) => {
-        if (!open) dismiss()
+        if (!open) {
+          // If the toast is closed by the user, we want to dismiss it and then remove it from the queue
+          dismiss()
+          addToRemoveQueue(id);
+        }
       },
     },
   })
@@ -115,6 +170,7 @@ function toast(props: Toast) {
   return {
     id: id,
     dismiss,
+    update,
   }
 }
 
