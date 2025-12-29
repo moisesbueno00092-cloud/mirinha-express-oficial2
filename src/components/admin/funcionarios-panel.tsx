@@ -48,16 +48,23 @@ const LancamentoFinanceiroModal = ({
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
+    // The query without orderBy to avoid needing a composite index in the emulator
     const lancamentosQuery = useMemoFirebase(
       () => firestore && funcionario ? query(
         collection(firestore, 'funcionario_lancamentos'), 
-        where("funcionarioId", "==", funcionario.id),
-        orderBy('data', 'desc')
+        where("funcionarioId", "==", funcionario.id)
       ) : null,
       [firestore, funcionario]
     );
 
     const { data: lancamentos, isLoading } = useCollection<FuncionarioLancamentoFinanceiro>(lancamentosQuery);
+
+    // Sort data on the client-side
+    const sortedLancamentos = useMemo(() => {
+        if (!lancamentos) return [];
+        return [...lancamentos].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+    }, [lancamentos]);
+
 
     useEffect(() => {
         if (isOpen) {
@@ -133,9 +140,9 @@ const LancamentoFinanceiroModal = ({
                        <ScrollArea className="h-64 rounded-md border">
                           {isLoading ? (
                             <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin"/></div>
-                          ) : lancamentos && lancamentos.length > 0 ? (
+                          ) : sortedLancamentos && sortedLancamentos.length > 0 ? (
                               <div className="p-2 text-sm">
-                                {lancamentos.map(lanc => (
+                                {sortedLancamentos.map(lanc => (
                                   <div key={lanc.id} className="flex justify-between items-start p-2 border-b last:border-b-0">
                                       <div>
                                           <p className={cn("font-semibold capitalize", tipoLancamentoStyle[lanc.tipo])}>{lanc.tipo}</p>
@@ -192,9 +199,15 @@ const FuncionarioFormModal = ({
                 setStatus(funcionario.status || 'Ativo');
                 if (funcionario.dataAdmissao) {
                     try {
-                        setDataAdmissao(parse(funcionario.dataAdmissao, 'yyyy-MM-dd', new Date()));
+                        // Correctly handle date parsing from yyyy-MM-dd
+                        const parsedDate = parse(funcionario.dataAdmissao, 'yyyy-MM-dd', new Date());
+                         if(isValid(parsedDate)){
+                           setDataAdmissao(parsedDate);
+                         } else {
+                           setDataAdmissao(new Date());
+                         }
                     } catch {
-                        setDataAdmissao(undefined);
+                        setDataAdmissao(new Date());
                     }
                 } else {
                      setDataAdmissao(new Date());
@@ -256,9 +269,42 @@ const FuncionarioFormModal = ({
                     <div className="space-y-2">
                         <Label>Data de Admissão</Label>
                         <div className="grid grid-cols-3 gap-2">
-                            <Input value={dataAdmissao ? format(dataAdmissao, 'dd') : ''} onChange={e => setDataAdmissao(d => parse(e.target.value, 'dd', d || new Date()))} placeholder="DD" maxLength={2} />
-                            <Input value={dataAdmissao ? format(dataAdmissao, 'MM') : ''} onChange={e => setDataAdmissao(d => parse(e.target.value, 'MM', d || new Date()))} placeholder="MM" maxLength={2} />
-                            <Input value={dataAdmissao ? format(dataAdmissao, 'yyyy') : ''} onChange={e => setDataAdmissao(d => parse(e.target.value, 'yyyy', d || new Date()))} placeholder="AAAA" maxLength={4} />
+                           <Input 
+                                value={dataAdmissao ? format(dataAdmissao, 'dd') : ''} 
+                                onChange={e => {
+                                    const day = parseInt(e.target.value);
+                                    if (day > 0 && day <= 31) {
+                                        const newDate = new Date(dataAdmissao || new Date());
+                                        newDate.setDate(day);
+                                        setDataAdmissao(newDate);
+                                    }
+                                }} 
+                                placeholder="DD" maxLength={2} 
+                            />
+                            <Input 
+                                value={dataAdmissao ? format(dataAdmissao, 'MM') : ''} 
+                                onChange={e => {
+                                    const month = parseInt(e.target.value) - 1;
+                                    if (month >= 0 && month < 12) {
+                                      const newDate = new Date(dataAdmissao || new Date());
+                                      newDate.setMonth(month);
+                                      setDataAdmissao(newDate);
+                                    }
+                                }} 
+                                placeholder="MM" maxLength={2} 
+                            />
+                            <Input 
+                                value={dataAdmissao ? format(dataAdmissao, 'yyyy') : ''} 
+                                onChange={e => {
+                                     const year = parseInt(e.target.value);
+                                     if (String(year).length === 4) {
+                                      const newDate = new Date(dataAdmissao || new Date());
+                                      newDate.setFullYear(year);
+                                      setDataAdmissao(newDate);
+                                     }
+                                }} 
+                                placeholder="AAAA" maxLength={4} 
+                            />
                         </div>
                     </div>
                      {funcionario?.id && (
@@ -455,3 +501,5 @@ export default function FuncionariosPanel() {
         </>
     );
 }
+
+    
