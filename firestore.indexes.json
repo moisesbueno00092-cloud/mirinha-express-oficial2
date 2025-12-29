@@ -1,0 +1,19 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "funcionario_lancamentos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "funcionarioId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "data",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
