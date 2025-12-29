@@ -4,14 +4,14 @@
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -320,6 +320,48 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
   )
 }
 
+const AggregateReportCard = ({ title, icon: Icon, reports }: { title: string, icon: React.ElementType, reports: DailyReport[] }) => {
+    const summary = useMemo(() => {
+        return reports.reduce((acc, report) => {
+            acc.totalGeral += report.totalGeral;
+            acc.totalAVista += report.totalAVista;
+            acc.totalFiado += report.totalFiado;
+            acc.totalPedidos += report.totalPedidos;
+            return acc;
+        }, {
+            totalGeral: 0,
+            totalAVista: 0,
+            totalFiado: 0,
+            totalPedidos: 0,
+        });
+    }, [reports]);
+
+    return (
+        <Card>
+            <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                    <Icon className="h-5 w-5 text-muted-foreground"/>
+                    {title}
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold text-primary">{formatCurrency(summary.totalGeral)}</div>
+                <p className="text-xs text-muted-foreground">{summary.totalPedidos} pedidos em {reports.length} dias</p>
+                <div className="mt-4 space-y-1 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-green-500">À Vista:</span>
+                        <span className="font-mono">{formatCurrency(summary.totalAVista)}</span>
+                    </div>
+                     <div className="flex justify-between">
+                        <span className="text-destructive">Fiado:</span>
+                        <span className="font-mono">{formatCurrency(summary.totalFiado)}</span>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
 export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -332,6 +374,23 @@ export default function ReportsPage() {
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
+
+  const { weeklyReports, monthlyReports, yearlyReports } = useMemo(() => {
+    if (!savedReports) return { weeklyReports: [], monthlyReports: [], yearlyReports: [] };
+    const now = new Date();
+    const startOfThisWeek = startOfWeek(now, { locale: ptBR });
+    const endOfThisWeek = endOfWeek(now, { locale: ptBR });
+    const startOfThisMonth = startOfMonth(now);
+    const endOfThisMonth = endOfMonth(now);
+    const startOfThisYear = startOfYear(now);
+    const endOfThisYear = endOfYear(now);
+
+    const weekly = savedReports.filter(r => isWithinInterval(parseISO(r.reportDate), { start: startOfThisWeek, end: endOfThisWeek }));
+    const monthly = savedReports.filter(r => isWithinInterval(parseISO(r.reportDate), { start: startOfThisMonth, end: endOfThisMonth }));
+    const yearly = savedReports.filter(r => isWithinInterval(parseISO(r.reportDate), { start: startOfThisYear, end: endOfThisYear }));
+
+    return { weeklyReports: weekly, monthlyReports: monthly, yearlyReports: yearly };
+  }, [savedReports]);
 
   const handleDeleteReportRequest = (reportId: string) => {
     setReportToDelete(reportId);
@@ -405,69 +464,78 @@ export default function ReportsPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios Salvos no Mês</h1>
-              <p className="text-muted-foreground">Detalhes de cada relatório salvo, agrupado por dia.</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios de Vendas</h1>
+              <p className="text-muted-foreground">Relatórios agregados e detalhamento por dia.</p>
             </div>
           </div>
         </header>
 
-        <main className="space-y-2">
-          {savedReports && savedReports.length > 0 && bomboniereItems ? (
-            <Accordion type="single" collapsible className="w-full space-y-2">
-              {savedReports.map(report => {
-                const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
-                return (
-                    <AccordionItem value={report.id} key={report.id} className="border-b-0">
-                        <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
-                            <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
-                                <span className="text-2xl font-bold leading-none">{day}</span>
-                                <span className="text-xs font-semibold uppercase">{month}</span>
-                            </div>
+        <main className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <AggregateReportCard title="Faturamento Semanal" icon={BarChart} reports={weeklyReports} />
+                <AggregateReportCard title="Faturamento Mensal" icon={Calendar} reports={monthlyReports} />
+                <AggregateReportCard title="Faturamento Anual" icon={TrendingUp} reports={yearlyReports} />
+            </div>
 
-                            <div className="flex-grow">
-                                <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
-                                <p className="text-sm text-muted-foreground">{fullDate}</p>
-                            </div>
+            <Separator />
 
-                            <div className="text-right mr-4">
-                                <p className="text-xs text-muted-foreground">Total do Dia</p>
-                                <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
-                            </div>
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Relatórios Diários</h2>
+            {savedReports && savedReports.length > 0 && bomboniereItems ? (
+              <Accordion type="single" collapsible className="w-full space-y-2">
+                {savedReports.map(report => {
+                  const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
+                  return (
+                      <AccordionItem value={report.id} key={report.id} className="border-b-0">
+                          <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
+                              <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
+                                  <span className="text-2xl font-bold leading-none">{day}</span>
+                                  <span className="text-xs font-semibold uppercase">{month}</span>
+                              </div>
 
-                            <AccordionTrigger className="p-2 rounded-md hover:bg-accent [&[data-state=open]>svg]:rotate-180">
-                                <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
-                            </AccordionTrigger>
+                              <div className="flex-grow">
+                                  <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
+                                  <p className="text-sm text-muted-foreground">{fullDate}</p>
+                              </div>
 
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteReportRequest(report.id);
-                                }}
-                                >
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </div>
-                        <AccordionContent className="p-2 pt-2">
-                            <ReportDetail report={report} bomboniereItems={bomboniereItems} />
-                        </AccordionContent>
-                    </AccordionItem>
-                )
-              })}
-            </Accordion>
-          ) : (
-            <Card>
-              <CardContent className="p-10 text-center text-muted-foreground">
-                <p>Nenhum relatório salvo encontrado.</p>
-              </CardContent>
-            </Card>
-          )}
+                              <div className="text-right mr-4">
+                                  <p className="text-xs text-muted-foreground">Total do Dia</p>
+                                  <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
+                              </div>
+
+                              <AccordionTrigger className="p-2 rounded-md hover:bg-accent [&[data-state=open]>svg]:rotate-180">
+                                  <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
+                              </AccordionTrigger>
+
+                              <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteReportRequest(report.id);
+                                  }}
+                                  >
+                                  <Trash2 className="h-4 w-4" />
+                              </Button>
+                          </div>
+                          <AccordionContent className="p-2 pt-2">
+                              <ReportDetail report={report} bomboniereItems={bomboniereItems} />
+                          </AccordionContent>
+                      </AccordionItem>
+                  )
+                })}
+              </Accordion>
+            ) : (
+              <Card>
+                <CardContent className="p-10 text-center text-muted-foreground">
+                  <p>Nenhum relatório salvo encontrado.</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </main>
       </div>
     </>
   );
 }
-
-    
