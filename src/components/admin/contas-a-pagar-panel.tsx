@@ -25,7 +25,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays } from 'lucide-react';
+import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays, ShoppingCart } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -129,9 +129,9 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest }:
     );
 }
 
-type ExpenseReportPeriod = 'week' | 'month' | 'year';
+type ReportPeriod = 'week' | 'month' | 'year';
 
-const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: ContaAPagar[], fornecedorMap: Map<string, Fornecedor>, period: ExpenseReportPeriod }) => {
+const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: ContaAPagar[], fornecedorMap: Map<string, Fornecedor>, period: ReportPeriod }) => {
     const aggregatedData = useMemo(() => {
         const now = new Date();
         let startDate: Date;
@@ -184,11 +184,11 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
             <CardHeader>
                 <div className="flex justify-between items-center">
                   <div>
-                    <CardTitle>Relatório de Despesas {periodLabel}</CardTitle>
+                    <CardTitle>Relatórios de Despesas</CardTitle>
                     <CardDescription>Resumo de contas pagas por fornecedor no período.</CardDescription>
                   </div>
                   <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Despesa Total</p>
+                      <p className="text-xs text-muted-foreground">Despesa Total ({periodLabel})</p>
                       <p className="text-2xl font-bold text-destructive">{formatCurrency(aggregatedData.totalExpenses)}</p>
                   </div>
                 </div>
@@ -223,6 +223,96 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
     )
 }
 
+type ComprasReportPeriod = 'month' | 'year';
+
+const ComprasReport = ({ allEntradas, period }: { allEntradas: EntradaMercadoria[], period: ComprasReportPeriod }) => {
+    const aggregatedData = useMemo(() => {
+        const now = new Date();
+        let startDate: Date;
+
+        if (period === 'month') {
+            startDate = startOfMonth(now);
+        } else { // year
+            startDate = startOfYear(now);
+        }
+
+        const relevantEntradas = allEntradas.filter(e => isWithinInterval(parseISO(e.data), { start: startDate, end: now }));
+        
+        if (relevantEntradas.length === 0) {
+            return { products: [], totalValue: 0 };
+        }
+
+        const productMap = new Map<string, { totalQuantity: number, totalValue: number }>();
+        let totalValue = 0;
+
+        for (const entrada of relevantEntradas) {
+            totalValue += entrada.valorTotal;
+            const productName = entrada.produtoNome;
+            
+            const existing = productMap.get(productName) || { totalQuantity: 0, totalValue: 0 };
+            productMap.set(productName, {
+                totalQuantity: existing.totalQuantity + entrada.quantidade,
+                totalValue: existing.totalValue + entrada.valorTotal,
+            });
+        }
+        
+        const products = Array.from(productMap.entries())
+            .map(([productName, data]) => ({
+                name: productName,
+                ...data
+            }))
+            .sort((a,b) => b.totalValue - a.totalValue);
+
+        return { products, totalValue };
+
+    }, [allEntradas, period]);
+
+    const periodLabel = { month: 'Mensal', year: 'Anual' }[period];
+    
+    return (
+        <Card className="mt-6">
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Relatório de Compras de Mercadorias</CardTitle>
+                    <CardDescription>Resumo de produtos comprados no período.</CardDescription>
+                  </div>
+                  <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Custo Total ({periodLabel})</p>
+                      <p className="text-2xl font-bold text-blue-500">{formatCurrency(aggregatedData.totalValue)}</p>
+                  </div>
+                </div>
+            </CardHeader>
+            <CardContent>
+                {aggregatedData.products.length === 0 ? (
+                    <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma compra encontrada para este período.</p>
+                ) : (
+                    <div className="rounded-md border max-h-[400px] overflow-y-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Produto</TableHead>
+                                    <TableHead>Quantidade Total</TableHead>
+                                    <TableHead className="text-right">Valor Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {aggregatedData.products.map(product => (
+                                    <TableRow key={product.name}>
+                                        <TableCell className="font-medium">{product.name}</TableCell>
+                                        <TableCell>{product.totalQuantity.toLocaleString('pt-BR')}</TableCell>
+                                        <TableCell className="text-right font-mono font-semibold">{formatCurrency(product.totalValue)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
+
 type FilterType = 'all' | 'vencidas' | 'hoje' | 'semana' | 'mes';
 
 export default function ContasAPagarPanel() {
@@ -232,8 +322,8 @@ export default function ContasAPagarPanel() {
     const [contaToDelete, setContaToDelete] = useState<ContaAPagar | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-    const [expenseReportPeriod, setExpenseReportPeriod] = useState<ExpenseReportPeriod>('week');
-
+    const [expenseReportPeriod, setExpenseReportPeriod] = useState<ReportPeriod>('month');
+    const [comprasReportPeriod, setComprasReportPeriod] = useState<ComprasReportPeriod>('month');
 
     const contasQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null,
@@ -423,35 +513,73 @@ export default function ContasAPagarPanel() {
                 </Card>
             </div>
 
-             <div className="flex flex-wrap items-center gap-2">
-                 <Button
-                    variant={expenseReportPeriod === 'week' ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setExpenseReportPeriod('week')}
-                >
-                    Relatório Semanal
-                </Button>
-                 <Button
-                    variant={expenseReportPeriod === 'month' ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setExpenseReportPeriod('month')}
-                >
-                    Relatório Mensal
-                </Button>
-                 <Button
-                    variant={expenseReportPeriod === 'year' ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setExpenseReportPeriod('year')}
-                >
-                    Relatório Anual
-                </Button>
-            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Relatórios de Despesas</CardTitle>
+                    <CardDescription>Resumo de contas pagas por fornecedor.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <div className="flex flex-wrap items-center gap-2">
+                         <Button
+                            variant={expenseReportPeriod === 'week' ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setExpenseReportPeriod('week')}
+                        >
+                            Semanal
+                        </Button>
+                         <Button
+                            variant={expenseReportPeriod === 'month' ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setExpenseReportPeriod('month')}
+                        >
+                            Mensal
+                        </Button>
+                         <Button
+                            variant={expenseReportPeriod === 'year' ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setExpenseReportPeriod('year')}
+                        >
+                            Anual
+                        </Button>
+                    </div>
 
-            {isLoading ? (
-                 <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-            ) : (
-                <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={expenseReportPeriod} />
-            )}
+                    {isLoading ? (
+                         <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                    ) : (
+                        <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={expenseReportPeriod} />
+                    )}
+                </CardContent>
+            </Card>
+
+             <Card>
+                <CardHeader>
+                    <CardTitle>Relatório de Compras de Mercadorias</CardTitle>
+                    <CardDescription>Resumo de produtos comprados.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-wrap items-center gap-2">
+                         <Button
+                            variant={comprasReportPeriod === 'month' ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setComprasReportPeriod('month')}
+                        >
+                            Mensal
+                        </Button>
+                         <Button
+                            variant={comprasReportPeriod === 'year' ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setComprasReportPeriod('year')}
+                        >
+                            Anual
+                        </Button>
+                    </div>
+                    {isLoading ? (
+                        <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                    ) : (
+                        <ComprasReport allEntradas={allEntradas || []} period={comprasReportPeriod} />
+                    )}
+                </CardContent>
+             </Card>
 
             <Card>
                 <CardHeader>
@@ -476,68 +604,68 @@ export default function ContasAPagarPanel() {
                 </CardContent>
             </Card>
 
-            <div className="space-y-4">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Histórico de Preços de Compras</CardTitle>
-                        <CardDescription>Pesquise um produto para ver a variação de preços ao longo do tempo.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                                placeholder="Buscar por nome do produto..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10"
-                            />
-                        </div>
-                        {searchQuery.trim() && (
-                          <div className="rounded-md border mt-4">
-                              <Table>
-                                  <TableHeader>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Histórico de Preços de Compras</CardTitle>
+                    <CardDescription>Pesquise um produto para ver a variação de preços ao longo do tempo.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Buscar por nome do produto..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10"
+                        />
+                    </div>
+                    {searchQuery.trim() && (
+                      <div className="rounded-md border mt-4">
+                          <Table>
+                              <TableHeader>
+                                  <TableRow>
+                                      <TableHead>Data</TableHead>
+                                      <TableHead>Produto</TableHead>
+                                      <TableHead>Fornecedor</TableHead>
+                                      <TableHead className="text-right">Preço Unitário</TableHead>
+                                  </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                  {isLoadingAllEntradas || isLoadingFornecedores ? (
                                       <TableRow>
-                                          <TableHead>Data</TableHead>
-                                          <TableHead>Produto</TableHead>
-                                          <TableHead>Fornecedor</TableHead>
-                                          <TableHead className="text-right">Preço Unitário</TableHead>
+                                          <TableCell colSpan={4} className="h-24 text-center">
+                                              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                                          </TableCell>
                                       </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                      {isLoadingAllEntradas || isLoadingFornecedores ? (
-                                          <TableRow>
-                                              <TableCell colSpan={4} className="h-24 text-center">
-                                                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                                              </TableCell>
-                                          </TableRow>
-                                      ) : filteredEntradas.length > 0 ? (
-                                          filteredEntradas.map((entry) => {
-                                              const fornecedor = fornecedorMap.get(entry.fornecedorId);
-                                              return (
-                                                <TableRow key={entry.id}>
-                                                    <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
-                                                    <TableCell className="font-medium">{entry.produtoNome}</TableCell>
-                                                    <TableCell style={{ color: fornecedor?.color || 'inherit' }}>
-                                                        {fornecedor?.nome || 'Desconhecido'}
-                                                    </TableCell>
-                                                    <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
-                                                </TableRow>
-                                              )
-                                          })
-                                      ) : (
-                                          <TableRow>
-                                              <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                                                  Nenhum resultado para sua busca.
-                                              </TableCell>
-                                          </TableRow>
-                                      )}
-                                  </TableBody>
-                              </Table>
-                          </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
+                                  ) : filteredEntradas.length > 0 ? (
+                                      filteredEntradas.map((entry) => {
+                                          const fornecedor = fornecedorMap.get(entry.fornecedorId);
+                                          return (
+                                            <TableRow key={entry.id}>
+                                                <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
+                                                <TableCell className="font-medium">{entry.produtoNome}</TableCell>
+                                                <TableCell style={{ color: fornecedor?.color || 'inherit' }}>
+                                                    {fornecedor?.nome || 'Desconhecido'}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
+                                            </TableRow>
+                                          )
+                                      })
+                                  ) : (
+                                      <TableRow>
+                                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                              Nenhum resultado para sua busca.
+                                          </TableCell>
+                                      </TableRow>
+                                  )}
+                              </TableBody>
+                          </Table>
+                      </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     );
 }
+
+    
