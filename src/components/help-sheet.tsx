@@ -11,7 +11,7 @@ import {
   SheetDescription,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { Info, BookOpen } from 'lucide-react';
+import { Settings, BookOpen } from 'lucide-react';
 import { PREDEFINED_PRICES } from '@/lib/constants';
 
 const productNames: Record<string, string> = {
@@ -34,7 +34,7 @@ export default function HelpSheet() {
     <Sheet>
       <SheetTrigger asChild>
         <Button variant="outline" size="icon" className="h-9 w-9">
-          <Info className="h-4 w-4" />
+          <Settings className="h-4 w-4" />
           <span className="sr-only">Ajuda e Informações</span>
         </Button>
       </SheetTrigger>
