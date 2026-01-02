@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
-import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, setYear } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import Link from 'next/link';
@@ -44,7 +44,6 @@ import DailyTimelineChart from '@/components/daily-timeline-chart';
 import { cn } from '@/lib/utils';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import HelpSheet from '@/components/help-sheet';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -188,7 +187,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
     <Card>
         <CardHeader className="flex flex-row items-start justify-between">
             <div>
-                <CardTitle className="text-lg">{isAggregate ? "Resumo Agregado" : "Resumo do Dia"} - FATURAMENTO</CardTitle>
+                <CardTitle className="text-lg">{isAggregate ? "Relatório Agregado" : "Resumo do Dia"}</CardTitle>
                 {isAggregate && <CardDescription>{report.totalPedidos} pedidos em {report.id} dias</CardDescription>}
             </div>
             <div className="text-right">
@@ -326,7 +325,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
   )
 }
 
-const AggregateReport = ({ title, icon: Icon, reports, bomboniereItems }: { title: string, icon: React.ElementType, reports: DailyReport[], bomboniereItems: BomboniereItem[] }) => {
+const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[], bomboniereItems: BomboniereItem[] }) => {
     
     const aggregateReport = useMemo((): DailyReport => {
         if (!reports || reports.length === 0) {
@@ -375,20 +374,17 @@ const AggregateReport = ({ title, icon: Icon, reports, bomboniereItems }: { titl
                 acc.contagemRua[key] = (acc.contagemRua[key] || 0) + report.contagemRua[key];
             }
             
-            // Note: Aggregating timeline items would be too complex/slow for a large number of reports.
-            // So we leave acc.items empty. The timeline chart is hidden for aggregates.
-            
             return acc;
         }, initial);
     }, [reports]);
 
     if (reports.length === 0) {
         return (
-             <Card>
+             <Card className="mt-6">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
-                        <Icon className="h-5 w-5 text-muted-foreground"/>
-                        {title}
+                        <TrendingUp className="h-5 w-5 text-muted-foreground"/>
+                        Relatório Agregado
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="text-center text-muted-foreground p-10">
@@ -400,10 +396,10 @@ const AggregateReport = ({ title, icon: Icon, reports, bomboniereItems }: { titl
     }
 
     return (
-        <div>
+        <div className="mt-6">
              <h2 className="text-xl font-semibold mb-4 flex items-center gap-3">
-                <Icon className="h-6 w-6 text-muted-foreground"/>
-                {title}
+                <TrendingUp className="h-6 w-6 text-muted-foreground"/>
+                Relatório Agregado
              </h2>
              <ReportDetail report={aggregateReport} bomboniereItems={bomboniereItems} isAggregate={true} />
         </div>
@@ -419,6 +415,22 @@ const generateYearOptions = () => {
     return years;
 }
 
+const monthOptions = [
+    { value: 'all', label: 'Ano Inteiro' },
+    { value: '0', label: 'Janeiro' },
+    { value: '1', label: 'Fevereiro' },
+    { value: '2', label: 'Março' },
+    { value: '3', label: 'Abril' },
+    { value: '4', label: 'Maio' },
+    { value: '5', label: 'Junho' },
+    { value: '6', label: 'Julho' },
+    { value: '7', label: 'Agosto' },
+    { value: '8', label: 'Setembro' },
+    { value: '9', label: 'Outubro' },
+    { value: '10', label: 'Novembro' },
+    { value: '11', label: 'Dezembro' },
+];
+
 export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
@@ -426,6 +438,7 @@ export default function ReportsPage() {
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
   const dailyReportsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'desc')) : null), [firestore, user]);
@@ -434,36 +447,32 @@ export default function ReportsPage() {
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(dailyReportsRef);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
-  const { weeklyReports, monthlyReports, yearlyReports } = useMemo(() => {
-    if (!savedReports) return { weeklyReports: [], monthlyReports: [], yearlyReports: [] };
-    const today = new Date();
-    const referenceDate = setYear(today, selectedYear);
+  const filteredReportsForAggregation = useMemo(() => {
+    if (!savedReports) return [];
+    
+    let startDate: Date;
+    let endDate: Date;
 
-    const startOfThisWeek = startOfWeek(referenceDate, { locale: ptBR });
-    const endOfThisWeek = endOfWeek(referenceDate, { locale: ptBR });
-    const startOfThisMonth = startOfMonth(referenceDate);
-    const endOfThisMonth = endOfMonth(referenceDate);
-    const startOfThisYear = startOfYear(referenceDate);
-    const endOfThisYear = endOfYear(referenceDate);
-
-    const weekly = savedReports.filter(r => {
+    if (selectedMonth === 'all') {
+        startDate = startOfYear(setYear(new Date(), selectedYear));
+        endDate = endOfYear(setYear(new Date(), selectedYear));
+    } else {
+        const referenceDate = setMonth(setYear(new Date(), selectedYear), parseInt(selectedMonth, 10));
+        startDate = startOfMonth(referenceDate);
+        endDate = endOfMonth(referenceDate);
+    }
+    
+    return savedReports.filter(r => {
         try {
-            return isWithinInterval(parseISO(r.reportDate), { start: startOfThisWeek, end: endOfThisWeek })
-        } catch { return false }
-    });
-    const monthly = savedReports.filter(r => {
-        try {
-            return isWithinInterval(parseISO(r.reportDate), { start: startOfThisMonth, end: endOfThisMonth })
-        } catch { return false }
-    });
-    const yearly = savedReports.filter(r => {
-        try {
-            return isWithinInterval(parseISO(r.reportDate), { start: startOfThisYear, end: endOfThisYear })
-        } catch { return false }
+            const reportDate = parseISO(r.reportDate);
+            return isWithinInterval(reportDate, { start: startDate, end: endDate });
+        } catch {
+            return false;
+        }
     });
 
-    return { weeklyReports: weekly, monthlyReports: monthly, yearlyReports: yearly };
-  }, [savedReports, selectedYear]);
+  }, [savedReports, selectedYear, selectedMonth]);
+
 
   const handleDeleteReportRequest = (reportId: string) => {
     setReportToDelete(reportId);
@@ -541,29 +550,47 @@ export default function ReportsPage() {
               <p className="text-muted-foreground">Relatórios agregados e detalhamento por dia.</p>
             </div>
           </div>
-          <div className='w-32 space-y-1'>
-            <Label htmlFor="report-year" className="text-xs text-muted-foreground">Ano do Relatório</Label>
-             <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
-                <SelectTrigger id="report-year">
+          <div className='flex items-end gap-2'>
+            <div className='w-40 space-y-1'>
+              <Label htmlFor="report-month" className="text-xs text-muted-foreground">Mês</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger id="report-month">
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                    {yearOptions.map(year => (
-                        <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                    {monthOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                     ))}
                 </SelectContent>
-            </Select>
+              </Select>
+            </div>
+            <div className='w-32 space-y-1'>
+              <Label htmlFor="report-year" className="text-xs text-muted-foreground">Ano</Label>
+              <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
+                  <SelectTrigger id="report-year">
+                      <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {yearOptions.map(year => (
+                          <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
+            </div>
           </div>
         </header>
 
         <main className="space-y-8">
-            <Tabs defaultValue="diario" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+            <Tabs defaultValue="agregado" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="agregado">Relatório Agregado</TabsTrigger>
                     <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
-                    <TabsTrigger value="semanal">Semanal</TabsTrigger>
-                    <TabsTrigger value="mensal">Mensal</TabsTrigger>
-                    <TabsTrigger value="anual">Anual</TabsTrigger>
                 </TabsList>
+                
+                <TabsContent value="agregado">
+                     <AggregateReport reports={filteredReportsForAggregation} bomboniereItems={bomboniereItems || []} />
+                </TabsContent>
+
                 <TabsContent value="diario" className="pt-4">
                      <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
                     {savedReports && savedReports.length > 0 && bomboniereItems ? (
@@ -618,15 +645,6 @@ export default function ReportsPage() {
                         </CardContent>
                       </Card>
                     )}
-                </TabsContent>
-                <TabsContent value="semanal" className="pt-4">
-                    <AggregateReport title="Relatório Semanal Agregado" icon={BarChart} reports={weeklyReports} bomboniereItems={bomboniereItems || []} />
-                </TabsContent>
-                <TabsContent value="mensal" className="pt-4">
-                     <AggregateReport title="Relatório Mensal Agregado" icon={Calendar} reports={monthlyReports} bomboniereItems={bomboniereItems || []} />
-                </TabsContent>
-                <TabsContent value="anual" className="pt-4">
-                     <AggregateReport title="Relatório Anual Agregado" icon={TrendingUp} reports={yearlyReports} bomboniereItems={bomboniereItems || []} />
                 </TabsContent>
             </Tabs>
         </main>
