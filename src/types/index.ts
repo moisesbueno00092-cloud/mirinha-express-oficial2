@@ -144,3 +144,16 @@ export interface VerbasRescisorias {
     decimoTerceiroProporcional: number;
     total: number;
 }
+
+export interface FuncionarioHolerite {
+    id: string;
+    funcionarioId: string;
+    mes: number; // 0-11
+    ano: number;
+    dataFechamento: string; // ISO string
+    salarioBase: number;
+    totalVencimentos: number;
+    totalDescontos: number;
+    valorLiquido: number;
+    lancamentos: FuncionarioLancamentoFinanceiro[];
+}

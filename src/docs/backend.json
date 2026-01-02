@@ -175,6 +175,26 @@
             "quantidade": { "type": "number" }
         },
         "required": ["funcionarioId", "tipo", "valor", "data"]
+    },
+    "FuncionarioHolerite": {
+        "title": "Recibo de Vencimento de Funcionário",
+        "description": "Armazena um resumo do fecho de folha mensal para um funcionário.",
+        "type": "object",
+        "properties": {
+            "funcionarioId": { "type": "string" },
+            "mes": { "type": "number" },
+            "ano": { "type": "number" },
+            "dataFechamento": { "type": "string", "format": "date-time" },
+            "salarioBase": { "type": "number" },
+            "totalVencimentos": { "type": "number" },
+            "totalDescontos": { "type": "number" },
+            "valorLiquido": { "type": "number" },
+            "lancamentos": { 
+                "type": "array",
+                "items": { "$ref": "#/backend/entities/FuncionarioLancamentoFinanceiro" }
+            }
+        },
+        "required": ["funcionarioId", "mes", "ano", "dataFechamento", "salarioBase", "totalVencimentos", "totalDescontos", "valorLiquido"]
     }
   },
   "auth": {
@@ -270,6 +290,14 @@
             "entityName": "FuncionarioLancamentoFinanceiro",
             "schema": { "$ref": "#/backend/entities/FuncionarioLancamentoFinanceiro" },
             "description": "Histórico de todas as transações financeiras de um funcionário."
+        }
+      },
+      {
+        "path": "/funcionarios/{funcionarioId}/holerites/{holeriteId}",
+        "definition": {
+            "entityName": "FuncionarioHolerite",
+            "schema": { "$ref": "#/backend/entities/FuncionarioHolerite" },
+            "description": "Histórico dos resumos de fecho de folha mensais de um funcionário."
         }
       }
     ]

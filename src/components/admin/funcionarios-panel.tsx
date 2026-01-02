@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import LancamentosFuncionarioPanel from './lancamentos-funcionario-panel';
 import { Separator } from '../ui/separator';
 import DireitosProvisionamentoPanel from './direitos-provisionamento-panel';
+import FechamentoFolhaPanel from './fechamento-folha-panel';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -235,6 +236,8 @@ export default function FuncionariosPanel() {
                  <>
                     <Separator className="my-8" />
                     <DireitosProvisionamentoPanel funcionario={selectedFuncionario} />
+                    <Separator className="my-8" />
+                    <FechamentoFolhaPanel funcionario={selectedFuncionario} />
                  </>
             )}
 
