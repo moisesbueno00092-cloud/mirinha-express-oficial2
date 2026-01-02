@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format, isWithinInterval, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, setYear } from 'date-fns';
+import { format, isWithinInterval, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { ContaAPagar, Fornecedor, EntradaMercadoria } from '@/types';
 
@@ -33,19 +33,15 @@ const formatCurrency = (value: number) => {
 
 type ReportPeriod = 'month' | 'year';
 
-const ExpenseReport = ({ contasPagas, fornecedorMap, period, year }: { contasPagas: ContaAPagar[], fornecedorMap: Map<string, Fornecedor>, period: ReportPeriod, year: number }) => {
+const ExpenseReport = ({ contasPagas, fornecedorMap, period, year, month }: { contasPagas: ContaAPagar[], fornecedorMap: Map<string, Fornecedor>, period: ReportPeriod, year: number, month: string }) => {
     const aggregatedData = useMemo(() => {
-        const referenceDate = setYear(new Date(), year);
-        let startDate: Date;
-        let endDate: Date;
-
-        if (period === 'month') {
-            startDate = startOfMonth(referenceDate);
-            endDate = endOfMonth(referenceDate);
-        } else { // year
-            startDate = startOfYear(referenceDate);
-            endDate = endOfYear(referenceDate);
+        let referenceDate = setYear(new Date(), year);
+        if (period === 'month' && month !== 'all') {
+            referenceDate = setMonth(referenceDate, parseInt(month));
         }
+
+        const startDate = period === 'month' ? startOfMonth(referenceDate) : startOfYear(referenceDate);
+        const endDate = period === 'month' ? endOfMonth(referenceDate) : endOfYear(referenceDate);
         
         const relevantContas = contasPagas.filter(c => {
              try {
@@ -84,9 +80,9 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period, year }: { contasPag
 
         return { suppliers, totalExpenses };
 
-    }, [contasPagas, fornecedorMap, period, year]);
+    }, [contasPagas, fornecedorMap, period, year, month]);
 
-    const periodLabel = { month: 'Mensal', year: 'Anual' }[period];
+    const periodLabel = period === 'month' ? `(${month !== 'all' ? format(setMonth(new Date(), parseInt(month)), 'MMMM', { locale: ptBR }) : 'Mês Atual'})` : `(${year})`;
     
     return (
         <Card>
@@ -97,7 +93,7 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period, year }: { contasPag
                     <CardDescription>Resumo de contas pagas por fornecedor no período.</CardDescription>
                   </div>
                   <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Despesa Total ({periodLabel})</p>
+                      <p className="text-xs text-muted-foreground">Despesa Total {periodLabel}</p>
                       <p className="text-2xl font-bold text-destructive">{formatCurrency(aggregatedData.totalExpenses)}</p>
                   </div>
                 </div>
@@ -132,19 +128,15 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period, year }: { contasPag
     )
 }
 
-const ComprasReport = ({ allEntradas, period, year }: { allEntradas: EntradaMercadoria[], period: ReportPeriod, year: number }) => {
+const ComprasReport = ({ allEntradas, period, year, month }: { allEntradas: EntradaMercadoria[], period: ReportPeriod, year: number, month: string }) => {
     const aggregatedData = useMemo(() => {
-        const referenceDate = setYear(new Date(), year);
-        let startDate: Date;
-        let endDate: Date;
-
-        if (period === 'month') {
-            startDate = startOfMonth(referenceDate);
-            endDate = endOfMonth(referenceDate);
-        } else { // year
-            startDate = startOfYear(referenceDate);
-            endDate = endOfYear(referenceDate);
+        let referenceDate = setYear(new Date(), year);
+        if (period === 'month' && month !== 'all') {
+            referenceDate = setMonth(referenceDate, parseInt(month));
         }
+
+        const startDate = period === 'month' ? startOfMonth(referenceDate) : startOfYear(referenceDate);
+        const endDate = period === 'month' ? endOfMonth(referenceDate) : endOfYear(referenceDate);
 
         const relevantEntradas = allEntradas.filter(e => {
             try {
@@ -181,9 +173,9 @@ const ComprasReport = ({ allEntradas, period, year }: { allEntradas: EntradaMerc
 
         return { products, totalValue };
 
-    }, [allEntradas, period, year]);
+    }, [allEntradas, period, year, month]);
 
-    const periodLabel = { month: 'Mensal', year: 'Anual' }[period];
+    const periodLabel = period === 'month' ? `(${month !== 'all' ? format(setMonth(new Date(), parseInt(month)), 'MMMM', { locale: ptBR }) : 'Mês Atual'})` : `(${year})`;
     
     return (
         <Card>
@@ -194,7 +186,7 @@ const ComprasReport = ({ allEntradas, period, year }: { allEntradas: EntradaMerc
                     <CardDescription>Resumo de produtos comprados no período.</CardDescription>
                   </div>
                   <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Custo Total ({periodLabel})</p>
+                      <p className="text-xs text-muted-foreground">Custo Total {periodLabel}</p>
                       <p className="text-2xl font-bold text-blue-500">{formatCurrency(aggregatedData.totalValue)}</p>
                   </div>
                 </div>
@@ -232,17 +224,34 @@ const ComprasReport = ({ allEntradas, period, year }: { allEntradas: EntradaMerc
 const generateYearOptions = () => {
     const currentYear = new Date().getFullYear();
     const years = [];
-    for (let i = currentYear + 1; i >= currentYear - 5; i--) {
+    for (let i = currentYear; i >= currentYear - 5; i--) {
         years.push(i);
     }
     return years;
 }
+
+const monthOptions = [
+    { value: 'all', label: 'Mês Inteiro' },
+    { value: '0', label: 'Janeiro' },
+    { value: '1', label: 'Fevereiro' },
+    { value: '2', label: 'Março' },
+    { value: '3', label: 'Abril' },
+    { value: '4', label: 'Maio' },
+    { value: '5', label: 'Junho' },
+    { value: '6', label: 'Julho' },
+    { value: '7', label: 'Agosto' },
+    { value: '8', label: 'Setembro' },
+    { value: '9', label: 'Outubro' },
+    { value: '10', label: 'Novembro' },
+    { value: '11', label: 'Dezembro' },
+];
 
 export default function HistoricoFinanceiroPanel() {
     const firestore = useFirestore();
     const [searchQuery, setSearchQuery] = useState('');
     const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('month');
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
     const yearOptions = useMemo(() => generateYearOptions(), []);
 
 
@@ -280,11 +289,12 @@ export default function HistoricoFinanceiroPanel() {
     }, [allEntradas, searchQuery]);
     
     const { contasPagas, expenseSummary } = useMemo(() => {
-        const referenceDate = setYear(new Date(), selectedYear);
-        const startOfSelectedMonth = startOfMonth(referenceDate);
-        const endOfSelectedMonth = endOfMonth(referenceDate);
-        const startOfSelectedYear = startOfYear(referenceDate);
-        const endOfSelectedYear = endOfYear(referenceDate);
+        const currentMonthDate = setYear(new Date(), selectedYear);
+        const startOfSelectedMonth = startOfMonth(setMonth(currentMonthDate, parseInt(selectedMonth)));
+        const endOfSelectedMonth = endOfMonth(setMonth(currentMonthDate, parseInt(selectedMonth)));
+        
+        const startOfSelectedYear = startOfYear(currentMonthDate);
+        const endOfSelectedYear = endOfYear(currentMonthDate);
         
         let monthTotal = 0;
         let yearTotal = 0;
@@ -314,14 +324,14 @@ export default function HistoricoFinanceiroPanel() {
             expenseSummary: { month: monthTotal, year: yearTotal },
         };
 
-    }, [allContas, selectedYear]);
+    }, [allContas, selectedYear, selectedMonth]);
     
     const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingAllEntradas;
 
     return (
         <div className="space-y-6">
             
-             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">Pagas Este Mês</CardTitle>
@@ -329,7 +339,9 @@ export default function HistoricoFinanceiroPanel() {
                     </CardHeader>
                     <CardContent>
                         {isLoadingContas ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{formatCurrency(expenseSummary.month)}</div>}
-                         <p className="text-xs text-muted-foreground">no ano de {selectedYear}</p>
+                         <p className="text-xs text-muted-foreground">
+                           em {format(setMonth(new Date(), parseInt(selectedMonth)), 'MMMM', { locale: ptBR })} de {selectedYear}
+                         </p>
                     </CardContent>
                 </Card>
                  <Card>
@@ -342,46 +354,61 @@ export default function HistoricoFinanceiroPanel() {
                          <p className="text-xs text-muted-foreground">no ano de {selectedYear}</p>
                     </CardContent>
                 </Card>
-                <div className="flex items-end">
-                    <div className='w-full space-y-2'>
-                        <Label htmlFor="report-year">Ano do Relatório</Label>
-                        <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
-                            <SelectTrigger id="report-year">
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1">
+                 <div className='w-full space-y-1'>
+                    <Label htmlFor="report-period" className='text-xs'>Período do Relatório</Label>
+                    <Select value={reportPeriod} onValueChange={(v) => setReportPeriod(v as ReportPeriod)}>
+                        <SelectTrigger id="report-period">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="month">Mensal</SelectItem>
+                           <SelectItem value="year">Anual</SelectItem>
+                        </SelectContent>
+                    </Select>
+                 </div>
+              </div>
+              <div className="flex gap-2 md:col-span-2">
+                {reportPeriod === 'month' && (
+                    <div className='w-full space-y-1'>
+                        <Label htmlFor="report-month" className='text-xs'>Mês</Label>
+                        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                            <SelectTrigger id="report-month">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {yearOptions.map(year => (
-                                    <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                                {monthOptions.map(opt => (
+                                   <SelectItem key={opt.value} value={opt.value} disabled={opt.value === 'all'}>{opt.label}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
+                )}
+                 <div className='w-full space-y-1'>
+                    <Label htmlFor="report-year" className='text-xs'>Ano</Label>
+                    <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
+                        <SelectTrigger id="report-year">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {yearOptions.map(year => (
+                                <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-                <Button
-                variant={reportPeriod === 'month' ? "default" : "outline"}
-                size="sm"
-                onClick={() => setReportPeriod('month')}
-                >
-                Mensal
-                </Button>
-                <Button
-                variant={reportPeriod === 'year' ? "default" : "outline"}
-                size="sm"
-                onClick={() => setReportPeriod('year')}
-                >
-                Anual
-                </Button>
+              </div>
             </div>
 
             {isLoading ? (
                 <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
             ) : (
                 <div className="space-y-4">
-                    <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={reportPeriod} year={selectedYear} />
-                    <ComprasReport allEntradas={allEntradas || []} period={reportPeriod} year={selectedYear} />
+                    <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={reportPeriod} year={selectedYear} month={selectedMonth} />
+                    <ComprasReport allEntradas={allEntradas || []} period={reportPeriod} year={selectedYear} month={selectedMonth} />
                 </div>
             )}
            
