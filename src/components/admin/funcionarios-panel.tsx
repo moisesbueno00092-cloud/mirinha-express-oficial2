@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -23,12 +22,13 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Loader2, UserPlus, Users } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
+import LancamentosFuncionarioPanel from './lancamentos-funcionario-panel';
+import { Separator } from '../ui/separator';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -52,13 +52,13 @@ const funcionarioSchema = z.object({
 });
 
 
-const FuncionariosList = ({ funcionarios }: { funcionarios: Funcionario[] }) => {
+const FuncionariosList = ({ funcionarios, onSelectFuncionario, selectedFuncionarioId }: { funcionarios: Funcionario[], onSelectFuncionario: (id: string | null) => void, selectedFuncionarioId: string | null }) => {
     if (funcionarios.length === 0) {
         return <div className="text-center text-muted-foreground p-8"><Users className="mx-auto h-8 w-8 mb-2" />Nenhum funcionário cadastrado.</div>;
     }
     
     return (
-        <Card className="mt-6">
+        <Card>
             <CardHeader>
                 <CardTitle>Colaboradores</CardTitle>
             </CardHeader>
@@ -70,18 +70,22 @@ const FuncionariosList = ({ funcionarios }: { funcionarios: Funcionario[] }) => 
                             <TableHead>Nome</TableHead>
                             <TableHead>Cargo</TableHead>
                             <TableHead>Admissão</TableHead>
-                            <TableHead>Salário Base</TableHead>
-                            <TableHead>Status</TableHead>
+                            <TableHead className="hidden sm:table-cell">Salário Base</TableHead>
+                            <TableHead className="hidden sm:table-cell">Status</TableHead>
                         </TableRow>
                         </TableHeader>
                         <TableBody>
                         {funcionarios.map((func) => (
-                            <TableRow key={func.id}>
+                            <TableRow 
+                                key={func.id} 
+                                className={cn("cursor-pointer", selectedFuncionarioId === func.id && "bg-accent")}
+                                onClick={() => onSelectFuncionario(selectedFuncionarioId === func.id ? null : func.id)}
+                            >
                                 <TableCell className="font-medium">{func.nome}</TableCell>
                                 <TableCell>{func.cargo}</TableCell>
                                 <TableCell>{formatDateFn(new Date(func.dataAdmissao), 'dd/MM/yyyy')}</TableCell>
-                                <TableCell>{formatCurrency(func.salarioBase)}</TableCell>
-                                <TableCell>
+                                <TableCell className="hidden sm:table-cell">{formatCurrency(func.salarioBase)}</TableCell>
+                                <TableCell className="hidden sm:table-cell">
                                     <Badge className={cn(func.status === 'Ativo' ? 'bg-green-500' : 'bg-red-500', 'text-white')}>{func.status}</Badge>
                                 </TableCell>
                             </TableRow>
@@ -97,6 +101,8 @@ const FuncionariosList = ({ funcionarios }: { funcionarios: Funcionario[] }) => 
 export default function FuncionariosPanel() {
     const firestore = useFirestore();
     const { toast } = useToast();
+    
+    const [selectedFuncionarioId, setSelectedFuncionarioId] = useState<string | null>(null);
 
     const funcionariosQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'funcionarios'), orderBy('nome', 'asc')) : null,
@@ -212,9 +218,22 @@ export default function FuncionariosPanel() {
             {isLoadingFuncionarios ? (
                  <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
             ) : (
-                <FuncionariosList funcionarios={funcionarios || []} />
+                <FuncionariosList 
+                    funcionarios={funcionarios || []} 
+                    onSelectFuncionario={setSelectedFuncionarioId}
+                    selectedFuncionarioId={selectedFuncionarioId}
+                />
+            )}
+            
+            {(selectedFuncionarioId || (funcionarios && funcionarios.length > 0)) && <Separator className="my-8" />}
+
+            {(selectedFuncionarioId || (funcionarios && funcionarios.length > 0)) && (
+                <LancamentosFuncionarioPanel
+                    funcionarios={funcionarios || []}
+                    selectedFuncionarioId={selectedFuncionarioId}
+                    onSelectFuncionario={setSelectedFuncionarioId}
+                />
             )}
         </div>
     );
 }
-
