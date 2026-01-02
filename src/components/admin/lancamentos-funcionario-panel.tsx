@@ -40,17 +40,19 @@ const formatCurrency = (value: number) => {
 
 const lancamentoSchema = z.object({
   funcionarioId: z.string().min(1, "Selecione um funcionário."),
-  tipo: z.enum(['vale', 'bonus', 'desconto'], {
+  tipo: z.enum(['vale', 'bonus', 'desconto', 'hora_extra', 'comissao', 'falta'], {
     required_error: "Selecione o tipo de lançamento.",
   }),
-  valor: z.preprocess(
+  valorOuQtd: z.preprocess(
       (val) => String(val).replace('.', '').replace(',', '.'),
-      z.string().refine((val) => !isNaN(parseFloat(val)), "Valor inválido.")
+      z.string().refine((val) => !isNaN(parseFloat(val)), "Valor ou quantidade inválida.")
           .transform(Number)
-          .refine((val) => val > 0, "O valor deve ser positivo.")
+          .refine((val) => val > 0, "O valor ou quantidade deve ser positivo.")
   ),
   descricao: z.string().optional(),
 });
+
+type LancamentoSchemaType = z.infer<typeof lancamentoSchema>;
 
 const LancamentosList = ({ lancamentos }: { lancamentos: FuncionarioLancamentoFinanceiro[] }) => {
     
@@ -83,11 +85,11 @@ const LancamentosList = ({ lancamentos }: { lancamentos: FuncionarioLancamentoFi
                     <TableRow key={lanc.id}>
                         <TableCell>{formatDateFn(new Date(lanc.data), 'dd/MM/yyyy')}</TableCell>
                         <TableCell>
-                            <Badge className={cn(tipoLancamentoStyle[lanc.tipo].className, 'text-white')}>{tipoLancamentoStyle[lanc.tipo].label}</Badge>
+                            <Badge className={cn(tipoLancamentoStyle[lanc.tipo]?.className, 'text-white')}>{tipoLancamentoStyle[lanc.tipo]?.label || lanc.tipo}</Badge>
                         </TableCell>
                          <TableCell className="text-muted-foreground text-xs">{lanc.descricao || '-'}</TableCell>
-                        <TableCell className={cn("text-right font-mono font-semibold", lanc.tipo === 'bonus' ? 'text-green-500' : 'text-red-500')}>
-                            {lanc.tipo === 'bonus' ? '+' : '-'} {formatCurrency(lanc.valor)}
+                        <TableCell className={cn("text-right font-mono font-semibold", ['bonus', 'hora_extra', 'comissao'].includes(lanc.tipo) ? 'text-green-500' : 'text-red-500')}>
+                            {['bonus', 'hora_extra', 'comissao'].includes(lanc.tipo) ? '+' : '-'} {formatCurrency(lanc.valor)}
                         </TableCell>
                     </TableRow>
                 ))}
@@ -107,17 +109,19 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
     const firestore = useFirestore();
     const { toast } = useToast();
     
-    const form = useForm<z.infer<typeof lancamentoSchema>>({
+    const form = useForm<LancamentoSchemaType>({
       resolver: zodResolver(lancamentoSchema),
       defaultValues: {
         funcionarioId: selectedFuncionarioId || undefined,
         tipo: undefined,
-        valor: 0,
+        valorOuQtd: 0,
         descricao: '',
       },
     });
+
+    const tipoLancamento = form.watch('tipo');
     
-     useEffect(() => {
+    useEffect(() => {
         form.setValue('funcionarioId', selectedFuncionarioId || '');
     }, [selectedFuncionarioId, form]);
 
@@ -130,23 +134,49 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
 
     const { data: lancamentos, isLoading: isLoadingLancamentos } = useCollection<FuncionarioLancamentoFinanceiro>(lancamentosQuery);
 
-    const onSubmit = async (values: z.infer<typeof lancamentoSchema>) => {
+    const onSubmit = async (values: LancamentoSchemaType) => {
       if (!firestore) return;
       
+      const funcionario = funcionarios.find(f => f.id === values.funcionarioId);
+      if (!funcionario) {
+          toast({ variant: 'destructive', title: "Erro", description: "Funcionário não encontrado." });
+          return;
+      }
+
+      let valorFinal = 0;
+      const quantidade = values.valorOuQtd;
+      
+      switch (values.tipo) {
+          case 'hora_extra':
+              const valorHora = funcionario.salarioBase / 220; // Assume 220h/mês
+              valorFinal = quantidade * valorHora * 1.5; // Acréscimo de 50%
+              break;
+          case 'falta':
+              const valorDia = funcionario.salarioBase / 30; // Assume 30 dias/mês
+              valorFinal = quantidade * valorDia;
+              break;
+          default: // vale, bonus, desconto, comissao
+              valorFinal = quantidade; // Nesses casos, o input é o valor monetário direto
+              break;
+      }
+
       const novoLancamento: Omit<FuncionarioLancamentoFinanceiro, 'id'> = {
-        ...values,
         funcionarioId: values.funcionarioId,
+        tipo: values.tipo,
+        valor: valorFinal,
         data: new Date().toISOString(),
+        descricao: values.descricao,
+        ...(values.tipo === 'hora_extra' || values.tipo === 'falta' ? { quantidade: values.valorOuQtd } : {})
       };
 
       try {
         const lancamentosCollectionRef = collection(firestore, 'funcionarios', values.funcionarioId, 'lancamentos');
-        await addDocumentNonBlocking(lancamentosCollectionRef, novoLancamento);
-        toast({ title: "Sucesso!", description: `Lançamento para ${funcionarios.find(f => f.id === values.funcionarioId)?.nome} registado.` });
+        await addDocumentNonBlocking(lancamentosCollectionRef, novoLancamento as any);
+        toast({ title: "Sucesso!", description: `Lançamento para ${funcionario.nome} registado.` });
         form.reset({
-            funcionarioId: values.funcionarioId, // Keep employee selected
+            funcionarioId: values.funcionarioId,
             tipo: undefined,
-            valor: 0,
+            valorOuQtd: 0,
             descricao: ''
         });
       } catch (error) {
@@ -159,6 +189,14 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
         if (!selectedFuncionarioId) return null;
         return funcionarios.find(f => f.id === selectedFuncionarioId);
     }, [selectedFuncionarioId, funcionarios]);
+
+    const getValorLabel = () => {
+        switch(tipoLancamento) {
+            case 'hora_extra': return 'Quantidade de Horas';
+            case 'falta': return 'Quantidade de Dias';
+            default: return 'Valor (R$)';
+        }
+    }
 
     return (
         <Card>
@@ -203,12 +241,15 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
                                             <FormControl>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Selecione o tipo" />
-                                                </SelectTrigger>
+                                                </Trigger>
                                             </FormControl>
                                             <SelectContent>
                                                 <SelectItem value="vale">Vale (Adiantamento)</SelectItem>
                                                 <SelectItem value="bonus">Bónus</SelectItem>
+                                                <SelectItem value="comissao">Comissão</SelectItem>
                                                 <SelectItem value="desconto">Desconto</SelectItem>
+                                                <SelectItem value="hora_extra">Hora Extra</SelectItem>
+                                                <SelectItem value="falta">Falta (em dias)</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -217,10 +258,10 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
                             />
                              <FormField
                                 control={form.control}
-                                name="valor"
+                                name="valorOuQtd"
                                 render={({ field }) => (
                                     <FormItem>
-                                    <FormLabel>Valor (R$)</FormLabel>
+                                    <FormLabel>{getValorLabel()}</FormLabel>
                                     <FormControl>
                                         <Input placeholder="0,00" {...field} onChange={e => field.onChange(e.target.value.replace(/[^0-9,]/g, ''))}/>
                                     </FormControl>

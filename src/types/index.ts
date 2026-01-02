@@ -129,7 +129,8 @@ export interface FuncionarioLancamentoFinanceiro {
     id: string;
     funcionarioId: string;
     tipo: 'vale' | 'bonus' | 'desconto' | 'hora_extra' | 'comissao' | 'falta';
-    valor: number;
+    valor: number; // O valor monetário final do lançamento
     data: string; // ISO string
     descricao?: string;
+    quantidade?: number; // Para armazenar horas ou dias
 }

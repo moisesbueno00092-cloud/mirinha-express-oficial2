@@ -168,10 +168,11 @@
         "type": "object",
         "properties": {
             "funcionarioId": { "type": "string" },
-            "tipo": { "type": "string", "enum": ["vale", "hora_extra", "comissao", "falta"] },
+            "tipo": { "type": "string", "enum": ["vale", "bonus", "desconto", "hora_extra", "comissao", "falta"] },
             "valor": { "type": "number" },
             "data": { "type": "string", "format": "date-time" },
-            "descricao": { "type": "string" }
+            "descricao": { "type": "string" },
+            "quantidade": { "type": "number" }
         },
         "required": ["funcionarioId", "tipo", "valor", "data"]
     }
