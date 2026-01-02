@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart, Info } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart, Info, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -44,6 +44,7 @@ import DailyTimelineChart from '@/components/daily-timeline-chart';
 import { cn } from '@/lib/utils';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import HelpSheet from '@/components/help-sheet';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -435,7 +436,8 @@ export default function ReportsPage() {
   
   const { weeklyReports, monthlyReports, yearlyReports } = useMemo(() => {
     if (!savedReports) return { weeklyReports: [], monthlyReports: [], yearlyReports: [] };
-    const referenceDate = setYear(new Date(), selectedYear);
+    const today = new Date();
+    const referenceDate = setYear(today, selectedYear);
 
     const startOfThisWeek = startOfWeek(referenceDate, { locale: ptBR });
     const endOfThisWeek = endOfWeek(referenceDate, { locale: ptBR });
