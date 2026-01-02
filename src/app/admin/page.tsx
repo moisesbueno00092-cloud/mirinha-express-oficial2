@@ -3,93 +3,22 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Box, HandCoins, Users, History } from 'lucide-react';
+import { ArrowLeft, Box, HandCoins, History } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
 
 import MercadoriasPanel from '@/components/admin/mercadorias-panel';
 import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
-import FuncionariosPanel from '@/components/admin/funcionarios-panel';
 import HistoricoFinanceiroPanel from '@/components/admin/historico-financeiro-panel';
 
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('mercadorias');
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [isFuncionariosUnlocked, setIsFuncionariosUnlocked] = useState(false);
-  const { toast } = useToast();
-
-  const handleTabChange = (value: string) => {
-    if (value === 'rh' && !isFuncionariosUnlocked) {
-      setIsPasswordModalOpen(true);
-      return;
-    }
-    setActiveTab(value);
-  };
-
-  const handlePasswordSubmit = () => {
-    if (passwordInput === 'jujubb3110') {
-      setIsPasswordModalOpen(false);
-      setIsFuncionariosUnlocked(true);
-      setActiveTab('rh');
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Senha Incorreta',
-        description: 'A senha para aceder a esta funcionalidade está incorreta.',
-      });
-    }
-  };
-
+ 
   return (
     <>
-      <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Acesso Restrito</DialogTitle>
-            <DialogDescription>
-              Por favor, insira a senha para aceder à gestão de funcionários.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="password-rh" className="text-right">
-                Senha
-              </Label>
-              <Input
-                id="password-rh"
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                className="col-span-3"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handlePasswordSubmit();
-                }}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPasswordModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handlePasswordSubmit}>Aceder</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <div className="container mx-auto max-w-7xl p-2 sm:p-4 lg:p-8">
         <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -100,14 +29,14 @@ export default function AdminPage() {
             </Link>
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestão Administrativa</h1>
-              <p className="text-muted-foreground">Controle de mercadorias, contas e funcionários.</p>
+              <p className="text-muted-foreground">Controle de mercadorias e contas.</p>
             </div>
           </div>
         </header>
 
         <main>
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 h-auto">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 h-auto">
               <TabsTrigger value="mercadorias" className="flex flex-col sm:flex-row gap-2 py-2">
                 <Box className="h-5 w-5" />
                 <span>Mercadorias</span>
@@ -119,10 +48,6 @@ export default function AdminPage() {
               <TabsTrigger value="historico" className="flex flex-col sm:flex-row gap-2 py-2">
                 <History className="h-5 w-5" />
                 <span>Histórico</span>
-              </TabsTrigger>
-              <TabsTrigger value="rh" className="flex flex-col sm:flex-row gap-2 py-2">
-                <Users className="h-5 w-5" />
-                <span>Funcionários</span>
               </TabsTrigger>
             </TabsList>
             
@@ -156,19 +81,6 @@ export default function AdminPage() {
                 </CardHeader>
                 <CardContent>
                   <HistoricoFinanceiroPanel />
-                </CardContent>
-              </Card>
-            </TabsContent>
-             <TabsContent value="rh" forceMount>
-              <Card className={activeTab === 'rh' ? 'block' : 'hidden'}>
-                <CardHeader>
-                  <CardTitle>Recursos Humanos</CardTitle>
-                  <CardDescription>Gira a sua equipa de funcionários.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isFuncionariosUnlocked ? (
-                    <FuncionariosPanel />
-                  ) : <div className="text-center text-muted-foreground p-8">Acesso restrito.</div>}
                 </CardContent>
               </Card>
             </TabsContent>
