@@ -6,8 +6,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import type { Funcionario } from '@/types';
 import { format as formatDateFn } from 'date-fns';
@@ -25,13 +25,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Loader2, UserPlus, Users } from 'lucide-react';
+import { Loader2, UserPlus, Users, UserX } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import LancamentosFuncionarioPanel from './lancamentos-funcionario-panel';
 import { Separator } from '../ui/separator';
 import DireitosProvisionamentoPanel from './direitos-provisionamento-panel';
 import FechamentoFolhaPanel from './fechamento-folha-panel';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -55,7 +65,7 @@ const funcionarioSchema = z.object({
 });
 
 
-const FuncionariosList = ({ funcionarios, onSelectFuncionario, selectedFuncionarioId }: { funcionarios: Funcionario[], onSelectFuncionario: (id: string | null) => void, selectedFuncionarioId: string | null }) => {
+const FuncionariosList = ({ funcionarios, onSelectFuncionario, selectedFuncionarioId, onDemitirRequest }: { funcionarios: Funcionario[], onSelectFuncionario: (id: string | null) => void, selectedFuncionarioId: string | null, onDemitirRequest: (func: Funcionario) => void }) => {
     if (funcionarios.length === 0) {
         return <div className="text-center text-muted-foreground p-8"><Users className="mx-auto h-8 w-8 mb-2" />Nenhum funcionário cadastrado.</div>;
     }
@@ -74,7 +84,8 @@ const FuncionariosList = ({ funcionarios, onSelectFuncionario, selectedFuncionar
                             <TableHead>Cargo</TableHead>
                             <TableHead>Admissão</TableHead>
                             <TableHead className="hidden sm:table-cell">Salário Base</TableHead>
-                            <TableHead className="hidden sm:table-cell">Status</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -88,8 +99,23 @@ const FuncionariosList = ({ funcionarios, onSelectFuncionario, selectedFuncionar
                                 <TableCell>{func.cargo}</TableCell>
                                 <TableCell>{formatDateFn(new Date(func.dataAdmissao), 'dd/MM/yyyy')}</TableCell>
                                 <TableCell className="hidden sm:table-cell">{formatCurrency(func.salarioBase)}</TableCell>
-                                <TableCell className="hidden sm:table-cell">
+                                <TableCell>
                                     <Badge className={cn(func.status === 'Ativo' ? 'bg-green-500' : 'bg-red-500', 'text-white')}>{func.status}</Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    {func.status === 'Ativo' && (
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDemitirRequest(func);
+                                            }}
+                                        >
+                                            <UserX className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -106,6 +132,7 @@ export default function FuncionariosPanel() {
     const { toast } = useToast();
     
     const [selectedFuncionarioId, setSelectedFuncionarioId] = useState<string | null>(null);
+    const [funcionarioToDemitir, setFuncionarioToDemitir] = useState<Funcionario | null>(null);
 
     const funcionariosQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'funcionarios'), orderBy('nome', 'asc')) : null,
@@ -148,8 +175,41 @@ export default function FuncionariosPanel() {
         return funcionarios?.find(f => f.id === selectedFuncionarioId) || null;
     }, [selectedFuncionarioId, funcionarios]);
 
+    const handleDemitirRequest = (func: Funcionario) => {
+        setFuncionarioToDemitir(func);
+    }
+    
+    const confirmDemitir = () => {
+        if (!firestore || !funcionarioToDemitir) return;
+
+        const docRef = doc(firestore, 'funcionarios', funcionarioToDemitir.id);
+        updateDocumentNonBlocking(docRef, { status: 'Inativo' });
+
+        toast({ title: 'Sucesso', description: `${funcionarioToDemitir.nome} foi marcado como Inativo.` });
+        setFuncionarioToDemitir(null);
+        if(selectedFuncionarioId === funcionarioToDemitir.id) {
+            setSelectedFuncionarioId(null);
+        }
+    }
+
+
     return (
         <div className="space-y-6">
+             <AlertDialog open={!!funcionarioToDemitir} onOpenChange={(open) => !open && setFuncionarioToDemitir(null)}>
+                <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmar Demissão?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    Tem a certeza de que quer demitir {funcionarioToDemitir?.nome}? O status será alterado para "Inativo" e ele não poderá ser usado para novos lançamentos. O histórico será mantido.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmDemitir}>Sim, Demitir</AlertDialogAction>
+                </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <Card>
                 <CardHeader>
                     <CardTitle>Cadastro de Colaborador</CardTitle>
@@ -230,6 +290,7 @@ export default function FuncionariosPanel() {
                     funcionarios={funcionarios || []} 
                     onSelectFuncionario={setSelectedFuncionarioId}
                     selectedFuncionarioId={selectedFuncionarioId}
+                    onDemitirRequest={handleDemitirRequest}
                 />
             )}
             
