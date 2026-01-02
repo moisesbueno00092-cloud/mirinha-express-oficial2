@@ -42,7 +42,6 @@ import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
-import InfoCard from "@/components/info-card";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -873,8 +872,6 @@ originalGroup = group;
              />
           </ItemForm>
           
-          <InfoCard />
-
           <Card>
             <CardContent className="p-2 sm:p-6">
               <ItemList

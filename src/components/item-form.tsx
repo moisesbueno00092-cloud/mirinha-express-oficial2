@@ -6,6 +6,7 @@ import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import LaunchGuideSheet from "./launch-guide-sheet";
 
 interface ItemFormProps {
   rawInput: string;
@@ -29,8 +30,9 @@ export default function ItemForm({
   
   return (
     <Card>
-      <CardHeader className="p-4 sm:p-6">
+      <CardHeader className="flex-row items-center justify-between p-4 sm:p-6">
         <CardTitle className="text-xl sm:text-2xl">Adicionar Novo Item</CardTitle>
+        <LaunchGuideSheet />
       </CardHeader>
       <CardContent className="p-4 sm:p-6 pt-0">
         <form onSubmit={onItemSubmit} className="flex gap-2">

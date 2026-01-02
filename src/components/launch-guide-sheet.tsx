@@ -6,21 +6,37 @@ import {
     AccordionContent,
     AccordionItem,
     AccordionTrigger,
-  } from "@/components/ui/accordion"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Info } from "lucide-react";
+} from "@/components/ui/accordion";
+import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { Settings, Info } from 'lucide-react';
+import { ScrollArea } from './ui/scroll-area';
 
-export default function InfoCard() {
-    return (
-        <Card>
-            <CardHeader>
-                <div className="flex items-center gap-2">
-                    <Info className="h-5 w-5 text-muted-foreground"/>
-                    <CardTitle className="text-xl">Guia Rápido de Lançamentos</CardTitle>
-                </div>
-                <CardDescription>Consulte as siglas e regras para fazer lançamentos de forma correta.</CardDescription>
-            </CardHeader>
-            <CardContent>
+export default function LaunchGuideSheet() {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+          <Settings className="h-5 w-5" />
+          <span className="sr-only">Guia Rápido de Lançamentos</span>
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-[400px] sm:w-[540px]">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2"><Info className="h-5 w-5"/> Guia Rápido de Lançamentos</SheetTitle>
+          <SheetDescription>
+            Consulte as siglas e regras para fazer lançamentos de forma correta.
+          </SheetDescription>
+        </SheetHeader>
+        <ScrollArea className="h-[calc(100vh-8rem)] pr-4">
+            <div className="py-6">
                 <Accordion type="single" collapsible className="w-full">
                     <AccordionItem value="item-1">
                         <AccordionTrigger>Grupos e Taxas</AccordionTrigger>
@@ -58,7 +74,9 @@ export default function InfoCard() {
                         </AccordionContent>
                     </AccordionItem>
                 </Accordion>
-            </CardContent>
-        </Card>
-    )
+            </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  );
 }
