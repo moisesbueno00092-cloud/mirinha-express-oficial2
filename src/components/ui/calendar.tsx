@@ -19,28 +19,11 @@ function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
-  const [currentMonth, setCurrentMonth] = React.useState(props.month || new Date());
-  
-  const handleMonthChange = (month: Date) => {
-    setCurrentMonth(month);
-    props.onMonthChange?.(month);
-  };
-  
-  React.useEffect(() => {
-    // If the month prop changes from outside, update the internal state
-    if (props.month && props.month.getTime() !== currentMonth.getTime()) {
-      setCurrentMonth(props.month);
-    }
-  }, [props.month, currentMonth]);
-
-
   return (
     <DayPicker
       locale={ptBR}
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
-      month={currentMonth}
-      onMonthChange={handleMonthChange}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
@@ -82,38 +65,27 @@ function Calendar({
           const options = React.Children.toArray(
             children
           ) as React.ReactElement<React.HTMLProps<HTMLOptionElement>>[];
-
           const currentYear = new Date().getFullYear();
           const fromYear = props.fromYear || currentYear - 100;
           const toYear = props.toYear || currentYear;
-          const years = [];
-          for (let i = toYear; i >= fromYear; i--) {
-            years.push(i);
-          }
 
-          const selectedMonth = currentMonth.getMonth();
-          const selectedYear = currentMonth.getFullYear();
+          const selectedValue = String(value);
 
-          const handleMonthSelect = (month: string) => {
-            const newDate = new Date(currentMonth);
-            newDate.setMonth(parseInt(month, 10));
-            handleMonthChange(newDate);
-          }
+          const handleSelect = (selectedValue: string) => {
+            const event = {
+              target: { value: selectedValue },
+            } as React.ChangeEvent<HTMLSelectElement>;
+            onChange?.(event);
+          };
 
-          const handleYearSelect = (year: string) => {
-            const newDate = new Date(currentMonth);
-            newDate.setFullYear(parseInt(year, 10));
-            handleMonthChange(newDate);
-          }
-
-          return (
-            <div className="flex gap-1.5">
+          if (props.name === "months") {
+            return (
               <Select
-                value={String(selectedMonth)}
-                onValueChange={handleMonthSelect}
+                value={selectedValue}
+                onValueChange={handleSelect}
               >
                 <SelectTrigger className="h-7 w-auto min-w-[7rem] px-2 text-xs focus:ring-0">
-                  <SelectValue/>
+                  <SelectValue placeholder={options[Number(value)].props.children} />
                 </SelectTrigger>
                 <SelectContent>
                   {options.map((option, id: number) => (
@@ -126,25 +98,36 @@ function Calendar({
                   ))}
                 </SelectContent>
               </Select>
+            )
+          }
+
+          if (props.name === "years") {
+            const years: number[] = [];
+            for (let i = toYear; i >= fromYear; i--) {
+                years.push(i);
+            }
+            return (
               <Select
-                value={String(selectedYear)}
-                onValueChange={handleYearSelect}
+                value={selectedValue}
+                onValueChange={handleSelect}
               >
                 <SelectTrigger className="h-7 w-[4.5rem] px-2 text-xs focus:ring-0">
-                  <SelectValue/>
+                  <SelectValue placeholder={value} />
                 </SelectTrigger>
                 <SelectContent>
-                    <ScrollArea className="h-72">
-                        {years.map((year) => (
-                            <SelectItem key={year} value={String(year)}>
-                            {year}
-                            </SelectItem>
-                        ))}
-                    </ScrollArea>
+                  <ScrollArea className="h-72">
+                    {years.map((year) => (
+                      <SelectItem key={year} value={String(year)}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </ScrollArea>
                 </SelectContent>
               </Select>
-            </div>
-          )
+            )
+          }
+
+          return null;
         }
       }}
       {...props}
