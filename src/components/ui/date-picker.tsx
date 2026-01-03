@@ -40,6 +40,9 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
           mode="single"
           selected={date}
           onSelect={setDate}
+          captionLayout="dropdown-buttons"
+          fromYear={2020}
+          toYear={new Date().getFullYear() + 5}
           initialFocus
           locale={ptBR}
         />
