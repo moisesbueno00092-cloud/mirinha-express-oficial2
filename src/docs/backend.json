@@ -203,9 +203,9 @@
         "properties": {
             "produtoNome": { "type": "string" },
             "quantidade": { "type": "number" },
-            "precoUnitario": { "type": "number" }
+            "valorTotal": { "type": "number" }
         },
-        "required": ["produtoNome", "quantidade", "precoUnitario"]
+        "required": ["produtoNome", "quantidade", "valorTotal"]
     }
   },
   "auth": {

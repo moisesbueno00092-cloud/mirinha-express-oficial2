@@ -162,7 +162,7 @@ export interface FuncionarioHolerite {
 export interface ParsedRomaneioItem {
   produtoNome: string;
   quantidade: number;
-  precoUnitario: number;
+  valorTotal: number;
 }
 
     

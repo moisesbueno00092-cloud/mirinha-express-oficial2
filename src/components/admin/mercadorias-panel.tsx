@@ -324,13 +324,19 @@ export default function MercadoriasPanel() {
                 const dataUri = reader.result as string;
                 const { items } = await parseRomaneio({ romaneioPhoto: dataUri });
 
-                const newProdutos: LancamentoProduto[] = items.map(item => ({
-                    id: Date.now() + Math.random(),
-                    produtoNome: item.produtoNome,
-                    quantidade: item.quantidade,
-                    precoUnitario: item.precoUnitario,
-                    preco: item.quantidade * item.precoUnitario,
-                }));
+                const newProdutos: LancamentoProduto[] = items.map(item => {
+                    const valorTotal = item.valorTotal;
+                    const quantidade = item.quantidade > 0 ? item.quantidade : 1;
+                    const precoUnitario = valorTotal / quantidade;
+                    
+                    return {
+                        id: Date.now() + Math.random(),
+                        produtoNome: item.produtoNome,
+                        quantidade: quantidade,
+                        precoUnitario: precoUnitario,
+                        preco: valorTotal,
+                    };
+                });
                 
                 setProdutosLancados(prev => [...prev, ...newProdutos]);
                 toast({ title: "Sucesso!", description: `${items.length} itens foram extraídos do romaneio e adicionados à lista.` });
