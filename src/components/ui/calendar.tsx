@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker, DropdownProps, CaptionProps, HeadProps } from "react-day-picker"
+import { DayPicker, DropdownProps, CaptionProps } from "react-day-picker"
 import { ptBR } from 'date-fns/locale';
 import { format } from 'date-fns';
 
@@ -13,27 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { ScrollArea } from "./scroll-area";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
-
-function CustomHead({ ...props }: HeadProps) {
-    const { locale, classNames, ...rest } = props;
-    const weekdays = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date(Date.UTC(2023, 0, 1 + i)); // Use a consistent start date for weekdays
-        return format(date, 'ccc', { locale: props.locale });
-    });
-
-    return (
-        <thead {...rest} className={cn("text-muted-foreground", classNames?.head)}>
-            <tr className="flex">
-                {weekdays.map((weekday, index) => (
-                    <th key={index} scope="col" className="flex h-9 w-9 items-center justify-center p-0 font-normal text-[0.8rem]">
-                        {weekday}
-                    </th>
-                ))}
-            </tr>
-        </thead>
-    );
-}
-
 
 function Calendar({
   className,
@@ -83,7 +62,6 @@ function Calendar({
       components={{
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
-        Head: CustomHead,
         Dropdown: ({ value, onChange, children, ...props }: DropdownProps) => {
           const options = React.Children.toArray(
             children
