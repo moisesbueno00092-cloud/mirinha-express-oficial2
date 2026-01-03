@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker, DropdownProps, CaptionProps } from "react-day-picker"
+import { DayPicker, DropdownProps, CaptionProps, HeadProps } from "react-day-picker"
 import { ptBR } from 'date-fns/locale';
 import { format } from 'date-fns';
 
@@ -13,6 +13,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { ScrollArea } from "./scroll-area";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
+
+function CustomHead(props: HeadProps) {
+    const { locale, showWeekNumber } = props;
+    const weekdays = locale?.options?.weekStartsOn !== undefined
+        ? [...Array(7)].map((_, i) => locale.localize?.day((i + locale.options.weekStartsOn) % 7, { width: 'short' }))
+        : ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+    return (
+        <thead>
+            <tr className="flex">
+                {showWeekNumber && <th></th>}
+                {weekdays.map((weekday, i) => (
+                    <th key={i} scope="col" className="flex h-9 w-9 items-center justify-center p-0 font-normal text-[0.8rem] text-muted-foreground">
+                        {weekday}
+                    </th>
+                ))}
+            </tr>
+        </thead>
+    );
+}
 
 function Calendar({
   className,
@@ -62,6 +82,7 @@ function Calendar({
       components={{
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
+        Head: CustomHead,
         Dropdown: ({ value, onChange, children, ...props }: DropdownProps) => {
           const options = React.Children.toArray(
             children
