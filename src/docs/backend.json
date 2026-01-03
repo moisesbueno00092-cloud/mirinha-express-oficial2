@@ -195,6 +195,17 @@
             }
         },
         "required": ["funcionarioId", "mes", "ano", "dataFechamento", "salarioBase", "totalVencimentos", "totalDescontos", "valorLiquido"]
+    },
+    "ParsedRomaneioItem": {
+        "title": "Parsed Romaneio Item",
+        "description": "Represents a single item extracted from a delivery note image.",
+        "type": "object",
+        "properties": {
+            "produtoNome": { "type": "string" },
+            "quantidade": { "type": "number" },
+            "precoUnitario": { "type": "number" }
+        },
+        "required": ["produtoNome", "quantidade", "precoUnitario"]
     }
   },
   "auth": {
@@ -303,3 +314,5 @@
     ]
   }
 }
+
+    

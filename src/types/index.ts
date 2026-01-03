@@ -157,3 +157,12 @@ export interface FuncionarioHolerite {
     valorLiquido: number;
     lancamentos: FuncionarioLancamentoFinanceiro[];
 }
+
+// AI Related types
+export interface ParsedRomaneioItem {
+  produtoNome: string;
+  quantidade: number;
+  precoUnitario: number;
+}
+
+    

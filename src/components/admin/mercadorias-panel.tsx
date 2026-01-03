@@ -5,13 +5,14 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import type { ContaAPagar, EntradaMercadoria, Fornecedor } from '@/types';
+import type { ContaAPagar, EntradaMercadoria, Fornecedor, ParsedRomaneioItem } from '@/types';
+import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings } from 'lucide-react';
+import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings, Camera } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format as formatDateFn, addDays } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -54,6 +55,7 @@ export default function MercadoriasPanel() {
     const [numParcelas, setNumParcelas] = useState('1');
     
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isParsingRomaneio, setIsParsingRomaneio] = useState(false);
     
     const [newFornecedorName, setNewFornecedorName] = useState('');
     const [isAddingFornecedor, setIsAddingFornecedor] = useState(false);
@@ -62,6 +64,7 @@ export default function MercadoriasPanel() {
     const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const lancamentoInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [isFornecedoresModalOpen, setIsFornecedoresModalOpen] = useState(false);
 
     const scrollViewportRef = useRef<HTMLDivElement>(null);
@@ -306,6 +309,46 @@ export default function MercadoriasPanel() {
         setLancamentoInput('');
         setNumParcelas('1');
     }
+    
+    const handleRomaneioUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setIsParsingRomaneio(true);
+        toast({ title: "A analisar o romaneio...", description: "A IA está a processar a imagem. Isto pode demorar alguns segundos." });
+
+        try {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = async () => {
+                const dataUri = reader.result as string;
+                const { items } = await parseRomaneio({ romaneioPhoto: dataUri });
+
+                const newProdutos: LancamentoProduto[] = items.map(item => ({
+                    id: Date.now() + Math.random(),
+                    produtoNome: item.produtoNome,
+                    quantidade: item.quantidade,
+                    precoUnitario: item.precoUnitario,
+                    preco: item.quantidade * item.precoUnitario,
+                }));
+                
+                setProdutosLancados(prev => [...prev, ...newProdutos]);
+                toast({ title: "Sucesso!", description: `${items.length} itens foram extraídos do romaneio e adicionados à lista.` });
+            };
+            reader.onerror = (error) => {
+                throw new Error("Não foi possível ler o ficheiro da imagem.");
+            }
+        } catch (error) {
+            console.error("Erro ao analisar o romaneio:", error);
+            toast({ variant: 'destructive', title: 'Erro de Análise', description: 'Não foi possível extrair os itens do romaneio. Tente uma imagem mais nítida.' });
+        } finally {
+            setIsParsingRomaneio(false);
+            // Reset file input to allow uploading the same file again
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    }
 
     const handleRegisterEntry = async () => {
         if (!firestore || !fornecedorId || produtosLancados.length === 0) {
@@ -383,6 +426,13 @@ export default function MercadoriasPanel() {
                 onClose={() => setIsFornecedoresModalOpen(false)}
                 fornecedores={fornecedores || []}
             />
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleRomaneioUpload}
+            />
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -444,38 +494,49 @@ export default function MercadoriasPanel() {
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <Label htmlFor='lancamento-input'>Lançamento de Produto</Label>
-                        <Sheet>
-                          <SheetTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                                <Settings className="h-4 w-4 text-muted-foreground" />
+                         <div className="flex items-center gap-2">
+                             <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isParsingRomaneio}
+                            >
+                                {isParsingRomaneio ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Camera className="mr-2 h-4 w-4"/>}
+                                Ler Romaneio
                             </Button>
-                          </SheetTrigger>
-                          <SheetContent side="right" className="w-[400px] sm:w-[540px]">
-                            <SheetHeader>
-                              <SheetTitle>Formatos de Lançamento de Mercadorias</SheetTitle>
-                              <SheetDescription>
-                                Utilize os formatos abaixo para registar os produtos comprados.
-                              </SheetDescription>
-                            </SheetHeader>
-                            <div className="py-4">
-                                <ul className="list-disc pl-5 space-y-4 mt-2 text-sm">
-                                    <li>
-                                        <span className="font-semibold text-foreground">Item único com preço total:</span>
-                                        <p className="text-muted-foreground">Regista um único item com o seu valor total.</p>
-                                        <p className="font-mono text-muted-foreground mt-1 p-2 bg-muted rounded-md">Ex: Caixa de Tomate 55,00</p>
-                                    </li>
-                                    <li>
-                                        <span className="font-semibold text-foreground">Múltiplos itens ou por peso:</span>
-                                        <p className="text-muted-foreground">Formato: (Produto + "un" ou "kg" + Quantidade + Preço Unitário)</p>
-                                        <p className="font-mono text-muted-foreground mt-1 p-2 bg-muted rounded-md">Ex: Queijo kg 2 35</p>
-                                        <p className='text-xs text-muted-foreground'>(Isto regista 2kg de Queijo a 35,00/kg, totalizando 70,00)</p>
-                                        <p className="font-mono text-muted-foreground mt-2 p-2 bg-muted rounded-md">Ex: Coca-cola un 12 8,50</p>
-                                        <p className='text-xs text-muted-foreground'>(Isto regista 12 unidades de Coca-cola a 8,50/un, totalizando 102,00)</p>
-                                    </li>
-                                </ul>
-                            </div>
-                          </SheetContent>
-                        </Sheet>
+                            <Sheet>
+                            <SheetTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <Settings className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="right" className="w-[400px] sm:w-[540px]">
+                                <SheetHeader>
+                                <SheetTitle>Formatos de Lançamento de Mercadorias</SheetTitle>
+                                <SheetDescription>
+                                    Utilize os formatos abaixo para registar os produtos comprados.
+                                </SheetDescription>
+                                </SheetHeader>
+                                <div className="py-4">
+                                    <ul className="list-disc pl-5 space-y-4 mt-2 text-sm">
+                                        <li>
+                                            <span className="font-semibold text-foreground">Item único com preço total:</span>
+                                            <p className="text-muted-foreground">Regista um único item com o seu valor total.</p>
+                                            <p className="font-mono text-muted-foreground mt-1 p-2 bg-muted rounded-md">Ex: Caixa de Tomate 55,00</p>
+                                        </li>
+                                        <li>
+                                            <span className="font-semibold text-foreground">Múltiplos itens ou por peso:</span>
+                                            <p className="text-muted-foreground">Formato: (Produto + "un" ou "kg" + Quantidade + Preço Unitário)</p>
+                                            <p className="font-mono text-muted-foreground mt-1 p-2 bg-muted rounded-md">Ex: Queijo kg 2 35</p>
+                                            <p className='text-xs text-muted-foreground'>(Isto regista 2kg de Queijo a 35,00/kg, totalizando 70,00)</p>
+                                            <p className="font-mono text-muted-foreground mt-2 p-2 bg-muted rounded-md">Ex: Coca-cola un 12 8,50</p>
+                                            <p className='text-xs text-muted-foreground'>(Isto regista 12 unidades de Coca-cola a 8,50/un, totalizando 102,00)</p>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </SheetContent>
+                            </Sheet>
+                        </div>
                     </div>
                      <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
                         <PopoverTrigger asChild>
@@ -572,3 +633,5 @@ export default function MercadoriasPanel() {
         </>
     );
 }
+
+    
