@@ -12,18 +12,6 @@ import { ScrollArea } from "./scroll-area";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
-function CustomHeadRow({ weekdayNames, ...props }: HeadRowProps) {
-  return (
-    <tr>
-      {weekdayNames.map((day, i) => (
-        <th key={i} scope="col" className="h-9 w-9 align-middle p-0 font-normal text-[0.8rem]">
-          {day}
-        </th>
-      ))}
-    </tr>
-  )
-}
-
 function Calendar({
   className,
   classNames,
@@ -50,6 +38,7 @@ function Calendar({
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
+        head_cell: "flex h-9 w-9 items-center justify-center p-0 font-normal text-[0.8rem] text-muted-foreground",
         row: "flex w-full mt-2",
         cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
@@ -68,7 +57,6 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        HeadRow: CustomHeadRow,
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
         Dropdown: ({ value, onChange, children, ...props }: DropdownProps) => {
