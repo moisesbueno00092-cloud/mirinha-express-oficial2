@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker, DropdownProps, CaptionProps, HeadProps } from "react-day-picker"
+import { DayPicker, DropdownProps, CaptionProps } from "react-day-picker"
 import { ptBR } from 'date-fns/locale';
 import { format } from 'date-fns';
 
@@ -13,31 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { ScrollArea } from "./scroll-area";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
-
-// Componente de cabeçalho personalizado para garantir o alinhamento
-function CustomHead(props: HeadProps) {
-  const { locale, showWeekNumber } = props.options;
-  const weekdays = locale?.localize?.day;
-  const weekStartsOn = locale?.options?.weekStartsOn || 0;
-
-  if (!weekdays) return null;
-
-  const days = [...Array(7).keys()].map(i => weekdays((i + weekStartsOn) % 7, { width: 'short' }));
-
-  return (
-    <thead>
-      <tr className="flex">
-        {showWeekNumber && <th className="text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] p-0 flex items-center justify-center"></th>}
-        {days.map((day, i) => (
-          <th key={i} className="text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] p-0 flex items-center justify-center">
-            {day}
-          </th>
-        ))}
-      </tr>
-    </thead>
-  );
-}
-
 
 function Calendar({
   className,
@@ -64,8 +39,9 @@ function Calendar({
         nav_button_previous: "absolute left-1",
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
-        head_row: "hidden", // Esconde a linha de cabeçalho original
-        head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
+        head_row: "flex",
+        head_cell:
+          "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] p-0 flex items-center justify-center",
         row: "flex w-full mt-2",
         cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
@@ -86,7 +62,6 @@ function Calendar({
       components={{
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
-        Head: CustomHead, // Usa o componente de cabeçalho personalizado
         Dropdown: ({ value, onChange, children, ...props }: DropdownProps) => {
           const options = React.Children.toArray(
             children
