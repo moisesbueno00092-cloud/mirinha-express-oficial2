@@ -311,20 +311,27 @@ export default function MercadoriasPanel() {
     }
     
     const handleRomaneioUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
 
         setIsParsingRomaneio(true);
-        toast({ title: "A analisar o romaneio...", description: "A IA está a processar a imagem. Isto pode demorar alguns segundos." });
+        toast({ title: "A analisar o(s) romaneio(s)...", description: `A IA está a processar ${files.length} imagem(ns). Isto pode demorar alguns segundos.` });
 
-        try {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = async () => {
-                const dataUri = reader.result as string;
+        let allNewProdutos: LancamentoProduto[] = [];
+        let filesProcessed = 0;
+
+        for (const file of Array.from(files)) {
+            try {
+                const dataUri = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = (error) => reject(error);
+                });
+
                 const { items } = await parseRomaneio({ romaneioPhoto: dataUri });
 
-                const newProdutos: LancamentoProduto[] = items.map(item => {
+                const newProdutosFromFile: LancamentoProduto[] = items.map(item => {
                     const valorTotal = item.valorTotal;
                     const quantidade = item.quantidade > 0 ? item.quantidade : 1;
                     const precoUnitario = valorTotal / quantidade;
@@ -338,21 +345,28 @@ export default function MercadoriasPanel() {
                     };
                 });
                 
-                setProdutosLancados(prev => [...prev, ...newProdutos]);
-                toast({ title: "Sucesso!", description: `${items.length} itens foram extraídos do romaneio e adicionados à lista.` });
-            };
-            reader.onerror = (error) => {
-                throw new Error("Não foi possível ler o ficheiro da imagem.");
+                allNewProdutos = allNewProdutos.concat(newProdutosFromFile);
+                filesProcessed++;
+                
+            } catch (error) {
+                console.error(`Erro ao analisar o ficheiro ${file.name}:`, error);
+                toast({ variant: 'destructive', title: `Erro de Análise no ficheiro ${file.name}`, description: 'Não foi possível extrair os itens. Tente uma imagem mais nítida.' });
+                // Continue to next file even if one fails
             }
-        } catch (error) {
-            console.error("Erro ao analisar o romaneio:", error);
-            toast({ variant: 'destructive', title: 'Erro de Análise', description: 'Não foi possível extrair os itens do romaneio. Tente uma imagem mais nítida.' });
-        } finally {
-            setIsParsingRomaneio(false);
-            // Reset file input to allow uploading the same file again
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
+        }
+        
+        if (allNewProdutos.length > 0) {
+            setProdutosLancados(prev => [...prev, ...allNewProdutos]);
+            toast({ title: "Sucesso!", description: `${allNewProdutos.length} itens de ${filesProcessed} romaneios foram extraídos e adicionados à lista.` });
+        } else {
+             toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens das imagens fornecidas.' });
+        }
+
+
+        setIsParsingRomaneio(false);
+        // Reset file input to allow uploading the same file again
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
         }
     }
 
@@ -438,6 +452,7 @@ export default function MercadoriasPanel() {
                 className="hidden" 
                 accept="image/*" 
                 onChange={handleRomaneioUpload}
+                multiple
             />
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -639,5 +654,3 @@ export default function MercadoriasPanel() {
         </>
     );
 }
-
-    
