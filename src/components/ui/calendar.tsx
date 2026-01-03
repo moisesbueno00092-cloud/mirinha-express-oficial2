@@ -14,8 +14,7 @@ import { ScrollArea } from "./scroll-area";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
-function CustomHead(props: HeadProps) {
-    const { locale, showWeekNumber } = props;
+function CustomHead({ locale, showWeekNumber }: HeadProps) {
     const weekdays = locale?.options?.weekStartsOn !== undefined
         ? [...Array(7)].map((_, i) => locale.localize?.day((i + locale.options.weekStartsOn) % 7, { width: 'short' }))
         : ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
