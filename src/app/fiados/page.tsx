@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { format, parseISO, isWithinInterval, startOfMonth, endOfMonth, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
@@ -73,7 +74,7 @@ export default function FiadosReportPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
-  const allItemsQuery = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'order_items'), orderBy('timestamp', 'desc')) : null), [firestore, user]);
+  const allItemsQuery = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'order_items'), where("userId", "==", user.uid), orderBy('timestamp', 'desc')) : null), [firestore, user]);
   const { data: allItems, isLoading: isLoadingItems } = useCollection<Item>(allItemsQuery);
 
   const fiadoReport = useMemo(() => {
