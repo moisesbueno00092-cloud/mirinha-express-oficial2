@@ -908,7 +908,7 @@ originalGroup = group;
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Salvar Relatório Final
             </Button>
-            <Button variant="outline" className="w-full md:w-auto" onClick={() => handleOpenPasswordModal('reports')}>
+            <Button variant="outline" className="w-full md:w-auto" onClick={() => router.push('/reports')}>
                 <History className="mr-2 h-4 w-4" />
                 Ver Relatórios Salvos
             </Button>
