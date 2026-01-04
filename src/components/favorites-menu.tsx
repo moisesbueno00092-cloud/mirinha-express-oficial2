@@ -70,9 +70,8 @@ export default function FavoritesMenu({ savedFavorites, onSelect, onDelete }: Fa
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="secondary">
-            <Star className="mr-2 h-4 w-4" />
-            Favoritos
+          <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 text-yellow-400 hover:text-yellow-500">
+            <Star className="h-6 w-6" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-64">

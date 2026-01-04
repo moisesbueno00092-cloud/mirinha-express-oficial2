@@ -2,7 +2,7 @@
 "use client";
 
 import { useRef } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,10 +32,7 @@ export default function ItemForm({
     <Card>
       <CardHeader className="flex-row items-center justify-between p-4 sm:p-6">
         <CardTitle className="text-xl sm:text-2xl">Adicionar Novo Item</CardTitle>
-        <div className="flex items-center gap-2">
-            {children}
-            <LaunchGuideSheet />
-        </div>
+        <LaunchGuideSheet />
       </CardHeader>
       <CardContent className="p-4 sm:p-6 pt-0">
         <form onSubmit={onItemSubmit} className="flex gap-2">
@@ -48,6 +45,7 @@ export default function ItemForm({
               className="h-10 flex-1 sm:h-12 text-base"
               disabled={isProcessing}
             />
+            {children}
             <Button 
                 type="button" 
                 variant="outline"
