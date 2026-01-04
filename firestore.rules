@@ -1,12 +1,67 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // This rule allows any user with a valid Firebase auth token to read and write
-    // all documents in your Firestore database. It's useful for rapid prototyping,
-    // but you should secure your data before going to production.
-    match /{document=**} {
+
+    // Helper function to check ownership
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Users can only manage their own profile
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Order items can be read and written by the owner
+    match /order_items/{orderItemId} {
+      allow read, write: if request.auth != null && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
+    }
+
+    // Favorite clients can be managed by the owner
+    match /favorite_clients/{clientId} {
+      allow read, write: if request.auth != null && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
+    }
+
+    // Favorite client entries for monthly reports
+    match /favorite_client_entries/{entryId} {
+       allow read, write: if request.auth != null && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
+    }
+    
+    // Bomboniere items are public/shared
+    match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
+    }
+
+    // Daily reports can be managed by the owner
+    match /daily_reports/{reportId} {
+       allow read, write: if request.auth != null && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
+    }
+    
+    // Admin-related collections
+    match /fornecedores/{fornecedorId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /contas_a_pagar/{contaId} {
+       allow read, write: if request.auth != null;
+    }
+    
+    match /entradas_mercadorias/{entradaId} {
+        allow read, write: if request.auth != null;
+    }
+    
+    match /funcionarios/{funcionarioId} {
+        allow read, write: if request.auth != null;
+    }
+
+    match /funcionarios/{funcionarioId}/lancamentos/{lancamentoId} {
+        allow read, write: if request.auth != null;
+    }
+
+    match /funcionarios/{funcionarioId}/holerites/{holeriteId} {
+        allow read, write: if request.auth != null;
     }
   }
 }
