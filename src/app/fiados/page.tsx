@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, writeBatch, doc } from 'firebase/firestore';
-import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, setYear, setMonth } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, setYear, setMonth, startOfYear, endOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -34,6 +34,7 @@ import { renderItemName, groupBadgeStyles } from '@/components/item-list';
 import type { Item } from '@/types';
 import { cn } from '@/lib/utils';
 import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
+import { Badge } from '@/components/ui/badge';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -115,17 +116,17 @@ export default function FiadosPage() {
                 }
             });
         } else {
-            const referenceDate = setYear(new Date(), selectedYear);
-            const startDate = startOfYear(referenceDate);
-            const endDate = endOfYear(referenceDate);
+             const referenceDate = setYear(new Date(), selectedYear);
+             const startDate = startOfYear(referenceDate);
+             const endDate = endOfYear(referenceDate);
 
-            dateFilteredItems = fiadoItems.filter(item => {
-                try {
-                    const itemDate = new Date(item.timestamp);
-                    return isWithinInterval(itemDate, { start: startDate, end: endDate });
-                } catch {
-                    return false;
-                }
+             dateFilteredItems = fiadoItems.filter(item => {
+                 try {
+                     const itemDate = new Date(item.timestamp);
+                     return isWithinInterval(itemDate, { start: startDate, end: endDate });
+                 } catch {
+                     return false;
+                 }
             })
         }
 
