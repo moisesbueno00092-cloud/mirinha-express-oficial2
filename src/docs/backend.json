@@ -206,6 +206,19 @@
             "valorTotal": { "type": "number" }
         },
         "required": ["produtoNome", "quantidade", "valorTotal"]
+    },
+    "FavoriteClientEntry": {
+      "title": "Favorite Client Entry",
+      "description": "Represents an individual order item for a favorite client, for monthly closing.",
+      "type": "object",
+      "properties": {
+        "favoriteClientId": { "type": "string" },
+        "orderItemId": { "type": "string" },
+        "userId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "total": { "type": "number" }
+      },
+      "required": ["favoriteClientId", "orderItemId", "userId", "timestamp", "total"]
     }
   },
   "auth": {
@@ -309,6 +322,14 @@
             "entityName": "FuncionarioHolerite",
             "schema": { "$ref": "#/backend/entities/FuncionarioHolerite" },
             "description": "Histórico dos resumos de fecho de folha mensais de um funcionário."
+        }
+      },
+      {
+        "path": "/favorite_client_entries/{entryId}",
+        "definition": {
+            "entityName": "FavoriteClientEntry",
+            "schema": { "$ref": "#/backend/entities/FavoriteClientEntry" },
+            "description": "Armazena os lançamentos individuais de clientes favoritos para fecho mensal."
         }
       }
     ]

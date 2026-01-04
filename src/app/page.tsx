@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient, DailyReport, ItemCount } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient, DailyReport, ItemCount, FavoriteClientEntry } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc } from "firebase/firestore";
@@ -388,10 +388,23 @@ originalGroup = group;
                 component: <ToastContent item={{...finalItem, id: currentItem.id}} title="Lançamento Atualizado" />,
             });
         } else {
-            addDocumentNonBlocking(orderItemsCollectionRef, finalItem);
+            const docRef = await addDoc(orderItemsCollectionRef, finalItem);
+            
+            if (favoriteClient) {
+              const favoriteClientEntry: Omit<FavoriteClientEntry, 'id'> = {
+                favoriteClientId: favoriteClient.id,
+                orderItemId: docRef.id,
+                userId: user.uid,
+                timestamp: timestamp,
+                total: total,
+              };
+              const favClientEntriesCollectionRef = collection(firestore, "favorite_client_entries");
+              addDocumentNonBlocking(favClientEntriesCollectionRef, favoriteClientEntry as any);
+            }
+            
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: 'new-item'}} title="Lançamento Adicionado" />,
+                component: <ToastContent item={{...finalItem, id: docRef.id}} title="Lançamento Adicionado" />,
             });
         }
         
@@ -934,3 +947,5 @@ originalGroup = group;
     </>
   );
 }
+
+    

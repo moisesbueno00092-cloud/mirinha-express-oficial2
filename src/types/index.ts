@@ -165,4 +165,14 @@ export interface ParsedRomaneioItem {
   valorTotal: number;
 }
 
+export interface FavoriteClientEntry {
+  id: string;
+  favoriteClientId: string;
+  orderItemId: string;
+  userId: string;
+  timestamp: string; // ISO string
+  total: number;
+}
+    
+
     
