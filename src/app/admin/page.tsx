@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Box, HandCoins, History, Users, Wrench, BookOpen } from 'lucide-react';
+import { ArrowLeft, Box, HandCoins, History, Users, Wrench, BookOpen, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import MercadoriasPanel from '@/components/admin/mercadorias-panel';
 import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
 import HistoricoFinanceiroPanel from '@/components/admin/historico-financeiro-panel';
 import FuncionariosPanel from '@/components/admin/funcionarios-panel';
+import FechamentoFavoritosPanel from '@/components/admin/fechamento-favoritos-panel';
 
 
 export default function AdminPage() {
@@ -100,14 +101,14 @@ export default function AdminPage() {
             </Link>
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestão Administrativa</h1>
-              <p className="text-muted-foreground">Controle de mercadorias, contas e RH.</p>
+              <p className="text-muted-foreground">Controle de mercadorias, contas, clientes e RH.</p>
             </div>
           </div>
         </header>
 
         <main>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 h-auto">
+            <TabsList className="grid w-full grid-cols-5 h-auto">
               <TabsTrigger value="mercadorias" className="flex flex-col sm:flex-row gap-2 py-2">
                 <Box className="h-5 w-5" />
                 <span>Mercadorias</span>
@@ -119,6 +120,10 @@ export default function AdminPage() {
               <TabsTrigger value="historico" className="flex flex-col sm:flex-row gap-2 py-2">
                 <History className="h-5 w-5" />
                 <span>Histórico</span>
+              </TabsTrigger>
+              <TabsTrigger value="clientes" className="flex flex-col sm:flex-row gap-2 py-2">
+                  <UserCheck className="h-5 w-5" />
+                  <span>Clientes</span>
               </TabsTrigger>
                <TabsTrigger 
                   value="rh" 
@@ -165,6 +170,17 @@ export default function AdminPage() {
                 </CardHeader>
                 <CardContent>
                   <HistoricoFinanceiroPanel />
+                </CardContent>
+              </Card>
+            </TabsContent>
+             <TabsContent value="clientes" forceMount>
+              <Card className={activeTab === 'clientes' ? 'block' : 'hidden'}>
+                <CardHeader>
+                  <CardTitle>Fecho Mensal de Clientes Favoritos</CardTitle>
+                  <CardDescription>Consulte e liquide os saldos mensais dos seus clientes favoritos.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FechamentoFavoritosPanel />
                 </CardContent>
               </Card>
             </TabsContent>

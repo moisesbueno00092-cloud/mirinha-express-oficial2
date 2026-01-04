@@ -553,10 +553,6 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className='flex items-end gap-2'>
-             <Button variant="outline" onClick={() => router.push('/reports/favorites')}>
-                <Users className="mr-2 h-4 w-4" />
-                Fecho de Clientes Favoritos
-              </Button>
             <div className='w-40 space-y-1'>
               <Label htmlFor="report-month" className="text-xs text-muted-foreground">Mês</Label>
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>

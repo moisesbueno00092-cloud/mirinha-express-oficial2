@@ -6,7 +6,6 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, where, writeBatch, doc, orderBy } from 'firebase/firestore';
 import { format, parseISO, startOfMonth, endOfMonth, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import type { FavoriteClient, FavoriteClientEntry, Item } from '@/types';
 
@@ -23,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Users, HandCoins, Calendar, Info } from 'lucide-react';
+import { Loader2, HandCoins, Info } from 'lucide-react';
 import { renderItemName } from '../item-list';
 
 const formatCurrency = (value: number | undefined | null) => {
@@ -151,116 +150,108 @@ export default function FechamentoFavoritosPanel() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Fecho Mensal de Clientes Favoritos</CardTitle>
-          <CardDescription>Selecione um cliente e um período para ver o resumo de consumo e liquidar o saldo.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <Label htmlFor="client-select">Cliente</Label>
-                  <Select value={selectedClientId || ''} onValueChange={setSelectedClientId}>
-                    <SelectTrigger id="client-select">
-                      <SelectValue placeholder="Selecione um cliente..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {favoriteClients?.map(client => (
-                        <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="report-month">Mês</Label>
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger id="report-month">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {monthOptions.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="report-year">Ano</Label>
-                  <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
-                    <SelectTrigger id="report-year">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {yearOptions.map(year => (
-                        <SelectItem key={year} value={String(year)}>{year}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+      {isLoading ? (
+        <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="client-select">Cliente</Label>
+              <Select value={selectedClientId || ''} onValueChange={setSelectedClientId}>
+                <SelectTrigger id="client-select">
+                  <SelectValue placeholder="Selecione um cliente..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {favoriteClients?.map(client => (
+                    <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="report-month">Mês</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger id="report-month">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="report-year">Ano</Label>
+              <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
+                <SelectTrigger id="report-year">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearOptions.map(year => (
+                    <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-              {selectedClientId && (
-                <div className="pt-6">
-                  <Separator />
-                  <div className="mt-6 space-y-4">
-                     <div className="flex justify-between items-center bg-muted/50 p-4 rounded-lg">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Saldo em aberto para o período:</p>
-                            <p className="text-3xl font-bold text-destructive">{formatCurrency(clientData.monthTotal)}</p>
-                        </div>
-                         <Button onClick={handleMarkAsPaid} disabled={isProcessingPayment || clientData.monthTotal === 0}>
-                            {isProcessingPayment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <HandCoins className="mr-2 h-4 w-4" />}
-                             Marcar Mês como Pago
-                        </Button>
-                     </div>
-                     <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Lançamentos em Aberto</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                           {clientData.unpaidEntries.length > 0 ? (
-                                <div className="rounded-md border">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Data</TableHead>
-                                                <TableHead>Itens</TableHead>
-                                                <TableHead className="text-right">Total</TableHead>
+          {selectedClientId && (
+            <div className="pt-6">
+              <Separator />
+              <div className="mt-6 space-y-4">
+                 <div className="flex justify-between items-center bg-muted/50 p-4 rounded-lg">
+                    <div>
+                        <p className="text-sm text-muted-foreground">Saldo em aberto para o período:</p>
+                        <p className="text-3xl font-bold text-destructive">{formatCurrency(clientData.monthTotal)}</p>
+                    </div>
+                     <Button onClick={handleMarkAsPaid} disabled={isProcessingPayment || clientData.monthTotal === 0}>
+                        {isProcessingPayment ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <HandCoins className="mr-2 h-4 w-4" />}
+                         Marcar Mês como Pago
+                    </Button>
+                 </div>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Lançamentos em Aberto</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                       {clientData.unpaidEntries.length > 0 ? (
+                            <div className="rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Data</TableHead>
+                                            <TableHead>Itens</TableHead>
+                                            <TableHead className="text-right">Total</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {clientData.unpaidEntries.map(entry => {
+                                            const orderItem = orderItemsMap.get(entry.orderItemId);
+                                            return (
+                                            <TableRow key={entry.id}>
+                                                <TableCell>{format(parseISO(entry.timestamp), 'dd/MM/yyyy HH:mm')}</TableCell>
+                                                <TableCell>{orderItem ? renderItemName(orderItem) : "Detalhes não encontrados"}</TableCell>
+                                                <TableCell className="text-right font-mono font-semibold">{formatCurrency(entry.total)}</TableCell>
                                             </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {clientData.unpaidEntries.map(entry => {
-                                                const orderItem = orderItemsMap.get(entry.orderItemId);
-                                                return (
-                                                <TableRow key={entry.id}>
-                                                    <TableCell>{format(parseISO(entry.timestamp), 'dd/MM/yyyy HH:mm')}</TableCell>
-                                                    <TableCell>{orderItem ? renderItemName(orderItem) : "Detalhes não encontrados"}</TableCell>
-                                                    <TableCell className="text-right font-mono font-semibold">{formatCurrency(entry.total)}</TableCell>
-                                                </TableRow>
-                                                )
-                                            })}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                           ) : (
-                                <div className="text-center text-muted-foreground p-8">
-                                    <Info className="mx-auto h-8 w-8 mb-2" />
-                                    Nenhum lançamento em aberto para este cliente neste período.
-                                </div>
-                           )}
-                        </CardContent>
-                     </Card>
-                  </div>
-                </div>
-              )}
+                                            )
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                       ) : (
+                            <div className="text-center text-muted-foreground p-8">
+                                <Info className="mx-auto h-8 w-8 mb-2" />
+                                Nenhum lançamento em aberto para este cliente neste período.
+                            </div>
+                       )}
+                    </CardContent>
+                 </Card>
+              </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }
