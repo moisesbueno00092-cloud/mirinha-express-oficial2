@@ -77,8 +77,7 @@ export interface DailyReport {
   contagemTotal: ItemCount;
   contagemRua: ItemCount;
 
-  // Raw items for the day - REMOVED TO PREVENT PERMISSION ISSUES
-  // items: Item[];
+  items: Item[];
 }
 
 // Admin Section Types
@@ -162,4 +161,10 @@ export interface SavedFavorite {
   id: string;
   name: string;
   command: string;
+}
+
+export interface FiadoCustomer {
+    name: string;
+    lastCommand: string;
+    lastDate: string;
 }

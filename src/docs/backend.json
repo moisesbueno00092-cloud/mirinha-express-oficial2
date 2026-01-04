@@ -89,7 +89,7 @@
         "items": { "type": "array", "items": { "$ref": "#/backend/entities/OrderItem" }}
       },
       "required": [
-        "userId", "reportDate", "createdAt", "totalGeral", "totalAVista", "totalFiado", "items"
+        "userId", "reportDate", "createdAt", "totalGeral", "totalAVista", "totalFiado"
       ]
     },
     "Fornecedor": {
