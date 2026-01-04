@@ -23,7 +23,7 @@ service cloud.firestore {
     // Allow users to read, write, and list their own favorite clients
     match /favorite_clients/{clientId} {
       allow read, write: if request.auth != null && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
-      allow list: if request.auth != null;
+      allow list: if request.auth != null && request.query.where.userId == request.auth.uid;
     }
 
     // Favorite client entries for monthly reports
@@ -40,7 +40,7 @@ service cloud.firestore {
     // Daily reports can be managed by the owner
     match /daily_reports/{reportId} {
        allow read, write: if request.auth != null && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
-       allow list: if request.auth != null;
+       allow list: if request.auth != null && request.query.where.userId == request.auth.uid;
     }
     
     // Admin-related collections
