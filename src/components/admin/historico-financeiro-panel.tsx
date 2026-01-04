@@ -21,8 +21,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Search, CalendarDays, TrendingUp } from 'lucide-react';
+import { Loader2, Search, CalendarDays, TrendingUp, Users } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import FechamentoFavoritosPanel from './fechamento-favoritos-panel';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -356,122 +358,141 @@ export default function HistoricoFinanceiroPanel() {
                 </Card>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-1">
-                 <div className='w-full space-y-1'>
-                    <Label htmlFor="report-period" className='text-xs'>Período do Relatório</Label>
-                    <Select value={reportPeriod} onValueChange={(v) => setReportPeriod(v as ReportPeriod)}>
-                        <SelectTrigger id="report-period">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                           <SelectItem value="month">Mensal</SelectItem>
-                           <SelectItem value="year">Anual</SelectItem>
-                        </SelectContent>
-                    </Select>
-                 </div>
-              </div>
-              <div className="flex gap-2 md:col-span-2">
-                {reportPeriod === 'month' && (
-                    <div className='w-full space-y-1'>
-                        <Label htmlFor="report-month" className='text-xs'>Mês</Label>
-                        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                            <SelectTrigger id="report-month">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {monthOptions.map(opt => (
-                                   <SelectItem key={opt.value} value={opt.value} disabled={opt.value === 'all'}>{opt.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+            <Tabs defaultValue="geral">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="geral">Relatórios Gerais</TabsTrigger>
+                    <TabsTrigger value="clientes">Fecho de Clientes</TabsTrigger>
+                </TabsList>
+                <TabsContent value="geral" className="space-y-6 pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="md:col-span-1">
+                            <div className='w-full space-y-1'>
+                            <Label htmlFor="report-period" className='text-xs'>Período do Relatório</Label>
+                            <Select value={reportPeriod} onValueChange={(v) => setReportPeriod(v as ReportPeriod)}>
+                                <SelectTrigger id="report-period">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                <SelectItem value="month">Mensal</SelectItem>
+                                <SelectItem value="year">Anual</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            </div>
+                        </div>
+                        <div className="flex gap-2 md:col-span-2">
+                        {reportPeriod === 'month' && (
+                            <div className='w-full space-y-1'>
+                                <Label htmlFor="report-month" className='text-xs'>Mês</Label>
+                                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                                    <SelectTrigger id="report-month">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {monthOptions.map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value} disabled={opt.value === 'all'}>{opt.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+                        <div className='w-full space-y-1'>
+                            <Label htmlFor="report-year" className='text-xs'>Ano</Label>
+                            <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
+                                <SelectTrigger id="report-year">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {yearOptions.map(year => (
+                                        <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        </div>
                     </div>
-                )}
-                 <div className='w-full space-y-1'>
-                    <Label htmlFor="report-year" className='text-xs'>Ano</Label>
-                    <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
-                        <SelectTrigger id="report-year">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {yearOptions.map(year => (
-                                <SelectItem key={year} value={String(year)}>{year}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-              </div>
-            </div>
 
-            {isLoading ? (
-                <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-            ) : (
-                <div className="space-y-4">
-                    <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={reportPeriod} year={selectedYear} month={selectedMonth} />
-                    <ComprasReport allEntradas={allEntradas || []} period={reportPeriod} year={selectedYear} month={selectedMonth} />
-                </div>
-            )}
-           
-            <Card>
-                <CardHeader>
-                    <CardTitle>Histórico de Preços de Compras</CardTitle>
-                    <CardDescription>Pesquise um produto para ver a variação de preços ao longo do tempo.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            placeholder="Buscar por nome do produto..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
-                        />
-                    </div>
-                    {searchQuery.trim() && (
-                      <div className="rounded-md border mt-4">
-                          <Table>
-                              <TableHeader>
-                                  <TableRow>
-                                      <TableHead>Data</TableHead>
-                                      <TableHead>Produto</TableHead>
-                                      <TableHead>Fornecedor</TableHead>
-                                      <TableHead className="text-right">Preço Unitário</TableHead>
-                                  </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                  {isLoadingAllEntradas || isLoadingFornecedores ? (
-                                      <TableRow>
-                                          <TableCell colSpan={4} className="h-24 text-center">
-                                              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                                          </TableCell>
-                                      </TableRow>
-                                  ) : filteredEntradas.length > 0 ? (
-                                      filteredEntradas.map((entry) => {
-                                          const fornecedor = fornecedorMap.get(entry.fornecedorId);
-                                          return (
-                                            <TableRow key={entry.id}>
-                                                <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
-                                                <TableCell className="font-medium">{entry.produtoNome}</TableCell>
-                                                <TableCell style={{ color: fornecedor?.color || 'inherit' }}>
-                                                    {fornecedor?.nome || 'Desconhecido'}
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
-                                            </TableRow>
-                                          )
-                                      })
-                                  ) : (
-                                      <TableRow>
-                                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                                              Nenhum resultado para sua busca.
-                                          </TableCell>
-                                      </TableRow>
-                                  )}
-                              </TableBody>
-                          </Table>
-                      </div>
+                    {isLoading ? (
+                        <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                    ) : (
+                        <div className="space-y-4">
+                            <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={reportPeriod} year={selectedYear} month={selectedMonth} />
+                            <ComprasReport allEntradas={allEntradas || []} period={reportPeriod} year={selectedYear} month={selectedMonth} />
+                        </div>
                     )}
-                </CardContent>
-            </Card>
+                
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Histórico de Preços de Compras</CardTitle>
+                            <CardDescription>Pesquise um produto para ver a variação de preços ao longo do tempo.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Buscar por nome do produto..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-10"
+                                />
+                            </div>
+                            {searchQuery.trim() && (
+                            <div className="rounded-md border mt-4">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Data</TableHead>
+                                            <TableHead>Produto</TableHead>
+                                            <TableHead>Fornecedor</TableHead>
+                                            <TableHead className="text-right">Preço Unitário</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {isLoadingAllEntradas || isLoadingFornecedores ? (
+                                            <TableRow>
+                                                <TableCell colSpan={4} className="h-24 text-center">
+                                                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : filteredEntradas.length > 0 ? (
+                                            filteredEntradas.map((entry) => {
+                                                const fornecedor = fornecedorMap.get(entry.fornecedorId);
+                                                return (
+                                                    <TableRow key={entry.id}>
+                                                        <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
+                                                        <TableCell className="font-medium">{entry.produtoNome}</TableCell>
+                                                        <TableCell style={{ color: fornecedor?.color || 'inherit' }}>
+                                                            {fornecedor?.nome || 'Desconhecido'}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
+                                                    </TableRow>
+                                                )
+                                            })
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                                    Nenhum resultado para sua busca.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                <TabsContent value="clientes" className="pt-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Fecho Mensal de Clientes Favoritos</CardTitle>
+                            <CardDescription>Consulte e liquide os saldos mensais dos seus clientes favoritos.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                           <FechamentoFavoritosPanel />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

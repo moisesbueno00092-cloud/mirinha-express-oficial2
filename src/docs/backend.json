@@ -216,9 +216,10 @@
         "orderItemId": { "type": "string" },
         "userId": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" },
-        "total": { "type": "number" }
+        "total": { "type": "number" },
+        "estaPago": { "type": "boolean" }
       },
-      "required": ["favoriteClientId", "orderItemId", "userId", "timestamp", "total"]
+      "required": ["favoriteClientId", "orderItemId", "userId", "timestamp", "total", "estaPago"]
     }
   },
   "auth": {
@@ -335,5 +336,4 @@
     ]
   }
 }
-
     

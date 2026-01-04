@@ -397,6 +397,7 @@ originalGroup = group;
                 userId: user.uid,
                 timestamp: timestamp,
                 total: total,
+                estaPago: false,
               };
               const favClientEntriesCollectionRef = collection(firestore, "favorite_client_entries");
               addDocumentNonBlocking(favClientEntriesCollectionRef, favoriteClientEntry as any);

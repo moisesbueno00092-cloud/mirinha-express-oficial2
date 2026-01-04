@@ -172,6 +172,7 @@ export interface FavoriteClientEntry {
   userId: string;
   timestamp: string; // ISO string
   total: number;
+  estaPago: boolean;
 }
     
 
