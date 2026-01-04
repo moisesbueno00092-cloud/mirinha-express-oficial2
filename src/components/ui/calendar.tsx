@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -13,24 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { ScrollArea } from "./scroll-area"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
-
-// Componente de cabeçalho totalmente personalizado usando Flexbox
-function CustomHead() {
-    const weekdays = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-    return (
-      <div className="flex">
-        {weekdays.map((day, i) => (
-          <div
-            key={i}
-            className="flex h-9 w-9 items-center justify-center text-[0.8rem] font-normal text-muted-foreground"
-          >
-            {day}
-          </div>
-        ))}
-      </div>
-    );
-  }
-
 
 function Calendar({
   className,
@@ -56,8 +39,8 @@ function Calendar({
         nav_button_previous: "absolute left-1",
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
-        head_row: "hidden", // Oculta o cabeçalho original da tabela
-        head_cell: "hidden", // Oculta as células do cabeçalho original
+        head_row: "hidden",
+        head_cell: "hidden",
         row: "flex w-full mt-2",
         cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
@@ -79,7 +62,6 @@ function Calendar({
       components={{
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
-        Head: CustomHead, // Usamos o nosso componente de cabeçalho personalizado
         Dropdown: ({ value, onChange, children, ...props }: DropdownProps) => {
           const options = React.Children.toArray(
             children
