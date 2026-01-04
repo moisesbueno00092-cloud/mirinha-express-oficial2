@@ -17,17 +17,19 @@ service cloud.firestore {
     // Order items can be read and written by the owner
     match /order_items/{orderItemId} {
       allow read, write: if request.auth != null && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
+      allow list: if request.auth != null && request.query.resource.data.userId == request.auth.uid;
     }
 
     // Allow users to list their own favorite clients
     match /favorite_clients/{clientId} {
       allow read, write: if request.auth != null && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
-      allow list: if request.auth != null && request.query.resource.data.userId == request.auth.uid;
+      allow list: if request.auth != null && request.query.where.find(field => field[0] == "userId" && field[2] == request.auth.uid) != null;
     }
 
     // Favorite client entries for monthly reports
     match /favorite_client_entries/{entryId} {
        allow read, write: if request.auth != null && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
+       allow list: if request.auth != null && request.query.where.find(field => field[0] == "userId" && field[2] == request.auth.uid) != null;
     }
     
     // Bomboniere items are public/shared

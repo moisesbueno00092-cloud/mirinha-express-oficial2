@@ -6,12 +6,13 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebas
 import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart, Info, Settings } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart, Info, Settings, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -435,6 +436,7 @@ export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -551,6 +553,10 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className='flex items-end gap-2'>
+             <Button variant="outline" onClick={() => router.push('/reports/favorites')}>
+                <Users className="mr-2 h-4 w-4" />
+                Fecho de Clientes Favoritos
+              </Button>
             <div className='w-40 space-y-1'>
               <Label htmlFor="report-month" className="text-xs text-muted-foreground">Mês</Label>
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
