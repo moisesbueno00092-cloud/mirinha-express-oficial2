@@ -70,22 +70,27 @@ export function useCollection<T = any>(
         ? (memoizedTargetRefOrQuery as CollectionReference).path
         : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString();
 
+    // Esta é a verificação crucial para coleções protegidas por `userId`.
     const isProtectedPath = path === 'order_items';
 
-    // Se for um caminho protegido, E não tivermos um ID de utilizador, esperamos.
-    if (isProtectedPath && !user?.uid) {
-        setIsLoading(true);
-        setData(null);
-        return;
-    }
-    
-    // Se for um caminho protegido, e a query não estiver a filtrar por userId, é um erro de programação.
-    // Mas, por segurança, não executamos a query.
-    if (isProtectedPath && !isUserIdFilteredQuery(memoizedTargetRefOrQuery)) {
-        setIsLoading(true);
-        setData(null);
-        // Poderíamos definir um erro aqui, mas esperar pelo UID resolverá isto.
-        return;
+    // Se for um caminho protegido:
+    if (isProtectedPath) {
+        // E não tivermos um ID de utilizador, esperamos. Isto previne a consulta durante a autenticação.
+        if (!user?.uid) {
+            setIsLoading(true);
+            setData(null);
+            return;
+        }
+        // E a query não estiver a filtrar por userId, é um erro de programação.
+        // Por segurança, não executamos a query.
+        if (!isUserIdFilteredQuery(memoizedTargetRefOrQuery)) {
+            setIsLoading(false);
+            const devError = new Error("Developer Error: Query to 'order_items' must include a 'where(\"userId\", \"==\", uid)' filter.");
+            setError(devError);
+            console.error(devError.message);
+            setData(null);
+            return;
+        }
     }
 
 
