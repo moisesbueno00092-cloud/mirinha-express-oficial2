@@ -42,7 +42,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
 import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 
 const formatCurrency = (value: number | undefined | null) => {
@@ -397,40 +397,13 @@ const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[],
     )
 }
 
-const generateYearOptions = () => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = currentYear + 5; i >= currentYear - 5; i--) {
-        years.push(i);
-    }
-    return years;
-}
-
-const monthOptions = [
-    { value: 'all', label: 'Ano Inteiro' },
-    { value: '0', label: 'Janeiro' },
-    { value: '1', label: 'Fevereiro' },
-    { value: '2', label: 'Março' },
-    { value: '3', label: 'Abril' },
-    { value: '4', label: 'Maio' },
-    { value: '5', label: 'Junho' },
-    { value: '6', label: 'Julho' },
-    { value: '7', label: 'Agosto' },
-    { value: '8', label: 'Setembro' },
-    { value: '9', label: 'Outubro' },
-    { value: '10', label: 'Novembro' },
-    { value: '11', label: 'Dezembro' },
-];
-
 export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
-  const yearOptions = useMemo(() => generateYearOptions(), []);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   const reportsQuery = useMemoFirebase(
     () => firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports')) : null,
@@ -447,19 +420,10 @@ export default function ReportsPage() {
   const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
 
   const filteredReports = useMemo(() => {
-    if (!savedReports) return [];
+    if (!savedReports || !selectedDate) return [];
 
-    const referenceDate = setYear(new Date(), selectedYear);
-
-    const startDate =
-      selectedMonth === 'all'
-        ? startOfYear(referenceDate)
-        : startOfMonth(setMonth(referenceDate, parseInt(selectedMonth, 10)));
-  
-    const endDate =
-      selectedMonth === 'all'
-        ? endOfYear(referenceDate)
-        : endOfMonth(setMonth(referenceDate, parseInt(selectedMonth, 10)));
+    const startDate = startOfMonth(selectedDate);
+    const endDate = endOfMonth(selectedDate);
   
     const filtered = savedReports.filter(r => {
       try {
@@ -472,7 +436,7 @@ export default function ReportsPage() {
 
     return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  }, [savedReports, selectedYear, selectedMonth]);
+  }, [savedReports, selectedDate]);
 
 
   const handleDeleteReportRequest = (reportId: string) => {
@@ -544,31 +508,9 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className='flex items-end gap-2'>
-            <div className='w-40 space-y-1'>
-              <Label htmlFor="report-month" className="text-xs text-muted-foreground">Mês</Label>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger id="report-month">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    {monthOptions.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className='w-32 space-y-1'>
-              <Label htmlFor="report-year" className="text-xs text-muted-foreground">Ano</Label>
-              <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
-                  <SelectTrigger id="report-year">
-                      <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                      {yearOptions.map(year => (
-                          <SelectItem key={year} value={String(year)}>{year}</SelectItem>
-                      ))}
-                  </SelectContent>
-              </Select>
+            <div className='w-48 space-y-1'>
+              <Label htmlFor="report-date" className="text-xs text-muted-foreground">Mês do Relatório</Label>
+              <DatePicker date={selectedDate} setDate={setSelectedDate} />
             </div>
           </div>
         </header>
