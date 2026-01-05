@@ -315,7 +315,7 @@ function LancheTrackerPage({ user }: { user: User }) {
         const localTimestamp = new Date().toISOString();
 
         const finalItemForState: Item = {
-            id: currentItem?.id || String(Date.now()), // Temporary ID for new items
+            id: currentItem?.id || `local_${Date.now()}`, // Use temporary local ID
             userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
@@ -331,34 +331,33 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
         
-        const finalItemForFirestore = {
-            userId: finalItemForState.userId,
-            name: finalItemForState.name,
-            quantity: finalItemForState.quantity,
-            price: finalItemForState.price,
-            group: finalItemForState.group,
-            timestamp: serverTimestamp(),
-            deliveryFee: finalItemForState.deliveryFee,
-            total: finalItemForState.total,
-            originalCommand: finalItemForState.originalCommand,
-            ...(customerName && { customerName: finalItemForState.customerName }),
-            ...(individualPrices.length > 0 ? { individualPrices: finalItemForState.individualPrices } : {}),
-            ...(predefinedItems.length > 0 ? { predefinedItems: finalItemForState.predefinedItems } : {}),
-            ...(processedBomboniereItems.length > 0 ? { bomboniereItems: finalItemForState.bomboniereItems } : {}),
-        };
-
-        const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
-        
-        if (currentItem?.id) {
+        if (currentItem?.id && !currentItem.id.startsWith('local_')) {
+            const finalItemForFirestore = {
+                userId: finalItemForState.userId,
+                name: finalItemForState.name,
+                quantity: finalItemForState.quantity,
+                price: finalItemForState.price,
+                group: finalItemForState.group,
+                timestamp: serverTimestamp(),
+                deliveryFee: finalItemForState.deliveryFee,
+                total: finalItemForState.total,
+                originalCommand: finalItemForState.originalCommand,
+                ...(customerName && { customerName: finalItemForState.customerName }),
+                ...(individualPrices.length > 0 ? { individualPrices: finalItemForState.individualPrices } : {}),
+                ...(predefinedItems.length > 0 ? { predefinedItems: finalItemForState.predefinedItems } : {}),
+                ...(processedBomboniereItems.length > 0 ? { bomboniereItems: finalItemForState.bomboniereItems } : {}),
+            };
+            const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
             setDocumentNonBlocking(docRef, finalItemForFirestore);
+
             setItems(prevItems => prevItems.map(it => it.id === currentItem.id ? finalItemForState : it));
             toast({
                 duration: 4000,
                 component: <ToastContent item={finalItemForState} title="Lançamento Atualizado" />,
             });
         } else {
-            addDocumentNonBlocking(orderItemsCollectionRef, finalItemForFirestore);
+            // This is a new item, just add to local state
             setItems(prevItems => [finalItemForState, ...prevItems]);
             toast({
                 duration: 4000,
@@ -413,11 +412,13 @@ function LancheTrackerPage({ user }: { user: User }) {
 
   const confirmDeleteItem = async () => {
     if (!firestore || !user?.uid || !itemToDelete) return;
-    const itemRef = items.find(it => it.id === itemToDelete);
-    if (itemRef) {
+    
+    // If it's a remote item, delete from firestore
+    if(!itemToDelete.startsWith('local_')) {
         const docRef = doc(firestore, 'users', user.uid, 'order_items', itemToDelete);
         deleteDocumentNonBlocking(docRef); // Fire-and-forget
     }
+
     setItems(prevItems => prevItems.filter(it => it.id !== itemToDelete));
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
@@ -452,7 +453,7 @@ function LancheTrackerPage({ user }: { user: User }) {
     toast({ title: 'Favorito removido.', variant: 'destructive' });
   }
 
-  const handleSaveReport = () => {
+  const handleSaveReport = async () => {
     if (!user || !firestore || !todaysItems || todaysItems.length === 0) {
       toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há itens para gerar o relatório.' });
       return;
@@ -489,13 +490,23 @@ function LancheTrackerPage({ user }: { user: User }) {
       setDocumentNonBlocking(reportRef, report);
 
       const userOrderItemsRef = collection(firestore, 'users', user.uid, 'order_items');
-      todaysItems.forEach(item => {
-        // We only delete items that have a real Firestore ID (not a temporary one)
-        if (!String(item.id).includes('.')) { // Simple check if it's a temp ID
-            const itemRef = doc(userOrderItemsRef, item.id);
-            deleteDocumentNonBlocking(itemRef);
+      
+      // Persist local items to Firestore before deleting
+      for (const item of todaysItems) {
+        if (item.id.startsWith('local_')) {
+          const { id, ...itemData } = item;
+          const finalItemForFirestore = {
+            ...itemData,
+            timestamp: serverTimestamp(),
+          };
+          // We must await this to get the new ID for deletion
+          const newDocRef = await addDoc(userOrderItemsRef, finalItemForFirestore);
+          deleteDocumentNonBlocking(newDocRef);
+        } else {
+          const itemRef = doc(userOrderItemsRef, item.id);
+          deleteDocumentNonBlocking(itemRef);
         }
-      });
+      }
       
       setItems([]);
 
