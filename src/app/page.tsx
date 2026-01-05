@@ -78,7 +78,7 @@ function LancheTrackerPage({ user }: { user: User }) {
   
   const userOrderItemsQuery = useMemoFirebase(
     () => (firestore && user?.uid ? query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc')) : null),
-    [firestore, user]
+    [firestore, user?.uid]
   );
   
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -744,7 +744,6 @@ function LancheTrackerPage({ user }: { user: User }) {
 export default function Home() {
   const { user, isUserLoading } = useUser();
 
-  // Gatekeeper: wait until the auth state is resolved.
   if (isUserLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -754,7 +753,6 @@ export default function Home() {
     );
   }
 
-  // If auth is resolved but there's no user, something is wrong.
   if (!user) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
@@ -766,6 +764,5 @@ export default function Home() {
     );
   }
 
-  // Once we have a user, render the main page content.
   return <LancheTrackerPage user={user} />;
 }
