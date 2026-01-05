@@ -105,6 +105,7 @@ export default function Home() {
     if (!firestore || !user?.uid) {
       return null;
     }
+    // This query is now guaranteed to have a user.uid, preventing the permission error.
     return query(collection(firestore, "order_items"), where("userId", "==", user.uid));
   }, [firestore, user?.uid]);
   
@@ -913,7 +914,5 @@ originalGroup = group;
         </div>
       </footer>
     </>
-  );
+    );
 }
-
-    
