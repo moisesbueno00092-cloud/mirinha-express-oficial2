@@ -755,8 +755,6 @@ export default function Home() {
   }
 
   // If auth is resolved but there's no user, something is wrong.
-  // This can happen briefly during the initial load or redirect.
-  // A more robust solution might involve a dedicated auth page, but this prevents crashes.
   if (!user) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
