@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import type { ContaAPagar, EntradaMercadoria, Fornecedor, ParsedRomaneioItem } from '@/types';
+import type { ContaAPagar, EntradaMercadoria, Fornecedor, ParsedRomaneioItem, BomboniereItem } from '@/types';
 import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 
 
@@ -83,6 +82,9 @@ export default function MercadoriasPanel() {
     );
     const { data: allEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
     
+    const bomboniereItemsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
+    const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
+
     useEffect(() => {
         const ensureDeliveryProvider = async () => {
             if (!firestore || isLoadingFornecedores || !fornecedores) return;
@@ -313,6 +315,7 @@ export default function MercadoriasPanel() {
     }
     
     const processImage = async (dataUri: string, source: 'file' | 'camera') => {
+        if (!firestore) return;
         setIsParsingRomaneio(true);
         toast({ title: 'A analisar a imagem...', description: 'A IA está a processar a foto. Isto pode demorar alguns segundos.' });
     
@@ -321,9 +324,11 @@ export default function MercadoriasPanel() {
     
             if (items.length === 0) {
                 toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens da imagem fornecida.' });
+                setIsParsingRomaneio(false);
                 return;
             }
     
+            // Add items to the Lancamento list
             const newProdutos: LancamentoProduto[] = items.map(item => {
                 const valorTotal = item.valorTotal;
                 const quantidade = item.quantidade > 0 ? item.quantidade : 1;
@@ -341,6 +346,47 @@ export default function MercadoriasPanel() {
             setProdutosLancados(prev => [...prev, ...newProdutos]);
             toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados à lista.` });
             
+            // --- Automatic Stock Update Logic ---
+            const selectedFornecedor = fornecedores?.find(f => f.id === fornecedorId);
+            const isCocaCola = selectedFornecedor?.nome.toLowerCase().includes('coca cola') || false;
+
+            const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
+            const batch = writeBatch(firestore);
+            let stockUpdatesCount = 0;
+            let newItemsCount = 0;
+
+            for (const item of items) {
+                const existingBomboniereItem = bomboniereItems?.find(bi => bi.name.toLowerCase() === item.produtoNome.toLowerCase());
+
+                if (existingBomboniereItem) {
+                    const docRef = doc(bomboniereCollectionRef, existingBomboniereItem.id);
+                    const newStock = existingBomboniereItem.estoque + item.quantidade;
+                    batch.update(docRef, { estoque: newStock });
+                    stockUpdatesCount++;
+                } else if (isCocaCola) {
+                    const newDocRef = doc(bomboniereCollectionRef);
+                    const newItem: Omit<BomboniereItem, 'id'> = {
+                        name: item.produtoNome,
+                        price: item.valorTotal / item.quantidade,
+                        estoque: item.quantidade
+                    };
+                    batch.set(newDocRef, newItem);
+                    newItemsCount++;
+                }
+            }
+
+            if (stockUpdatesCount > 0 || newItemsCount > 0) {
+                await commitBatch(batch);
+                let stockToastDescription = '';
+                if (stockUpdatesCount > 0) stockToastDescription += `${stockUpdatesCount} iten(s) do estoque atualizado(s). `;
+                if (newItemsCount > 0) stockToastDescription += `${newItemsCount} novo(s) iten(s) criado(s) no estoque.`;
+                toast({
+                    title: 'Estoque Atualizado Automaticamente',
+                    description: stockToastDescription.trim()
+                });
+            }
+            // --- End Automatic Stock Update Logic ---
+
             if (source === 'camera') {
                 setIsCameraSheetOpen(false);
             }
@@ -537,7 +583,7 @@ export default function MercadoriasPanel() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setIsCameraSheetOpen(true)}
-                                disabled={isParsingRomaneio}
+                                disabled={isParsingRomaneio || !fornecedorId}
                             >
                                 {isParsingRomaneio ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Video className="mr-2 h-4 w-4"/>}
                                 Usar Câmera
@@ -546,7 +592,7 @@ export default function MercadoriasPanel() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => fileInputRef.current?.click()}
-                                disabled={isParsingRomaneio}
+                                disabled={isParsingRomaneio || !fornecedorId}
                             >
                                 {isParsingRomaneio ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Camera className="mr-2 h-4 w-4"/>}
                                 Ler Romaneio
@@ -680,7 +726,3 @@ export default function MercadoriasPanel() {
         </>
     );
 }
-
-
-
-    
