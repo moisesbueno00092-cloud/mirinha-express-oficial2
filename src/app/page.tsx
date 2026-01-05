@@ -691,21 +691,6 @@ function LancheTrackerPage({ user }: { user: User }) {
             />
           </ItemForm>
           
-          <Card>
-            <CardHeader>
-              <CardTitle>Lançamentos do Dia</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ItemList
-                items={todaysItems}
-                onEdit={handleEditRequest}
-                onDelete={handleDeleteRequest}
-                onFavorite={handleFavoriteSave}
-                savedFavorites={savedFavorites}
-                isLoading={isLoadingItems || isLoadingBomboniere}
-              />
-            </CardContent>
-          </Card>
         </main>
 
         <div className="mt-8 mb-24 grid grid-cols-2 md:grid-cols-3 gap-2">
