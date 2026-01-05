@@ -36,13 +36,12 @@ import { Save, Loader2, History, Settings, Wrench, Users, Star, PiggyBank, Info 
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
-import ItemList from "@/components/item-list";
 import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
 import { signInAnonymously } from "firebase/auth";
-import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 
@@ -94,8 +93,6 @@ export default function Home() {
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
   const [isStockEditModalOpen, setIsStockEditModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
-  const [itemToEdit, setItemToEdit] = useState<Item | null>(null);
-  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -106,29 +103,6 @@ export default function Home() {
   
   const { toast } = useToast();
 
-  const userOrderItemsQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return query(collection(firestore, 'order_items'), where('userId', '==', user.uid));
-  }, [firestore, user?.uid]);
-
-  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(userOrderItemsQuery);
-
-  const todaysItems = useMemo(() => {
-    if (!items) return [];
-    const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
-    return items.filter(item => {
-        try {
-            // Firestore Timestamps can be objects, so we need to convert them.
-            const itemTimestamp = (item.timestamp as any)?.toDate ? (item.timestamp as any).toDate() : new Date(item.timestamp);
-            if (isNaN(itemTimestamp.getTime())) return false; // Invalid date
-            return isWithinInterval(itemTimestamp, { start: todayStart, end: todayEnd });
-        } catch {
-            return false;
-        }
-    });
-  }, [items]);
-  
   useEffect(() => {
     if (firestore && !isLoadingBomboniere && bomboniereItems && bomboniereItems.length === 0) {
       const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
@@ -353,21 +327,11 @@ originalGroup = group;
 
         const orderItemsCollectionRef = collection(firestore, "order_items");
         
-        if (currentItem) {
-            const docRef = doc(orderItemsCollectionRef, currentItem.id);
-            await setDocumentNonBlocking(docRef, finalItem, { merge: true });
-             toast({
-                duration: 4000,
-                component: <ToastContent item={{...finalItem, id: currentItem.id, timestamp: new Date().toISOString() }} title="Lançamento Atualizado" />,
-            });
-            setItemToEdit(null);
-        } else {
-            const docRef = await addDoc(orderItemsCollectionRef, finalItem);
-            toast({
-                duration: 4000,
-                component: <ToastContent item={{...finalItem, id: docRef.id, timestamp: new Date().toISOString() }} title="Lançamento Adicionado" />,
-            });
-        }
+        const docRef = await addDoc(orderItemsCollectionRef, finalItem);
+        toast({
+            duration: 4000,
+            component: <ToastContent item={{...finalItem, id: docRef.id, timestamp: new Date().toISOString() }} title="Lançamento Adicionado" />,
+        });
         
     } catch (error) {
         console.error("Error upserting item:", error);
@@ -406,53 +370,8 @@ originalGroup = group;
   const handleItemFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rawInput.trim()) return;
-    await handleUpsertItem(rawInput, itemToEdit);
+    await handleUpsertItem(rawInput);
   };
-  
-  const handleEditItem = (item: Item) => {
-    setRawInput(item.originalCommand || "");
-    setItemToEdit(item);
-    inputRef.current?.focus();
-  };
-
-  const handleDeleteItem = async () => {
-    if (!firestore || !itemToDelete) return;
-    try {
-      await deleteDocumentNonBlocking(doc(firestore, "order_items", itemToDelete));
-      toast({
-        title: "Item Excluído",
-        description: "O lançamento foi removido com sucesso.",
-        variant: "destructive",
-      });
-    } catch (error) {
-      console.error("Error deleting item:", error);
-      toast({ variant: "destructive", title: "Erro", description: "Não foi possível excluir o item."});
-    } finally {
-      setItemToDelete(null);
-    }
-  };
-
-  const handleFavorite = (item: Item) => {
-    if (!item.originalCommand) {
-      toast({ variant: 'destructive', title: 'Não é possível favoritar', description: 'Este item não tem um comando original para guardar.'});
-      return;
-    }
-
-    const isAlreadyFavorited = savedFavorites.some(fav => fav.command === item.originalCommand);
-    if(isAlreadyFavorited) {
-        toast({ variant: 'destructive', title: 'Já é Favorito', description: 'Este lançamento já está na sua lista de favoritos.'});
-        return;
-    }
-
-    const favoriteName = item.customerName || `Favorito ${savedFavorites.length + 1}`;
-    const newFavorite: SavedFavorite = {
-      id: String(Date.now()),
-      name: favoriteName,
-      command: item.originalCommand
-    }
-    setSavedFavorites(prev => [...prev, newFavorite]);
-    toast({ title: 'Adicionado aos Favoritos!', description: `"${favoriteName}" foi guardado.`});
-  }
   
   const handleFavoriteSelect = (favorite: SavedFavorite) => {
     handleUpsertItem(favorite.command, null, favorite.name);
@@ -464,95 +383,12 @@ originalGroup = group;
   }
 
   const handleSaveReport = async () => {
-    if (!user || !firestore || !todaysItems || todaysItems.length === 0) {
-      toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há lançamentos para gerar um relatório.' });
+    if (!user || !firestore) {
+      toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há utilizador ou base de dados.' });
       return;
     }
-    setIsSavingReport(true);
-
-    try {
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
-
-        const totalGeral = todaysItems.reduce((acc, item) => acc + item.total, 0);
-        const totalAVista = todaysItems.filter(i => i.group.startsWith('Vendas')).reduce((acc, item) => acc + item.total, 0);
-        const totalFiado = totalGeral - totalAVista;
-
-        const totalVendasSalao = todaysItems.filter(i => i.group === 'Vendas salão').reduce((acc, item) => acc + item.total, 0);
-        const totalVendasRua = todaysItems.filter(i => i.group === 'Vendas rua').reduce((acc, item) => acc + item.total, 0);
-        const totalFiadoSalao = todaysItems.filter(i => i.group === 'Fiados salão').reduce((acc, item) => acc + item.total, 0);
-        const totalFiadoRua = todaysItems.filter(i => i.group === 'Fiados rua').reduce((acc, item) => acc + item.total, 0);
-
-        const totalKg = todaysItems.filter(i => i.name === 'KG').reduce((acc, item) => acc + item.price, 0);
-        const totalTaxas = todaysItems.reduce((acc, item) => acc + item.deliveryFee, 0);
-
-        const contagemTotal: ItemCount = {};
-        const contagemRua: ItemCount = {};
-        let totalBomboniereSalao = 0;
-        let totalBomboniereRua = 0;
-        let totalItens = 0;
-        let totalItensRua = 0;
-
-        todaysItems.forEach(item => {
-            const itensDoPedido = [...(item.predefinedItems || []), ...(item.bomboniereItems || []), ...(item.individualPrices ? item.individualPrices.map(p => ({name: 'KG', price: p})) : [])];
-            totalItens += item.quantity;
-            if (item.group.includes('rua')) {
-                totalItensRua += item.quantity;
-            }
-
-            itensDoPedido.forEach(subItem => {
-                const name = subItem.name;
-                const count = (subItem as any).quantity || 1;
-                
-                contagemTotal[name] = (contagemTotal[name] || 0) + count;
-                if (item.group.includes('rua')) {
-                    contagemRua[name] = (contagemRua[name] || 0) + count;
-                }
-                
-                const bomboniereDef = bomboniereItems?.find(bi => bi.name === name || bi.id === name);
-                if (bomboniereDef) {
-                  const valor = subItem.price * count;
-                  if (item.group.includes('rua')) {
-                    totalBomboniereRua += valor;
-                  } else {
-                    totalBomboniereSalao += valor;
-                  }
-                }
-            });
-        });
-
-        const report: DailyReport = {
-            userId: user.uid,
-            reportDate: todayStr,
-            createdAt: new Date().toISOString(),
-            totalGeral, totalAVista, totalFiado,
-            totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
-            totalKg, totalTaxas, totalBomboniereSalao, totalBomboniereRua,
-            totalItens, totalPedidos: todaysItems.length,
-            totalEntregas: todaysItems.filter(i => i.group.includes('rua')).length,
-            totalItensRua,
-            contagemTotal,
-            contagemRua,
-        };
-
-        const reportsCollectionRef = collection(firestore, 'daily_reports');
-        await addDocumentNonBlocking(reportsCollectionRef, report);
-
-        toast({ title: "Relatório Salvo!", description: "O resumo do dia foi guardado com sucesso." });
-        
-        // Clear today's items
-        const batch = writeBatch(firestore);
-        todaysItems.forEach(item => {
-            const docRef = doc(firestore, 'order_items', item.id);
-            batch.delete(docRef);
-        });
-        await batch.commit();
-        
-    } catch(e) {
-        console.error(e);
-        toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível salvar o relatório.' });
-    } finally {
-        setIsSavingReport(false);
-    }
+    
+    toast({ variant: 'destructive', title: 'Funcionalidade Desativada', description: 'Não é possível salvar relatórios sem a lista de itens do dia.' });
   };
 
   const handleOpenPasswordModal = (action: 'reports' | 'stock') => {
@@ -577,18 +413,6 @@ originalGroup = group;
         })
     }
   }
-
-  const { totalAVista, totalFiado, totalEntregas, valorEntregas, totalGeral } = useMemo(() => {
-    const safeItems = Array.isArray(todaysItems) ? todaysItems : [];
-    const totalAVista = safeItems.filter(i => i.group.startsWith('Vendas')).reduce((acc, i) => acc + i.total, 0);
-    const totalFiado = safeItems.filter(i => i.group.startsWith('Fiados')).reduce((acc, i) => acc + i.total, 0);
-    const entregas = safeItems.filter(i => i.group.includes('rua'));
-    const totalEntregas = entregas.length;
-    const valorEntregas = entregas.reduce((acc, i) => acc + i.deliveryFee, 0);
-    const totalGeral = totalAVista + totalFiado;
-    return { totalAVista, totalFiado, totalEntregas, valorEntregas, totalGeral };
-  }, [todaysItems]);
-  
   
   if (isUserLoading || !user) {
     return (
@@ -613,22 +437,6 @@ originalGroup = group;
         bomboniereItems={bomboniereItems || []}
       />
       
-      <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O lançamento será removido permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteItem}>Confirmar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-
       <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -691,14 +499,10 @@ originalGroup = group;
               <CardTitle>Lançamentos do Dia</CardTitle>
             </CardHeader>
             <CardContent>
-              <ItemList 
-                  items={todaysItems || []}
-                  onEdit={handleEditItem}
-                  onDelete={(id) => setItemToDelete(id)}
-                  onFavorite={handleFavorite}
-                  savedFavorites={savedFavorites}
-                  isLoading={isLoadingItems}
-              />
+              <div className="text-center text-muted-foreground py-10">
+                <p>A listagem de itens foi desativada para garantir a estabilidade da aplicação.</p>
+                <p className="text-xs mt-2">Pode continuar a adicionar novos itens normalmente.</p>
+              </div>
             </CardContent>
           </Card>
         </main>
@@ -706,7 +510,7 @@ originalGroup = group;
         <div className="mt-8 mb-24 grid grid-cols-2 md:grid-cols-3 gap-2">
             <Button 
                 onClick={handleSaveReport}
-                disabled={isSavingReport || !todaysItems || todaysItems.length === 0}
+                disabled={true}
                 className="w-full"
             >
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -732,27 +536,23 @@ originalGroup = group;
           <div className="flex flex-col items-center justify-center">
              <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">À Vista:</span>
-                <span className="font-bold text-green-500">{formatCurrency(totalAVista)}</span>
+                <span className="font-bold text-green-500">{formatCurrency(0)}</span>
              </div>
              <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">Fiado:</span>
-                <span className="font-bold text-destructive">{formatCurrency(totalFiado)}</span>
+                <span className="font-bold text-destructive">{formatCurrency(0)}</span>
              </div>
           </div>
           <div className="flex flex-col items-center justify-center border-l border-r border-border/50 h-full">
             <span className="text-muted-foreground">Entregas</span>
-            <span className="font-bold text-foreground">{totalEntregas} ({formatCurrency(valorEntregas)})</span>
+            <span className="font-bold text-foreground">0 ({formatCurrency(0)})</span>
           </div>
           <div className="flex flex-col items-center justify-center rounded-lg bg-primary/10 p-1">
             <span className="text-xs font-semibold uppercase tracking-wider text-primary/80">Total</span>
-            <span className="text-base font-bold text-primary">{formatCurrency(totalGeral)}</span>
+            <span className="text-base font-bold text-primary">{formatCurrency(0)}</span>
           </div>
         </div>
       </footer>
     </>
   );
 }
-
-    
-
-    
