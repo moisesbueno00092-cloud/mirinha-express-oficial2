@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback }from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +9,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Plus, Save, Loader2, Search } from 'lucide-react';
 import type { BomboniereItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, commitBatch } from '@/firebase/non-blocking-updates';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,8 +22,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn } from '@/lib/utils';
-import usePersistentState from '@/hooks/use-persistent-state';
 
 
 interface StockEditModalProps {
@@ -34,63 +32,24 @@ interface StockEditModalProps {
 
 type EditableItem = BomboniereItem;
 
-const useDebouncedEffect = (effect: () => void, deps: React.DependencyList, delay: number) => {
-    useEffect(() => {
-        const handler = setTimeout(() => effect(), delay);
-        return () => clearTimeout(handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [...deps, delay]);
-};
-
 
 export default function StockEditModal({ isOpen, onClose, bomboniereItems: initialItems }: StockEditModalProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
   
   const [localItems, setLocalItems] = useState<EditableItem[]>([]);
-  const [debouncedItems, setDebouncedItems] = useState<EditableItem[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<EditableItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [originalItemsMap, setOriginalItemsMap] = useState<Record<string, EditableItem>>({});
 
   useEffect(() => {
     if (isOpen) {
       const sortedItems = [...initialItems].sort((a,b) => a.name.localeCompare(b.name));
       setLocalItems(sortedItems);
-      setDebouncedItems(sortedItems);
+      setOriginalItemsMap(Object.fromEntries(initialItems.map(item => [item.id, item])));
     }
   }, [isOpen, initialItems]);
-
-  useDebouncedEffect(() => {
-    setDebouncedItems(localItems);
-  }, [localItems], 500); // 500ms debounce delay
-
-
-  useEffect(() => {
-      if (!firestore || !isOpen) return;
-
-      const changedItems = debouncedItems.filter(debouncedItem => {
-          const originalItem = initialItems.find(item => item.id === debouncedItem.id);
-          if (!originalItem) return false; // Should not happen for existing items
-          return (
-              originalItem.name !== debouncedItem.name ||
-              originalItem.price !== debouncedItem.price ||
-              originalItem.estoque !== debouncedItem.estoque
-          );
-      });
-
-      if (changedItems.length > 0) {
-          changedItems.forEach(item => {
-              if (item.id) {
-                const docRef = doc(firestore, 'bomboniere_items', item.id);
-                updateDocumentNonBlocking(docRef, {
-                    name: item.name,
-                    price: item.price,
-                    estoque: item.estoque
-                });
-              }
-          });
-      }
-  }, [debouncedItems, firestore, initialItems, isOpen]);
 
 
   const filteredItems = useMemo(() => {
@@ -107,9 +66,13 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
     setLocalItems(prevItems =>
       prevItems.map(item => {
         if (item.id === id) {
-          const finalValue = (field === 'price' || field === 'estoque') 
-            ? (String(value).trim() === '' ? 0 : parseFloat(String(value).replace(',', '.')))
-            : value;
+          let finalValue: string | number;
+          if (field === 'price' || field === 'estoque') {
+            const stringValue = String(value).trim();
+            finalValue = stringValue === '' ? 0 : parseFloat(stringValue.replace(',', '.'));
+          } else {
+            finalValue = value;
+          }
           
           if(isNaN(finalValue as number)) return item;
           
@@ -147,6 +110,51 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       setItemToDelete(null);
   }
   
+  const handleSaveAll = async () => {
+      if (!firestore) return;
+      setIsProcessing(true);
+
+      const batch = writeBatch(firestore);
+      let changesCount = 0;
+
+      localItems.forEach(localItem => {
+          const originalItem = originalItemsMap[localItem.id];
+
+          // This is a new item that hasn't been saved to originalItemsMap yet, so we must save it.
+          // Or this is an existing item and we check for changes.
+          if (!originalItem || 
+              originalItem.name !== localItem.name || 
+              originalItem.price !== localItem.price || 
+              originalItem.estoque !== localItem.estoque) {
+
+              if (!localItem.name.trim()) {
+                  toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item com ID ${localItem.id} não pode ter um nome em branco.`});
+                  return;
+              }
+              const docRef = doc(firestore, 'bomboniere_items', localItem.id);
+              batch.update(docRef, {
+                  name: localItem.name,
+                  price: localItem.price,
+                  estoque: localItem.estoque
+              });
+              changesCount++;
+          }
+      });
+      
+      if (changesCount > 0) {
+        try {
+            await commitBatch(batch);
+            toast({ title: "Sucesso!", description: `${changesCount} ite${changesCount > 1 ? 'ns' : 'm'} atualizado${changesCount > 1 ? 's' : ''}.` });
+        } catch (error) {
+            // Error is handled by commitBatch
+        }
+      } else {
+        toast({ title: "Nenhuma Alteração", description: "Não havia alterações para salvar."});
+      }
+
+      setIsProcessing(false);
+      onClose();
+  };
 
   return (
     <>
@@ -168,7 +176,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl">
             <DialogHeader>
-                <DialogTitle className="text-center">Gerir Estoque da Bomboniere (Tempo Real)</DialogTitle>
+                <DialogTitle className="text-center">Gerir Estoque da Bomboniere</DialogTitle>
             </DialogHeader>
             
             <div className="relative px-2">
@@ -193,18 +201,18 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
                 {filteredItems.map((item) => (
                     <div key={item.id} className="grid grid-cols-[2fr_1fr_1fr_auto] items-center gap-x-4 py-2">
                         <Input
-                            defaultValue={item.name}
+                            value={item.name}
                             onChange={(e) => handleFieldChange(item.id, 'name', e.target.value)}
                             placeholder="Nome do Item"
                         />
                         <Input
-                           defaultValue={String(item.price).replace('.', ',')}
+                           value={String(item.price).replace('.', ',')}
                            onChange={(e) => handleFieldChange(item.id, 'price', e.target.value.replace(/[^0-9,]/g, ''))}
                            className="text-right"
                            placeholder="0,00"
                         />
                         <Input
-                            defaultValue={String(item.estoque)}
+                            value={String(item.estoque)}
                              onChange={(e) => handleFieldChange(item.id, 'estoque', e.target.value.replace(/[^0-9]/g, ''))}
                             type="text"
                             className="text-right"
@@ -233,13 +241,15 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
 
             <DialogFooter className="mt-4">
               <DialogClose asChild>
-                  <Button variant="outline">Fechar</Button>
+                  <Button variant="outline">Cancelar</Button>
               </DialogClose>
+              <Button onClick={handleSaveAll} disabled={isProcessing}>
+                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                Salvar Alterações
+              </Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 }
-
-    
