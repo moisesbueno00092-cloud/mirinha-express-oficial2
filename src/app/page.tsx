@@ -41,7 +41,7 @@ import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInAnonymously } from "firebase/auth";
+import { signInAnonymously } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -80,20 +80,16 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   
+  // This effect ensures a user is always signed in anonymously.
   useEffect(() => {
-    const ensureUser = async () => {
-      if (!isUserLoading && !user && auth) {
-        try {
-          // Use anonymous sign-in for simplicity and reliability
-          await signInAnonymously(auth);
-        } catch (error) {
-          console.error("Failed to sign in anonymously:", error);
-        }
-      }
-    };
-    ensureUser();
+    if (!isUserLoading && !user && auth) {
+      signInAnonymously(auth).catch((error) => {
+        console.error("Anonymous sign-in failed:", error);
+      });
+    }
   }, [user, isUserLoading, auth]);
 
+  // The query is only created when firestore and user.uid are available.
   const userOrderItemsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) {
       return null;
@@ -682,7 +678,9 @@ originalGroup = group;
     }
   }
 
-  if (isUserLoading) {
+  // This is the most robust way to prevent the race condition.
+  // We do not render the main content until we are sure we have a user.
+  if (isUserLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -912,5 +910,3 @@ originalGroup = group;
     </>
   );
 }
-
-    
