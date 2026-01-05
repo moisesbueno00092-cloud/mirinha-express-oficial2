@@ -859,7 +859,7 @@ originalGroup = group;
           </Card>
         </main>
 
-        <div className="mt-8 mb-24 grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="mt-8 mb-24 grid grid-cols-2 md:grid-cols-3 gap-2">
             <Button 
                 onClick={handleSaveReport}
                 disabled={isSavingReport || isLoadingItems || !items || items.length === 0}
@@ -872,15 +872,11 @@ originalGroup = group;
                 <History className="mr-2 h-4 w-4" />
                 Relatórios Salvos
             </Button>
-             <Button variant="outline" className="w-full" onClick={() => router.push('/fiados')}>
-                <Users className="mr-2 h-4 w-4" />
-                Relatório Fiados
-            </Button>
             <Button variant="outline" className="w-full" onClick={() => handleOpenPasswordModal('stock')}>
                 <Settings className="mr-2 h-4 w-4" />
                 Gerir Estoque
             </Button>
-             <Button variant="outline" className="w-full col-span-2 md:col-span-4" onClick={() => router.push('/admin')}>
+             <Button variant="outline" className="w-full col-span-2 md:col-span-3" onClick={() => router.push('/admin')}>
                 <Wrench className="mr-2 h-4 w-4" />
                 Gestão Administrativa
             </Button>

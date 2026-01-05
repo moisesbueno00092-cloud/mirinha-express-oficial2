@@ -575,10 +575,9 @@ export default function ReportsPage() {
 
         <main className="space-y-8">
             <Tabs defaultValue="agregado" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="agregado">Relatório Agregado</TabsTrigger>
                     <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
-                     <TabsTrigger value="fiados" onClick={() => router.push('/fiados')}>Relatório Fiados</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="agregado">
@@ -640,12 +639,9 @@ export default function ReportsPage() {
                       </Card>
                     )}
                 </TabsContent>
-                <TabsContent value="fiados" />
             </Tabs>
         </main>
       </div>
     </>
   );
 }
-
-    
