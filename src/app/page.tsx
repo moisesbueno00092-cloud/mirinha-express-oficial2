@@ -102,9 +102,7 @@ export default function Home() {
   }, [user, isUserLoading, auth]);
 
   const userOrderItemsQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) {
-      return null;
-    }
+    if (!firestore || !user?.uid) return null;
     return query(
       collection(firestore, "order_items"),
       where("userId", "==", user.uid)
@@ -689,7 +687,7 @@ originalGroup = group;
     }
   }
 
-  if (isUserLoading) {
+  if (isUserLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -858,16 +856,14 @@ originalGroup = group;
           
           <Card>
             <CardContent className="p-2 sm:p-6">
-              {user?.uid && (
-                <ItemList
-                  items={items || []}
-                  onEdit={handleEditRequest}
-                  onDelete={handleDeleteRequest}
-                  onFavorite={handleFavoriteSaveRequest}
-                  savedFavorites={savedFavorites}
-                  isLoading={isLoadingItems}
-                />
-              )}
+              <ItemList
+                items={items || []}
+                onEdit={handleEditRequest}
+                onDelete={handleDeleteRequest}
+                onFavorite={handleFavoriteSaveRequest}
+                savedFavorites={savedFavorites}
+                isLoading={isLoadingItems}
+              />
             </CardContent>
           </Card>
         </main>
