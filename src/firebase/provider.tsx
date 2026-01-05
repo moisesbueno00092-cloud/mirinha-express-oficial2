@@ -136,7 +136,7 @@ export const useFirebase = (): FirebaseServicesAndUser => {
     firestore: context.firestore,
     auth: context.auth,
     user: context.user,
-    isUserLoading: context.isUserLoading,
+isUserLoading: context.isUserLoading,
     userError: context.userError,
   };
 };

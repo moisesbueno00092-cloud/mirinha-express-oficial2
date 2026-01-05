@@ -685,7 +685,7 @@ function LancheTrackerPage({ user }: { user: User }) {
                 onDelete={handleDeleteRequest}
                 onFavorite={handleFavoriteSave}
                 savedFavorites={savedFavorites}
-                isLoading={isLoadingItems}
+                isLoading={isLoadingItems || isLoadingBomboniere}
               />
             </CardContent>
           </Card>
