@@ -95,9 +95,6 @@ export default function Home() {
   }, [user, isUserLoading, auth]);
 
   const userOrderItemsQuery = useMemoFirebase(() => {
-    // This is the definitive fix. The query will only be created when firestore
-    // AND a valid user.uid are present. Otherwise, it's null, preventing
-    // the useCollection hook from running an unauthorized query.
     if (!firestore || !user?.uid) {
       return null;
     }
@@ -685,7 +682,7 @@ originalGroup = group;
     }
   }
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user?.uid) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -916,4 +913,5 @@ originalGroup = group;
   );
 }
 
+    
     
