@@ -429,7 +429,7 @@ export default function ReportsPage() {
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
   const reportsQuery = useMemoFirebase(
@@ -448,30 +448,25 @@ export default function ReportsPage() {
 
   const filteredReports = useMemo(() => {
     if (!savedReports) return [];
-    
-    let startDate: Date;
-    let endDate: Date;
-
-    const referenceDate = new Date(selectedYear, 0, 1);
-
-    if (selectedMonth === 'all') {
-        startDate = startOfYear(referenceDate);
-        endDate = endOfYear(referenceDate);
-    } else {
-        const monthDate = setMonth(new Date(selectedYear, 0, 1), parseInt(selectedMonth, 10));
-        startDate = startOfMonth(monthDate);
-        endDate = endOfMonth(monthDate);
-    }
-    
+  
+    const startDate =
+      selectedMonth === 'all'
+        ? startOfYear(new Date(selectedYear, 0, 1))
+        : startOfMonth(new Date(selectedYear, parseInt(selectedMonth, 10), 1));
+  
+    const endDate =
+      selectedMonth === 'all'
+        ? endOfYear(new Date(selectedYear, 0, 1))
+        : endOfMonth(new Date(selectedYear, parseInt(selectedMonth, 10), 1));
+  
     return savedReports.filter(r => {
-        try {
-            const reportDate = parseISO(r.reportDate + 'T12:00:00');
-            return isWithinInterval(reportDate, { start: startDate, end: endDate });
-        } catch {
-            return false;
-        }
+      try {
+        const reportDate = parseISO(r.reportDate + 'T12:00:00Z');
+        return isWithinInterval(reportDate, { start: startDate, end: endDate });
+      } catch {
+        return false;
+      }
     });
-
   }, [savedReports, selectedYear, selectedMonth]);
 
 
