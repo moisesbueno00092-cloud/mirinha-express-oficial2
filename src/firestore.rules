@@ -3,16 +3,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Allow a user to read and write to their own user document and all subcollections.
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Fallback rule for all other collections.
-    // Allows any authenticated user to read/write to other collections like
-    // bomboniere_items, daily_reports, fornecedores, etc.
-    match /{path=**}/documents/{document} {
+    match /{document=**} {
       allow read, write: if request.auth != null;
     }
   }
