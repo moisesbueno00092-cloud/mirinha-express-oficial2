@@ -102,7 +102,6 @@ export default function Home() {
   }, [user, isUserLoading, auth]);
 
   const userOrderItemsQuery = useMemoFirebase(() => {
-    // CRITICAL: Ensure both firestore and user are available before creating the query.
     if (!firestore || !user?.uid) {
       return null;
     }
