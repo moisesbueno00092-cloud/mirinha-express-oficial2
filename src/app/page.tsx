@@ -119,8 +119,10 @@ export default function Home() {
     const todayEnd = endOfDay(new Date());
     return items.filter(item => {
         try {
-            const itemDate = new Date(item.timestamp);
-            return isWithinInterval(itemDate, { start: todayStart, end: todayEnd });
+            // Firestore Timestamps can be objects, so we need to convert them.
+            const itemTimestamp = (item.timestamp as any)?.toDate ? (item.timestamp as any).toDate() : new Date(item.timestamp);
+            if (isNaN(itemTimestamp.getTime())) return false; // Invalid date
+            return isWithinInterval(itemTimestamp, { start: todayStart, end: todayEnd });
         } catch {
             return false;
         }
@@ -333,15 +335,13 @@ originalGroup = group;
         consolidatedName = nameParts.join(' + ') || 'Lançamento';
         if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
 
-        const timestamp = new Date();
-
-        const finalItem: Omit<Item, 'id' | 'timestamp'> & { timestamp: string } = {
+        const finalItem: Omit<Item, 'id' | 'timestamp'> & { timestamp: Timestamp } = {
             userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
             price: totalPrice,
             group,
-            timestamp: timestamp.toISOString(),
+            timestamp: serverTimestamp() as Timestamp,
             deliveryFee,
             total,
             originalCommand: rawInputToProcess,
@@ -355,17 +355,17 @@ originalGroup = group;
         
         if (currentItem) {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
-            await setDocumentNonBlocking(docRef, { ...finalItem, timestamp: serverTimestamp() }, { merge: true });
+            await setDocumentNonBlocking(docRef, finalItem, { merge: true });
              toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: currentItem.id }} title="Lançamento Atualizado" />,
+                component: <ToastContent item={{...finalItem, id: currentItem.id, timestamp: new Date().toISOString() }} title="Lançamento Atualizado" />,
             });
             setItemToEdit(null);
         } else {
-            const docRef = await addDoc(orderItemsCollectionRef, { ...finalItem, timestamp: serverTimestamp()});
+            const docRef = await addDoc(orderItemsCollectionRef, finalItem);
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: docRef.id }} title="Lançamento Adicionado" />,
+                component: <ToastContent item={{...finalItem, id: docRef.id, timestamp: new Date().toISOString() }} title="Lançamento Adicionado" />,
             });
         }
         
@@ -692,7 +692,7 @@ originalGroup = group;
             </CardHeader>
             <CardContent>
               <ItemList 
-                  items={todaysItems}
+                  items={todaysItems || []}
                   onEdit={handleEditItem}
                   onDelete={(id) => setItemToDelete(id)}
                   onFavorite={handleFavorite}
@@ -752,5 +752,3 @@ originalGroup = group;
     </>
   );
 }
-
-    
