@@ -108,17 +108,24 @@ export default function Home() {
 
   const userOrderItemsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
-    const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
-    return query(
-        collection(firestore, 'order_items'),
-        where('userId', '==', user.uid),
-        where('timestamp', '>=', todayStart),
-        where('timestamp', '<=', todayEnd)
-    );
+    return query(collection(firestore, 'order_items'), where('userId', '==', user.uid));
   }, [firestore, user?.uid]);
 
-  const { data: items = [], isLoading: isLoadingItems } = useCollection<Item>(userOrderItemsQuery);
+  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(userOrderItemsQuery);
+
+  const todaysItems = useMemo(() => {
+    if (!items) return [];
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+    return items.filter(item => {
+        try {
+            const itemDate = new Date(item.timestamp);
+            return isWithinInterval(itemDate, { start: todayStart, end: todayEnd });
+        } catch {
+            return false;
+        }
+    });
+  }, [items]);
   
   useEffect(() => {
     if (firestore && !isLoadingBomboniere && bomboniereItems && bomboniereItems.length === 0) {
@@ -457,7 +464,7 @@ originalGroup = group;
   }
 
   const handleSaveReport = async () => {
-    if (!user || !firestore || items.length === 0) {
+    if (!user || !firestore || !todaysItems || todaysItems.length === 0) {
       toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há lançamentos para gerar um relatório.' });
       return;
     }
@@ -466,17 +473,17 @@ originalGroup = group;
     try {
         const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-        const totalGeral = items.reduce((acc, item) => acc + item.total, 0);
-        const totalAVista = items.filter(i => i.group.startsWith('Vendas')).reduce((acc, item) => acc + item.total, 0);
+        const totalGeral = todaysItems.reduce((acc, item) => acc + item.total, 0);
+        const totalAVista = todaysItems.filter(i => i.group.startsWith('Vendas')).reduce((acc, item) => acc + item.total, 0);
         const totalFiado = totalGeral - totalAVista;
 
-        const totalVendasSalao = items.filter(i => i.group === 'Vendas salão').reduce((acc, item) => acc + item.total, 0);
-        const totalVendasRua = items.filter(i => i.group === 'Vendas rua').reduce((acc, item) => acc + item.total, 0);
-        const totalFiadoSalao = items.filter(i => i.group === 'Fiados salão').reduce((acc, item) => acc + item.total, 0);
-        const totalFiadoRua = items.filter(i => i.group === 'Fiados rua').reduce((acc, item) => acc + item.total, 0);
+        const totalVendasSalao = todaysItems.filter(i => i.group === 'Vendas salão').reduce((acc, item) => acc + item.total, 0);
+        const totalVendasRua = todaysItems.filter(i => i.group === 'Vendas rua').reduce((acc, item) => acc + item.total, 0);
+        const totalFiadoSalao = todaysItems.filter(i => i.group === 'Fiados salão').reduce((acc, item) => acc + item.total, 0);
+        const totalFiadoRua = todaysItems.filter(i => i.group === 'Fiados rua').reduce((acc, item) => acc + item.total, 0);
 
-        const totalKg = items.filter(i => i.name === 'KG').reduce((acc, item) => acc + item.price, 0);
-        const totalTaxas = items.reduce((acc, item) => acc + item.deliveryFee, 0);
+        const totalKg = todaysItems.filter(i => i.name === 'KG').reduce((acc, item) => acc + item.price, 0);
+        const totalTaxas = todaysItems.reduce((acc, item) => acc + item.deliveryFee, 0);
 
         const contagemTotal: ItemCount = {};
         const contagemRua: ItemCount = {};
@@ -485,7 +492,7 @@ originalGroup = group;
         let totalItens = 0;
         let totalItensRua = 0;
 
-        items.forEach(item => {
+        todaysItems.forEach(item => {
             const itensDoPedido = [...(item.predefinedItems || []), ...(item.bomboniereItems || []), ...(item.individualPrices ? item.individualPrices.map(p => ({name: 'KG', price: p})) : [])];
             totalItens += item.quantity;
             if (item.group.includes('rua')) {
@@ -520,8 +527,8 @@ originalGroup = group;
             totalGeral, totalAVista, totalFiado,
             totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
             totalKg, totalTaxas, totalBomboniereSalao, totalBomboniereRua,
-            totalItens, totalPedidos: items.length,
-            totalEntregas: items.filter(i => i.group.includes('rua')).length,
+            totalItens, totalPedidos: todaysItems.length,
+            totalEntregas: todaysItems.filter(i => i.group.includes('rua')).length,
             totalItensRua,
             contagemTotal,
             contagemRua,
@@ -534,7 +541,7 @@ originalGroup = group;
         
         // Clear today's items
         const batch = writeBatch(firestore);
-        items.forEach(item => {
+        todaysItems.forEach(item => {
             const docRef = doc(firestore, 'order_items', item.id);
             batch.delete(docRef);
         });
@@ -572,7 +579,7 @@ originalGroup = group;
   }
 
   const { totalAVista, totalFiado, totalEntregas, valorEntregas, totalGeral } = useMemo(() => {
-    const safeItems = Array.isArray(items) ? items : [];
+    const safeItems = Array.isArray(todaysItems) ? todaysItems : [];
     const totalAVista = safeItems.filter(i => i.group.startsWith('Vendas')).reduce((acc, i) => acc + i.total, 0);
     const totalFiado = safeItems.filter(i => i.group.startsWith('Fiados')).reduce((acc, i) => acc + i.total, 0);
     const entregas = safeItems.filter(i => i.group.includes('rua'));
@@ -580,7 +587,7 @@ originalGroup = group;
     const valorEntregas = entregas.reduce((acc, i) => acc + i.deliveryFee, 0);
     const totalGeral = totalAVista + totalFiado;
     return { totalAVista, totalFiado, totalEntregas, valorEntregas, totalGeral };
-  }, [items]);
+  }, [todaysItems]);
   
   
   if (isUserLoading) {
@@ -685,7 +692,7 @@ originalGroup = group;
             </CardHeader>
             <CardContent>
               <ItemList 
-                  items={items}
+                  items={todaysItems}
                   onEdit={handleEditItem}
                   onDelete={(id) => setItemToDelete(id)}
                   onFavorite={handleFavorite}
@@ -699,7 +706,7 @@ originalGroup = group;
         <div className="mt-8 mb-24 grid grid-cols-2 md:grid-cols-3 gap-2">
             <Button 
                 onClick={handleSaveReport}
-                disabled={isSavingReport || items.length === 0}
+                disabled={isSavingReport || !todaysItems || todaysItems.length === 0}
                 className="w-full"
             >
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
