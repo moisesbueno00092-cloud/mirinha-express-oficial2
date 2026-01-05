@@ -174,7 +174,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       </AlertDialog>
 
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader>
                 <DialogTitle className="text-center">Gerir Estoque da Bomboniere</DialogTitle>
             </DialogHeader>
