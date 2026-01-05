@@ -105,27 +105,23 @@ export default function Home() {
     if (!firestore || !user?.uid) {
       return null;
     }
-    return query(collection(firestore, "order_items"), where("userId", "==", user.uid));
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+
+    return query(
+        collection(firestore, "order_items"), 
+        where("userId", "==", user.uid),
+        where("timestamp", ">=", todayStart.toISOString()),
+        where("timestamp", "<=", todayEnd.toISOString())
+    );
   }, [firestore, user?.uid]);
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
 
-  const { data: allItems, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
+  const { data: items, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
-  const items = useMemo(() => {
-    if (!allItems) return [];
-    return allItems.filter(item => {
-        try {
-            const itemDate = new Date(item.timestamp);
-            return isToday(itemDate);
-        } catch(e) {
-            return false;
-        }
-    });
-  }, [allItems]);
-
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -914,3 +910,5 @@ originalGroup = group;
     </>
   );
 }
+
+    

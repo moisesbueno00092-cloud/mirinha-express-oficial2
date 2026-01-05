@@ -14,10 +14,9 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
-    // Order items can be read by the owner and only via a query filtered by userId.
-    // Writes are allowed if the new data belongs to the user.
+    // Order items can be written by the owner. List queries MUST be filtered by userId.
     match /order_items/{orderItemId} {
-      allow read: if request.auth != null && request.query.where.userId == request.auth.uid;
+      allow read: if request.auth != null && (isOwner(resource.data.userId) || request.query.where.userId == request.auth.uid);
       allow write: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
     
@@ -58,3 +57,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
