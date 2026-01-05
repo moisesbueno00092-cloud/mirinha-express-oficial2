@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useUser } from '../provider';
 
 export type WithId<T> = T & { id: string };
 
@@ -39,12 +40,15 @@ export interface InternalQuery extends Query<DocumentData> {
   }
 }
 
-const isUserIdFilteredQuery = (q: any): boolean => {
-    if (q && q._query && q._query.filters) {
-        return q._query.filters.some((f: any) => f.field.segments.join('/') === 'userId');
+// Function to check if a query object has a 'userId' filter.
+const isUserIdFilteredQuery = (q: any): q is InternalQuery => {
+    if (q && q._query && Array.isArray(q._query.filters)) {
+        return q._query.filters.some((f: any) => 
+            f.field && Array.isArray(f.field.segments) && f.field.segments.join('/') === 'userId'
+        );
     }
     return false;
-}
+};
 
 export function useCollection<T = any>(
     memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean})  | null | undefined,
@@ -53,25 +57,28 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Start with loading true
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
+  
+  const { user, isUserLoading } = useUser();
 
   useEffect(() => {
-    // If the query is null or not ready, do nothing and wait.
-    if (!memoizedTargetRefOrQuery) {
-      // Don't set loading to false here immediately, wait for a valid query
+    // If the query is null, not ready, or auth state is still loading, do nothing and wait.
+    if (!memoizedTargetRefOrQuery || isUserLoading) {
+      setIsLoading(true);
       return;
     }
     
-    // Explicitly check for queries on 'order_items' that lack a userId filter
     const path = memoizedTargetRefOrQuery.type === 'collection'
         ? (memoizedTargetRefOrQuery as CollectionReference).path
         : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString();
 
-    if(path === 'order_items' && !isUserIdFilteredQuery(memoizedTargetRefOrQuery)) {
-        // This is an unsafe query. Do not execute it.
-        // We set loading to false because we are not going to fetch data.
-        setIsLoading(false);
+    // CRITICAL SECURITY CHECK: For protected collections, ensure userId filter exists.
+    if (path === 'order_items' && !isUserIdFilteredQuery(memoizedTargetRefOrQuery)) {
+        // This is an unsafe query because the `userId` filter hasn't been applied yet,
+        // likely due to `user` not being available in the parent component's memo.
+        // We will simply wait for the memoized query to update with the correct filter.
+        setIsLoading(true); // Keep loading state until a valid query is provided.
         return;
     }
 
@@ -105,10 +112,12 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]);
+  }, [memoizedTargetRefOrQuery, isUserLoading, user]); // Add isUserLoading and user as dependencies
 
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
+    throw new Error('Query was not properly memoized using useMemoFirebase. This can cause infinite loops.');
   }
+  
   return { data, isLoading, error };
 }
+
