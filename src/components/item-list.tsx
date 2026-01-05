@@ -36,7 +36,9 @@ const formatCurrency = (value: number) => {
 const formatTimestamp = (timestamp: string) => {
   if (!timestamp) return '-';
   try {
-    return new Date(timestamp).toLocaleTimeString("pt-BR", {
+    const date = new Date(timestamp);
+    if(isNaN(date.getTime())) return '-';
+    return date.toLocaleTimeString("pt-BR", {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
@@ -200,7 +202,12 @@ export default function ItemList({ items, onEdit, onDelete, onFavorite, savedFav
           </TableRow>
         </TableHeader>
         <TableBody>
-          {[...items].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((item) => (
+          {[...items].sort((a, b) => {
+              const dateA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+              const dateB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+              if (isNaN(dateA) || isNaN(dateB)) return 0;
+              return dateB - dateA;
+          }).map((item) => (
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive", "border-b-0")}>
               <TableCell className="font-medium px-2 sm:px-4 align-top">
                 {renderItemName(item)}

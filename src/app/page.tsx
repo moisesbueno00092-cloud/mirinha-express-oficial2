@@ -54,7 +54,7 @@ const formatCurrency = (value: number) => {
 
 const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
-const ToastContent = ({ item, title }: { item: Item; title: string }) => (
+const ToastContent = ({ item, title }: { item: Partial<Item>; title: string }) => (
   <div className="grid w-full gap-1">
     <div className="font-semibold">{title}</div>
     <div className="grid grid-cols-[1fr_auto] items-start gap-4">
@@ -62,8 +62,8 @@ const ToastContent = ({ item, title }: { item: Item; title: string }) => (
         <span>{item.name}</span>
       </div>
       <div className="text-right">
-        <div className="font-bold text-lg text-primary">{formatCurrency(item.total)}</div>
-        {item.deliveryFee > 0 && <div className="text-xs text-muted-foreground">Taxa: {formatCurrency(item.deliveryFee)}</div>}
+        <div className="font-bold text-lg text-primary">{formatCurrency(item.total || 0)}</div>
+        {item.deliveryFee && item.deliveryFee > 0 && <div className="text-xs text-muted-foreground">Taxa: {formatCurrency(item.deliveryFee)}</div>}
       </div>
     </div>
   </div>
@@ -329,7 +329,7 @@ originalGroup = group;
 
         const orderItemsCollectionRef = collection(firestore, "order_items");
         
-        const docRef = await addDoc(orderItemsCollectionRef, finalItem);
+        const docRef = await addDoc(orderItemsCollectionRef, { ...finalItem, timestamp: serverTimestamp()});
         
         toast({
             duration: 4000,
@@ -413,7 +413,7 @@ originalGroup = group;
     }
   }
 
-  if (isUserLoading || !user) {
+  if (isUserLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -554,5 +554,3 @@ originalGroup = group;
     </>
   );
 }
-
-    
