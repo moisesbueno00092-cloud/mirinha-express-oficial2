@@ -105,21 +105,13 @@ export default function Home() {
     if (!firestore || !user?.uid) {
       return null;
     }
-    const start = startOfDay(new Date());
-    const end = endOfDay(new Date());
-
-    return query(
-        collection(firestore, "order_items"), 
-        where("userId", "==", user.uid),
-        where("timestamp", ">=", start),
-        where("timestamp", "<=", end)
-    );
+    return query(collection(firestore, "order_items"), where("userId", "==", user.uid));
   }, [firestore, user?.uid]);
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
 
-  const { data: items, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
+  const { data: allItems, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
   const [isProcessing, setIsProcessing] = useState(false);
@@ -142,6 +134,19 @@ export default function Home() {
 
 
   const { toast } = useToast();
+  
+  const items = useMemo(() => {
+    if (!allItems) return [];
+    const start = startOfDay(new Date());
+    const end = endOfDay(new Date());
+    return allItems.filter(item => {
+        try {
+            return isWithinInterval(new Date(item.timestamp), { start, end });
+        } catch(e) {
+            return false;
+        }
+    });
+  }, [allItems]);
 
   useEffect(() => {
     if (firestore && !isLoadingBomboniere && bomboniereItems && bomboniereItems.length === 0) {
