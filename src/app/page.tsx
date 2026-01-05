@@ -498,19 +498,14 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...itemData,
             timestamp: serverTimestamp(),
           };
-          addDoc(userOrderItemsRef, finalItemForFirestore).catch(error => {
-              errorEmitter.emit(
-                  'permission-error',
-                  new FirestorePermissionError({
-                      path: userOrderItemsRef.path,
-                      operation: 'create',
-                      requestResourceData: finalItemForFirestore,
-                  })
-              )
-          });
+          addDocumentNonBlocking(userOrderItemsRef, finalItemForFirestore);
         } else {
-          const itemRef = doc(userOrderItemsRef, item.id);
-          deleteDocumentNonBlocking(itemRef);
+          // This item is already in firestore from a previous session, but was cleared from the day's local list
+          // We don't want to delete it from the main archive.
+          // Or, it was edited. If it was edited, it would have been updated already.
+          // The current logic doesn't load from Firestore, it only uses local storage for the day.
+          // So, any item with a non-local ID must be from a previous day that wasn't cleared, or already saved.
+          // Let's assume we don't need to delete existing items. The goal is to archive the day's work.
         }
       }
       
@@ -822,5 +817,3 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
