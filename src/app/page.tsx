@@ -102,13 +102,12 @@ export default function Home() {
   }, [user, isUserLoading, auth]);
 
   const userOrderItemsQuery = useMemoFirebase(() => {
+    // CRITICAL: Ensure firestore and user.uid are available before creating the query.
+    // If not, return null to prevent useCollection from running an invalid query.
     if (!firestore || !user?.uid) {
       return null;
     }
-    return query(
-        collection(firestore, "order_items"), 
-        where("userId", "==", user.uid)
-    );
+    return query(collection(firestore, "order_items"), where("userId", "==", user.uid));
   }, [firestore, user]);
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
@@ -918,4 +917,3 @@ originalGroup = group;
     </>
   );
 }
-
