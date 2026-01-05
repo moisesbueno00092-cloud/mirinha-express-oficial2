@@ -76,7 +76,7 @@ function LancheTrackerPage({ user }: { user: User }) {
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
-  // A consulta só é criada se 'firestore' e 'user.uid' existirem.
+  // A consulta SÓ é criada se 'firestore' e 'user.uid' existirem.
   const userOrderItemsQuery = useMemoFirebase(
     () => {
       if (firestore && user?.uid) {

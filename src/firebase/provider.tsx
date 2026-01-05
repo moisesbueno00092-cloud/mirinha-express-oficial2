@@ -4,7 +4,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -50,30 +50,18 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
       auth,
-      async (firebaseUser) => {
-        try {
-          if (!firebaseUser) {
-            // Se não houver utilizador, tenta o login anónimo
-            await signInAnonymously(auth);
-            // O onAuthStateChanged será acionado novamente com o utilizador anónimo
-          } else {
-            setUser(firebaseUser);
-            setIsUserLoading(false);
-          }
-        } catch (error) {
-          console.error("FirebaseProvider: Erro no login anónimo:", error);
-          setUserError(error as Error);
-          setIsUserLoading(false);
-        }
+      (firebaseUser) => {
+        setUser(firebaseUser); // Sets user to the firebaseUser object or null
+        setIsUserLoading(false); // Auth state is resolved, stop loading
       },
       (error) => {
-        console.error("FirebaseProvider: Erro no onAuthStateChanged:", error);
+        console.error("FirebaseProvider: Auth state error:", error);
         setUser(null);
         setUserError(error);
-        setIsUserLoading(false);
+        setIsUserLoading(false); // Auth state failed, stop loading
       }
     );
-  
+
     return () => unsubscribe();
   }, [auth]);
 
