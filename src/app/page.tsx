@@ -89,7 +89,8 @@ export default function Home() {
     }
   }, [user, isUserLoading, auth]);
 
-  // The query is only created when firestore and user.uid are available.
+  // CRITICAL: This query is memoized and will only be created when firestore and user.uid are available.
+  // If user.uid is null, the query will be null, and useCollection will not execute.
   const userOrderItemsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) {
       return null;
@@ -910,5 +911,3 @@ originalGroup = group;
     </>
   );
 }
-
-    
