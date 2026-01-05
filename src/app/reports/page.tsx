@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, deleteDoc, where, getDocs } from 'firebase/firestore';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useUser, useFirestore } from '@/firebase';
+import { collection, query, orderBy, doc, deleteDoc, getDocs } from 'firebase/firestore';
 import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart, Info, Settings, Users, PiggyBank } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart, Info, Settings, Users, PiggyBank, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -427,7 +427,6 @@ export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
-  const router = useRouter();
   
   const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
   const [bomboniereItems, setBomboniereItems] = useState<BomboniereItem[]>([]);
@@ -438,40 +437,40 @@ export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
-  useEffect(() => {
-    async function fetchData() {
-        if (!firestore || !user) {
-            setIsLoading(false);
-            return;
-        };
+  const fetchData = useCallback(async () => {
+    if (!firestore || !user) {
+        setIsLoading(false);
+        return;
+    };
 
-        setIsLoading(true);
+    setIsLoading(true);
 
-        try {
-            const reportsQuery = query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('reportDate', 'desc'));
-            const reportsSnapshot = await getDocs(reportsQuery);
-            const reportsData = reportsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DailyReport));
-            setSavedReports(reportsData);
-            
-            const bomboniereQuery = query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc'));
-            const bomboniereSnapshot = await getDocs(bomboniereQuery);
-            const bomboniereData = bomboniereSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BomboniereItem));
-            setBomboniereItems(bomboniereData);
+    try {
+        const reportsQuery = query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('reportDate', 'desc'));
+        const reportsSnapshot = await getDocs(reportsQuery);
+        const reportsData = reportsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DailyReport));
+        setSavedReports(reportsData);
+        
+        const bomboniereQuery = query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc'));
+        const bomboniereSnapshot = await getDocs(bomboniereQuery);
+        const bomboniereData = bomboniereSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BomboniereItem));
+        setBomboniereItems(bomboniereData);
 
-        } catch (error) {
-            console.error("Error fetching reports or bomboniere items:", error);
-            toast({
-                variant: "destructive",
-                title: "Erro ao carregar dados",
-                description: "Não foi possível carregar os relatórios ou itens da bomboniere.",
-            });
-        } finally {
-            setIsLoading(false);
-        }
+    } catch (error) {
+        console.error("Error fetching reports or bomboniere items:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro ao carregar dados",
+            description: "Não foi possível carregar os relatórios ou itens da bomboniere.",
+        });
+    } finally {
+        setIsLoading(false);
     }
-
-    fetchData();
   }, [firestore, user, toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   
   const filteredReportsForAggregation = useMemo(() => {
@@ -539,8 +538,13 @@ export default function ReportsPage() {
         return { day: '??', month: '???', dayOfWeek: 'Data inválida', fullDate: '??/??/????' }
     }
   };
+  
+  const handleRefresh = () => {
+      toast({title: "A atualizar dados...", duration: 2000});
+      fetchData();
+  }
 
-  if (isUserLoading || isLoading) {
+  if (isUserLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -605,10 +609,18 @@ export default function ReportsPage() {
                   </SelectContent>
               </Select>
             </div>
+            <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoading}>
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            </Button>
           </div>
         </header>
 
         <main className="space-y-8">
+            {isLoading ? (
+                <div className="flex h-64 items-center justify-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                </div>
+            ) : (
             <Tabs defaultValue="agregado" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="agregado">Relatório Agregado</TabsTrigger>
@@ -675,8 +687,10 @@ export default function ReportsPage() {
                     )}
                 </TabsContent>
             </Tabs>
+            )}
         </main>
       </div>
     </>
   );
 }
+

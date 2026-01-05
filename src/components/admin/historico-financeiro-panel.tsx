@@ -1,8 +1,9 @@
+
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useFirestore } from '@/firebase';
+import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, isWithinInterval, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -20,10 +21,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Search, CalendarDays, TrendingUp } from 'lucide-react';
+import { Loader2, Search, CalendarDays, TrendingUp, RefreshCw } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -249,6 +248,13 @@ const monthOptions = [
 
 export default function HistoricoFinanceiroPanel() {
     const firestore = useFirestore();
+    const { toast } = useToast();
+    
+    const [allContas, setAllContas] = useState<ContaAPagar[]>([]);
+    const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+    const [allEntradas, setAllEntradas] = useState<EntradaMercadoria[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
     const [searchQuery, setSearchQuery] = useState('');
     const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('month');
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -256,24 +262,32 @@ export default function HistoricoFinanceiroPanel() {
     const yearOptions = useMemo(() => generateYearOptions(), []);
 
 
-    const contasQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null,
-        [firestore]
-    );
+    const fetchData = useCallback(async () => {
+        if (!firestore) return;
+        setIsLoading(true);
+        try {
+            const contasQuery = query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc'));
+            const contasSnapshot = await getDocs(contasQuery);
+            setAllContas(contasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContaAPagar)));
 
-    const fornecedoresQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'fornecedores')) : null,
-        [firestore]
-    );
+            const fornecedoresQuery = query(collection(firestore, 'fornecedores'));
+            const fornecedoresSnapshot = await getDocs(fornecedoresQuery);
+            setFornecedores(fornecedoresSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Fornecedor)));
 
-    const allEntradasQuery = useMemoFirebase(
-        () => firestore ? query(collection(firestore, 'entradas_mercadorias'), orderBy('data', 'desc')) : null,
-        [firestore]
-    );
-
-    const { data: allContas, isLoading: isLoadingContas } = useCollection<ContaAPagar>(contasQuery);
-    const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
-    const { data: allEntradas, isLoading: isLoadingAllEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
+            const entradasQuery = query(collection(firestore, 'entradas_mercadorias'), orderBy('data', 'desc'));
+            const entradasSnapshot = await getDocs(entradasQuery);
+            setAllEntradas(entradasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntradaMercadoria)));
+        } catch (error) {
+            console.error("Error fetching financial history data:", error);
+            toast({ variant: 'destructive', title: 'Erro ao buscar dados', description: 'Não foi possível carregar o histórico financeiro.' });
+        } finally {
+            setIsLoading(false);
+        }
+    }, [firestore, toast]);
+    
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
 
     const fornecedorMap = useMemo(() => {
@@ -327,7 +341,11 @@ export default function HistoricoFinanceiroPanel() {
 
     }, [allContas, selectedYear, selectedMonth]);
     
-    const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingAllEntradas;
+    const handleRefresh = () => {
+        toast({ title: "A atualizar dados...", duration: 2000 });
+        fetchData();
+    };
+
 
     return (
         <div className="space-y-6">
@@ -339,7 +357,7 @@ export default function HistoricoFinanceiroPanel() {
                         <CalendarDays className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        {isLoadingContas ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{formatCurrency(expenseSummary.month)}</div>}
+                        {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{formatCurrency(expenseSummary.month)}</div>}
                          <p className="text-xs text-muted-foreground">
                            em {format(setMonth(new Date(), parseInt(selectedMonth)), 'MMMM', { locale: ptBR })} de {selectedYear}
                          </p>
@@ -351,57 +369,62 @@ export default function HistoricoFinanceiroPanel() {
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        {isLoadingContas ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{formatCurrency(expenseSummary.year)}</div>}
+                        {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{formatCurrency(expenseSummary.year)}</div>}
                          <p className="text-xs text-muted-foreground">no ano de {selectedYear}</p>
                     </CardContent>
                 </Card>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                    <div className='w-full space-y-1'>
-                    <Label htmlFor="report-period" className='text-xs'>Período do Relatório</Label>
-                    <Select value={reportPeriod} onValueChange={(v) => setReportPeriod(v as ReportPeriod)}>
-                        <SelectTrigger id="report-period">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="month">Mensal</SelectItem>
-                        <SelectItem value="year">Anual</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    </div>
-                </div>
-                <div className="flex gap-2 md:col-span-2">
-                {reportPeriod === 'month' && (
-                    <div className='w-full space-y-1'>
-                        <Label htmlFor="report-month" className='text-xs'>Mês</Label>
-                        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                            <SelectTrigger id="report-month">
+            <div className="flex justify-between items-end gap-4">
+                <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-1">
+                        <div className='w-full space-y-1'>
+                        <Label htmlFor="report-period" className='text-xs'>Período do Relatório</Label>
+                        <Select value={reportPeriod} onValueChange={(v) => setReportPeriod(v as ReportPeriod)}>
+                            <SelectTrigger id="report-period">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {monthOptions.map(opt => (
-                                <SelectItem key={opt.value} value={opt.value} disabled={opt.value === 'all'}>{opt.label}</SelectItem>
+                            <SelectItem value="month">Mensal</SelectItem>
+                            <SelectItem value="year">Anual</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        </div>
+                    </div>
+                    <div className="flex gap-2 md:col-span-2">
+                    {reportPeriod === 'month' && (
+                        <div className='w-full space-y-1'>
+                            <Label htmlFor="report-month" className='text-xs'>Mês</Label>
+                            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                                <SelectTrigger id="report-month">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {monthOptions.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value} disabled={opt.value === 'all'}>{opt.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                    <div className='w-full space-y-1'>
+                        <Label htmlFor="report-year" className='text-xs'>Ano</Label>
+                        <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
+                            <SelectTrigger id="report-year">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {yearOptions.map(year => (
+                                    <SelectItem key={year} value={String(year)}>{year}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
-                )}
-                <div className='w-full space-y-1'>
-                    <Label htmlFor="report-year" className='text-xs'>Ano</Label>
-                    <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
-                        <SelectTrigger id="report-year">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {yearOptions.map(year => (
-                                <SelectItem key={year} value={String(year)}>{year}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    </div>
                 </div>
-                </div>
+                 <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoading}>
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                </Button>
             </div>
 
             {isLoading ? (
@@ -440,7 +463,7 @@ export default function HistoricoFinanceiroPanel() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {isLoadingAllEntradas || isLoadingFornecedores ? (
+                                {isLoading ? (
                                     <TableRow>
                                         <TableCell colSpan={4} className="h-24 text-center">
                                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
@@ -476,3 +499,4 @@ export default function HistoricoFinanceiroPanel() {
         </div>
     );
 }
+
