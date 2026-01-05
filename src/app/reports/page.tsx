@@ -399,7 +399,7 @@ const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[],
 const generateYearOptions = () => {
     const currentYear = new Date().getFullYear();
     const years = [];
-    for (let i = currentYear; i >= currentYear - 5; i--) {
+    for (let i = currentYear + 5; i >= currentYear - 5; i--) {
         years.push(i);
     }
     return years;
