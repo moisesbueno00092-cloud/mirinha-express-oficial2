@@ -61,3 +61,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .day-have-report {
+    @apply bg-primary/20 text-primary-foreground font-bold;
+  }
+  .day-have-report:hover {
+    @apply bg-primary/30;
+  }
+}

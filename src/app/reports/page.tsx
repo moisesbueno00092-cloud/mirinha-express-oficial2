@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, where } from 'firebase/firestore';
-import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, setYear, setMonth } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -11,7 +11,7 @@ import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -30,6 +30,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar } from '@/components/ui/calendar';
 
 
 import {
@@ -42,7 +43,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
-import { MonthYearPicker } from '@/components/ui/month-year-picker';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -402,7 +402,7 @@ export default function ReportsPage() {
   const { toast } = useToast();
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const reportsQuery = useMemoFirebase(
     () => firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports')) : null,
@@ -419,14 +419,14 @@ export default function ReportsPage() {
   const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
 
   const filteredReports = useMemo(() => {
-    if (!savedReports || !selectedDate) return [];
+    if (!savedReports) return [];
 
-    const startDate = startOfMonth(selectedDate);
-    const endDate = endOfMonth(selectedDate);
+    const startDate = startOfMonth(currentMonth);
+    const endDate = endOfMonth(currentMonth);
   
     const filtered = savedReports.filter(r => {
       try {
-        const reportDate = parseISO(r.reportDate + 'T12:00:00Z');
+        const reportDate = parseISO(r.reportDate + 'T12:00:00');
         return isWithinInterval(reportDate, { start: startDate, end: endDate });
       } catch {
         return false;
@@ -435,8 +435,12 @@ export default function ReportsPage() {
 
     return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  }, [savedReports, selectedDate]);
-
+  }, [savedReports, currentMonth]);
+  
+  const daysWithReports = useMemo(() => {
+    if (!savedReports) return [];
+    return savedReports.map(r => parseISO(r.reportDate + 'T12:00:00'));
+  }, [savedReports]);
 
   const handleDeleteReportRequest = (reportId: string) => {
     setReportToDelete(reportId);
@@ -456,7 +460,7 @@ export default function ReportsPage() {
   
   const getFormattedDate = (dateString: string) => {
     try {
-        const date = parseISO(dateString + 'T12:00:00Z');
+        const date = parseISO(dateString + 'T12:00:00');
         return {
             day: format(date, "dd"),
             month: format(date, "MMM", { locale: ptBR }).toUpperCase(),
@@ -494,7 +498,7 @@ export default function ReportsPage() {
       </AlertDialog>
 
       <div className="container mx-auto max-w-5xl p-2 sm:p-4 lg:p-8">
-        <header className="mb-6 flex items-start justify-between">
+        <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" passHref>
               <Button variant="outline" size="icon">
@@ -506,86 +510,117 @@ export default function ReportsPage() {
               <p className="text-muted-foreground">Relatórios agregados e detalhamento por dia.</p>
             </div>
           </div>
-          <div className='flex items-end gap-2'>
-            <div className='w-48 space-y-1'>
-              <Label htmlFor="report-date" className="text-xs text-muted-foreground">Mês/Ano do Relatório</Label>
-              <MonthYearPicker date={selectedDate} setDate={setSelectedDate} />
-            </div>
-          </div>
         </header>
 
         <main className="space-y-8">
             {isLoading ? (
-                <div className="flex h-64 items-center justify-center">
+                <div className="flex h-96 items-center justify-center">
                     <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 </div>
             ) : (
-            <Tabs defaultValue="agregado" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="agregado">Relatório Agregado</TabsTrigger>
-                    <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="agregado">
-                     <AggregateReport reports={filteredReports} bomboniereItems={bomboniereItems || []} />
-                </TabsContent>
+            <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-8 items-start">
+              <div className="flex flex-col items-center">
+                 <Calendar
+                    mode="single"
+                    month={currentMonth}
+                    onMonthChange={setCurrentMonth}
+                    modifiers={{ haveReport: daysWithReports }}
+                    modifiersClassNames={{ haveReport: 'day-have-report' }}
+                    className="rounded-md border"
+                    classNames={{
+                      head_cell: "w-9 text-center",
+                      cell: "w-9 h-9",
+                    }}
+                    components={{
+                      Caption: ({...props}) => (
+                        <div className="flex justify-between items-center px-2 pt-1 relative">
+                          <h2 className="text-sm font-semibold capitalize">
+                            {format(props.displayMonth, 'MMMM yyyy', {locale: ptBR})}
+                          </h2>
+                          <div className="flex items-center">
+                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    }}
+                 />
+                 <p className="text-xs text-muted-foreground mt-2">Navegue entre os meses para ver os relatórios.</p>
+              </div>
 
-                <TabsContent value="diario" className="pt-4">
-                     <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
-                    {filteredReports && filteredReports.length > 0 && bomboniereItems ? (
-                      <Accordion type="single" collapsible className="w-full space-y-2">
-                        {filteredReports.map(report => {
-                          const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
-                          return (
-                              <AccordionItem value={report.id!} key={`${report.id}-${report.createdAt}`}>
-                                  <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
-                                      <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
-                                          <span className="text-2xl font-bold leading-none">{day}</span>
-                                          <span className="text-xs font-semibold uppercase">{month}</span>
-                                      </div>
+              <div className="space-y-4">
+                  <Tabs defaultValue="agregado" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="agregado">Relatório Agregado do Mês</TabsTrigger>
+                          <TabsTrigger value="diario">Histórico Diário do Mês</TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="agregado">
+                          <AggregateReport reports={filteredReports} bomboniereItems={bomboniereItems || []} />
+                      </TabsContent>
 
-                                      <div className="flex-grow">
-                                          <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
-                                          <p className="text-sm text-muted-foreground">{fullDate}</p>
-                                      </div>
+                      <TabsContent value="diario" className="pt-4">
+                          <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
+                          {filteredReports && filteredReports.length > 0 && bomboniereItems ? (
+                            <Accordion type="single" collapsible className="w-full space-y-2">
+                              {filteredReports.map(report => {
+                                const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
+                                return (
+                                    <AccordionItem value={report.id!} key={`${report.id}-${report.createdAt}`}>
+                                        <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
+                                            <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
+                                                <span className="text-2xl font-bold leading-none">{day}</span>
+                                                <span className="text-xs font-semibold uppercase">{month}</span>
+                                            </div>
 
-                                      <div className="text-right mr-4">
-                                          <p className="text-xs text-muted-foreground">Total do Dia</p>
-                                          <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
-                                      </div>
+                                            <div className="flex-grow">
+                                                <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
+                                                <p className="text-sm text-muted-foreground">{fullDate}</p>
+                                            </div>
 
-                                      <AccordionTrigger>
-                                          <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
-                                      </AccordionTrigger>
+                                            <div className="text-right mr-4">
+                                                <p className="text-xs text-muted-foreground">Total do Dia</p>
+                                                <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
+                                            </div>
 
-                                      <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                                          onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleDeleteReportRequest(report.id!);
-                                          }}
-                                          >
-                                          <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                  </div>
-                                  <AccordionContent className="p-2 pt-2">
-                                      <ReportDetail report={report} bomboniereItems={bomboniereItems} />
-                                  </AccordionContent>
-                              </AccordionItem>
-                          )
-                        })}
-                      </Accordion>
-                    ) : (
-                      <Card>
-                        <CardContent className="p-10 text-center text-muted-foreground">
-                          <p>Nenhum relatório salvo encontrado para o período selecionado.</p>
-                        </CardContent>
-                      </Card>
-                    )}
-                </TabsContent>
-            </Tabs>
+                                            <AccordionTrigger>
+                                                <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
+                                            </AccordionTrigger>
+
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteReportRequest(report.id!);
+                                                }}
+                                                >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                        <AccordionContent className="p-2 pt-2">
+                                            <ReportDetail report={report} bomboniereItems={bomboniereItems} />
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                )
+                              })}
+                            </Accordion>
+                          ) : (
+                            <Card>
+                              <CardContent className="p-10 text-center text-muted-foreground">
+                                <p>Nenhum relatório salvo encontrado para o período selecionado.</p>
+                              </CardContent>
+                            </Card>
+                          )}
+                      </TabsContent>
+                  </Tabs>
+              </div>
+            </div>
             )}
         </main>
       </div>
