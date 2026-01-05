@@ -757,7 +757,6 @@ export default function Home() {
     }
   }, [user, isUserLoading, auth]);
 
-  // The definitive fix: Do not render the page content until the user is authenticated.
   if (isUserLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -766,6 +765,7 @@ export default function Home() {
     );
   }
 
-  // Once the user is authenticated, render the actual page content.
   return <LancheTrackerPage />;
 }
+
+    
