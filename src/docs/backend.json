@@ -207,13 +207,13 @@
         }
       },
       {
-        "path": "/order_items/{orderItemId}",
+        "path": "/users/{userId}/order_items/{orderItemId}",
         "definition": {
           "entityName": "OrderItem",
           "schema": {
             "$ref": "#/backend/entities/OrderItem"
           },
-          "description": "Collection of all order items across all users."
+          "description": "Collection of order items for a specific user."
         }
       },
       {
@@ -287,3 +287,5 @@
     ]
   }
 }
+
+    

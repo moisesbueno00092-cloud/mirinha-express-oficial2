@@ -80,7 +80,7 @@ function LancheTrackerPage({ user }: { user: User }) {
   const userOrderItemsQuery = useMemoFirebase(
     () => {
       if (firestore && user?.uid) {
-        return query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc'));
+        return query(collection(firestore, 'users', user.uid, 'order_items'), orderBy('timestamp', 'desc'));
       }
       return null; 
     },
@@ -329,7 +329,7 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
 
-        const orderItemsCollectionRef = collection(firestore, "order_items");
+        const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
         
         if (currentItem?.id) {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
@@ -392,8 +392,9 @@ function LancheTrackerPage({ user }: { user: User }) {
   };
 
   const confirmDeleteItem = async () => {
-    if (!firestore || !itemToDelete) return;
-    await deleteDocumentNonBlocking(doc(firestore, "order_items", itemToDelete));
+    if (!firestore || !user?.uid || !itemToDelete) return;
+    const docRef = doc(firestore, 'users', user.uid, 'order_items', itemToDelete);
+    await deleteDocumentNonBlocking(docRef);
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
   };
@@ -464,8 +465,9 @@ function LancheTrackerPage({ user }: { user: User }) {
       const reportRef = doc(collection(firestore, 'daily_reports'));
       batch.set(reportRef, report);
 
+      const userOrderItemsRef = collection(firestore, 'users', user.uid, 'order_items');
       todaysItems.forEach(item => {
-        const itemRef = doc(firestore, 'order_items', item.id);
+        const itemRef = doc(userOrderItemsRef, item.id);
         batch.delete(itemRef);
       });
 

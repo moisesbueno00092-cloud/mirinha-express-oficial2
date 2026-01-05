@@ -6,10 +6,13 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  collection,
   CollectionReference,
   DocumentReference,
   SetOptions,
   DocumentData,
+  WriteBatch,
+  writeBatch
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import {FirestorePermissionError} from '@/firebase/errors';
@@ -87,3 +90,29 @@ export function deleteDocumentNonBlocking(docRef: DocumentReference) {
       )
     });
 }
+
+/**
+ * Executes a batch write operation.
+ * It will await the commit and handle errors.
+ */
+export async function commitBatch(batch: WriteBatch) {
+    try {
+        await batch.commit();
+    } catch (error) {
+        // Since a batch can have multiple operations, we can't create a single
+        // perfect contextual error. We'll emit a generic one.
+        // A more advanced implementation could inspect the batch's operations.
+        console.error("Batch commit failed:", error);
+        errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: 'batch operation',
+                operation: 'write',
+            })
+        );
+        // Re-throw the original error to allow the caller to handle it
+        throw error;
+    }
+}
+
+    
