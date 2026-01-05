@@ -3,15 +3,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Regra específica e segura para a subcoleção de pedidos do usuário
-    match /users/{userId}/order_items/{orderItemId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    match /users/{userId} {
+      // Permite que o utilizador aceda ao seu próprio documento de perfil.
+      allow read, write: if request.auth.uid == userId;
+
+      // Permite que o utilizador leia e escreva na sua própria subcoleção de pedidos.
+      // A permissão 'read' aqui inclui 'get' e 'list'.
+      match /order_items/{orderItemId} {
+        allow read, write: if request.auth.uid == userId;
+      }
     }
 
     // Regras explícitas para as outras coleções, permitindo acesso a qualquer usuário autenticado
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
     match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
     }
