@@ -15,6 +15,9 @@ service cloud.firestore {
       
       // Order items are now in a subcollection under the user
       match /order_items/{orderItemId} {
+        // Allow list queries (reading the collection) if the user is the owner.
+        allow list: if isOwner(userId);
+        // Allow direct document reads and writes if the user is the owner.
         allow read, write: if isOwner(userId);
       }
     }
@@ -56,5 +59,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
