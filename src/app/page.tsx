@@ -41,7 +41,7 @@ import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInAnonymously } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -84,17 +84,10 @@ export default function Home() {
     const ensureUser = async () => {
       if (!isUserLoading && !user && auth) {
         try {
-          await signInWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
-        } catch (error: any) {
-          if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-            try {
-              await createUserWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
-            } catch (creationError) {
-              console.error("Failed to create shared user:", creationError);
-            }
-          } else {
-            console.error("Failed to sign in shared user:", error);
-          }
+          // Use anonymous sign-in for simplicity and reliability
+          await signInAnonymously(auth);
+        } catch (error) {
+          console.error("Failed to sign in anonymously:", error);
         }
       }
     };
