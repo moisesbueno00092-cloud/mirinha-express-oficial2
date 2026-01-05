@@ -746,9 +746,10 @@ export default function Home() {
 
   if (isUserLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
+        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="sr-only">A carregar...</p>
+        <p className="mt-4 text-muted-foreground">A aguardar autenticação...</p>
       </div>
     );
   }
@@ -757,8 +758,7 @@ export default function Home() {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
             <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-muted-foreground">A aguardar autenticação...</p>
+            <p className="mt-4 text-muted-foreground">Falha na autenticação. Por favor, tente novamente.</p>
             <p className="mt-2 text-xs text-destructive">Se esta mensagem persistir, verifique a sua conexão ou as configurações do Firebase.</p>
         </div>
     );
@@ -766,3 +766,5 @@ export default function Home() {
 
   return <LancheTrackerPage user={user} />;
 }
+
+    
