@@ -748,7 +748,7 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
 
   useEffect(() => {
-    if (auth && !isUserLoading && !user) {
+    if (auth && !user && !isUserLoading) {
       signInAnonymously(auth).catch((error) => {
         console.error("Anonymous sign-in failed:", error);
       });
@@ -765,3 +765,5 @@ export default function Home() {
 
   return <LancheTrackerPage />;
 }
+
+    
