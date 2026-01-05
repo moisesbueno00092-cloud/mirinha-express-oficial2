@@ -87,6 +87,7 @@ export default function Home() {
 
   // Firestore Queries
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
+  
   const userOrderItemsQuery = useMemoFirebase(
     () => (firestore && user?.uid ? query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc')) : null),
     [firestore, user?.uid]
@@ -772,3 +773,5 @@ export default function Home() {
     </>
   );
 }
+
+    
