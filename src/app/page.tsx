@@ -102,11 +102,12 @@ export default function Home() {
   }, [user, isUserLoading, auth]);
 
   const userOrderItemsQuery = useMemoFirebase(() => {
+    // CRITICAL: Ensure both firestore and user.uid are available before creating the query.
     if (!firestore || !user?.uid) {
       return null;
     }
     return query(
-      collection(firestore, "order_items"), 
+      collection(firestore, "order_items"),
       where("userId", "==", user.uid)
     );
   }, [firestore, user?.uid]);
@@ -919,6 +920,3 @@ originalGroup = group;
     </>
   );
 }
-
-
-    
