@@ -755,6 +755,9 @@ export default function Home() {
     }
   }, [user, isUserLoading, auth]);
 
+  // This is the definitive fix. We will not render the main page content
+  // until the user object is available, thus preventing any data fetching
+  // before authentication is complete.
   if (isUserLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -763,5 +766,6 @@ export default function Home() {
     );
   }
 
+  // Once the user is confirmed, render the main page.
   return <LancheTrackerPage />;
 }
