@@ -126,14 +126,16 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
 
       for (const item of items) {
           const { name, price, estoque } = item;
-          if (!name.trim() || String(price).trim() === '' || String(estoque).trim() === '') {
-              toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item "${name || 'novo'}" tem campos em branco.`});
+          // Estoque pode ser vazio (será tratado como 0), mas nome e preço são obrigatórios.
+          if (!name.trim() || String(price).trim() === '') {
+              toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item "${name || 'novo'}" tem campos obrigatórios em branco.`});
               hasError = true;
               break;
           }
 
           const finalPrice = parseFloat(String(price).replace(',', '.'));
-          const finalStock = parseInt(String(estoque), 10);
+          // Trata estoque vazio como 0
+          const finalStock = String(estoque).trim() === '' ? 0 : parseInt(String(estoque), 10);
           
           if(isNaN(finalPrice) || isNaN(finalStock)) {
              toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item "${name}" tem valores inválidos para preço ou estoque.`});
