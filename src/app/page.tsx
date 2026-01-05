@@ -41,9 +41,10 @@ import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
 import { signInAnonymously } from "firebase/auth";
-import { format } from "date-fns";
+import { format, isToday, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
+import ItemList from "@/components/item-list";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -84,10 +85,17 @@ export default function Home() {
     }
   }, [user, isUserLoading, auth]);
 
+  // Firestore Queries
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
+  const userOrderItemsQuery = useMemoFirebase(
+    () => (firestore && user?.uid ? query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc')) : null),
+    [firestore, user?.uid]
+  );
   
+  // Data hooks
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
-  
+  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(userOrderItemsQuery);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
@@ -98,6 +106,8 @@ export default function Home() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordAction, setPasswordAction] = useState<'reports' | 'stock' | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [itemToEdit, setItemToEdit] = useState<Item | null>(null);
 
   const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
   
@@ -153,7 +163,7 @@ export default function Home() {
             mainInput = mainInput.substring(3).trim();
         } else if (upperCaseProcessedInput.startsWith("F ")) {
             group = 'Fiados salão';
-originalGroup = group;
+            originalGroup = group;
             mainInput = mainInput.substring(2).trim();
         }
         
@@ -327,11 +337,20 @@ originalGroup = group;
 
         const orderItemsCollectionRef = collection(firestore, "order_items");
         
-        const docRef = await addDoc(orderItemsCollectionRef, finalItem);
-        toast({
-            duration: 4000,
-            component: <ToastContent item={{...finalItem, id: docRef.id, timestamp: new Date().toISOString() }} title="Lançamento Adicionado" />,
-        });
+        if (currentItem?.id) {
+            const docRef = doc(orderItemsCollectionRef, currentItem.id);
+            await setDocumentNonBlocking(docRef, finalItem);
+            toast({
+                duration: 4000,
+                component: <ToastContent item={{...finalItem, id: docRef.id, timestamp: new Date().toISOString() }} title="Lançamento Atualizado" />,
+            });
+        } else {
+            const docRef = await addDoc(orderItemsCollectionRef, finalItem);
+            toast({
+                duration: 4000,
+                component: <ToastContent item={{...finalItem, id: docRef.id, timestamp: new Date().toISOString() }} title="Lançamento Adicionado" />,
+            });
+        }
         
     } catch (error) {
         console.error("Error upserting item:", error);
@@ -343,6 +362,7 @@ originalGroup = group;
     } finally {
         setIsProcessing(false);
         setRawInput("");
+        setItemToEdit(null);
         setTimeout(() => {
           inputRef.current?.focus();
         }, 0);
@@ -370,12 +390,43 @@ originalGroup = group;
   const handleItemFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rawInput.trim()) return;
-    await handleUpsertItem(rawInput);
+    await handleUpsertItem(rawInput, itemToEdit);
   };
   
+  const handleDeleteRequest = (id: string) => {
+    setItemToDelete(id);
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!firestore || !itemToDelete) return;
+    await deleteDocumentNonBlocking(doc(firestore, "order_items", itemToDelete));
+    toast({ title: "Item removido com sucesso.", variant: "destructive" });
+    setItemToDelete(null);
+  };
+  
+  const handleEditRequest = (item: Item) => {
+    setItemToEdit(item);
+    setRawInput(item.originalCommand || "");
+    inputRef.current?.focus();
+  };
+
   const handleFavoriteSelect = (favorite: SavedFavorite) => {
     handleUpsertItem(favorite.command, null, favorite.name);
   }
+  
+  const handleFavoriteSave = (item: Item) => {
+    if (!item.originalCommand) return;
+    const name = prompt("Insira um nome para este favorito:", item.customerName || "");
+    if (name) {
+      const newFavorite: SavedFavorite = {
+        id: String(Date.now()),
+        name,
+        command: item.originalCommand,
+      };
+      setSavedFavorites(prev => [...prev, newFavorite]);
+      toast({ title: 'Favorito guardado!', description: `O pedido de "${name}" foi guardado.` });
+    }
+  };
 
   const handleFavoriteDelete = (id: string) => {
     setSavedFavorites(prev => prev.filter(f => f.id !== id));
@@ -383,12 +434,64 @@ originalGroup = group;
   }
 
   const handleSaveReport = async () => {
-    if (!user || !firestore) {
-      toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há utilizador ou base de dados.' });
+    if (!user || !firestore || !todaysItems || todaysItems.length === 0) {
+      toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há itens para gerar o relatório.' });
       return;
     }
-    
-    toast({ variant: 'destructive', title: 'Funcionalidade Desativada', description: 'Não é possível salvar relatórios sem a lista de itens do dia.' });
+    setIsSavingReport(true);
+  
+    try {
+      const batch = writeBatch(firestore);
+      const reportDate = format(new Date(), 'yyyy-MM-dd');
+      
+      const report: DailyReport = {
+        userId: user.uid,
+        reportDate: reportDate,
+        createdAt: new Date().toISOString(),
+        totalGeral: totals.totalGeral,
+        totalAVista: totals.totalAVista,
+        totalFiado: totals.totalFiado,
+        totalVendasSalao: totals.totalVendasSalao,
+        totalVendasRua: totals.totalVendasRua,
+        totalFiadoSalao: totals.totalFiadoSalao,
+        totalFiadoRua: totals.totalFiadoRua,
+        totalKg: totals.totalKg,
+        totalTaxas: totals.totalTaxas,
+        totalBomboniereSalao: totals.totalBomboniereSalao,
+        totalBomboniereRua: totals.totalBomboniereRua,
+        totalItens: totals.totalItens,
+        totalPedidos: todaysItems.length,
+        totalEntregas: totals.totalEntregas,
+        totalItensRua: totals.totalItensRua,
+        contagemTotal: totals.contagemTotal,
+        contagemRua: totals.contagemRua
+      };
+      
+      const reportRef = doc(collection(firestore, 'daily_reports'));
+      batch.set(reportRef, report);
+
+      todaysItems.forEach(item => {
+        const itemRef = doc(firestore, 'order_items', item.id);
+        batch.delete(itemRef);
+      });
+
+      await batch.commit();
+
+      toast({
+        title: 'Relatório Salvo!',
+        description: 'O relatório do dia foi salvo e os lançamentos foram arquivados.',
+      });
+
+    } catch (error) {
+      console.error('Error saving report:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao Salvar',
+        description: 'Não foi possível salvar o relatório.',
+      });
+    } finally {
+      setIsSavingReport(false);
+    }
   };
 
   const handleOpenPasswordModal = (action: 'reports' | 'stock') => {
@@ -413,7 +516,101 @@ originalGroup = group;
         })
     }
   }
+
+  const todaysItems = useMemo(() => {
+    if (!items) return [];
+    return items.filter(item => {
+      try {
+        const itemDate = parseISO(item.timestamp);
+        return isToday(itemDate);
+      } catch (e) {
+        // Handle cases where timestamp might be a Firebase Timestamp object
+        if ((item.timestamp as any)?.toDate) {
+            return isToday((item.timestamp as any).toDate());
+        }
+        return false;
+      }
+    });
+  }, [items]);
   
+  const totals = useMemo(() => {
+    if (!todaysItems || todaysItems.length === 0) {
+      return {
+        totalGeral: 0,
+        totalAVista: 0,
+        totalFiado: 0,
+        totalVendasSalao: 0,
+        totalVendasRua: 0,
+        totalFiadoSalao: 0,
+        totalFiadoRua: 0,
+        totalKg: 0,
+        totalTaxas: 0,
+        totalEntregas: 0,
+        totalItens: 0,
+        totalItensRua: 0,
+        totalBomboniereSalao: 0,
+        totalBomboniereRua: 0,
+        contagemTotal: {},
+        contagemRua: {},
+      };
+    }
+  
+    const result = todaysItems.reduce((acc, item) => {
+      acc.totalGeral += item.total;
+      acc.totalItens += item.quantity;
+      acc.totalTaxas += item.deliveryFee;
+      
+      const itemIsRua = item.group === 'Vendas rua' || item.group === 'Fiados rua';
+      if (itemIsRua) {
+        acc.totalEntregas++;
+        acc.totalItensRua += item.quantity;
+      }
+      
+      if(item.group === 'Fiados salão' || item.group === 'Fiados rua') {
+        acc.totalFiado += item.total;
+      } else {
+        acc.totalAVista += item.total;
+      }
+  
+      switch (item.group) {
+        case 'Vendas salão': acc.totalVendasSalao += item.total; break;
+        case 'Vendas rua': acc.totalVendasRua += item.total; break;
+        case 'Fiados salão': acc.totalFiadoSalao += item.total; break;
+        case 'Fiados rua': acc.totalFiadoRua += item.total; break;
+      }
+  
+      const itemsToCount = [
+        ...(item.predefinedItems?.map(i => ({...i, count: 1})) || []),
+        ...(item.bomboniereItems?.map(i => ({ name: i.name, count: i.quantity })) || []),
+        ...(item.individualPrices?.map(() => ({ name: 'KG', count: 1 })) || []),
+      ];
+      
+      itemsToCount.forEach(({ name, count }) => {
+        acc.contagemTotal[name] = (acc.contagemTotal[name] || 0) + count;
+        if (itemIsRua) {
+          acc.contagemRua[name] = (acc.contagemRua[name] || 0) + count;
+        }
+      });
+      
+      const bomboniereTotal = item.bomboniereItems?.reduce((sum, bi) => sum + bi.price * bi.quantity, 0) || 0;
+      if (itemIsRua) {
+        acc.totalBomboniereRua += bomboniereTotal;
+      } else {
+        acc.totalBomboniereSalao += bomboniereTotal;
+      }
+      
+      return acc;
+    }, {
+      totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0,
+      totalVendasRua: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0,
+      totalBomboniereSalao: 0, totalBomboniereRua: 0, totalItens: 0,
+      totalPedidos: todaysItems.length, totalEntregas: 0, totalItensRua: 0,
+      contagemTotal: {} as ItemCount, contagemRua: {} as ItemCount,
+    });
+  
+    return result;
+  }, [todaysItems]);
+
   if (isUserLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -470,6 +667,21 @@ originalGroup = group;
         </DialogContent>
       </Dialog>
       
+      <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Lançamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O item será excluído permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteItem}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="mb-6 flex items-center justify-between">
             <div className="flex flex-col items-center justify-center text-center flex-grow">
@@ -499,10 +711,14 @@ originalGroup = group;
               <CardTitle>Lançamentos do Dia</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center text-muted-foreground py-10">
-                <p>A listagem de itens foi desativada para garantir a estabilidade da aplicação.</p>
-                <p className="text-xs mt-2">Pode continuar a adicionar novos itens normalmente.</p>
-              </div>
+              <ItemList
+                items={todaysItems}
+                onEdit={handleEditRequest}
+                onDelete={handleDeleteRequest}
+                onFavorite={handleFavoriteSave}
+                savedFavorites={savedFavorites}
+                isLoading={isLoadingItems}
+              />
             </CardContent>
           </Card>
         </main>
@@ -510,7 +726,7 @@ originalGroup = group;
         <div className="mt-8 mb-24 grid grid-cols-2 md:grid-cols-3 gap-2">
             <Button 
                 onClick={handleSaveReport}
-                disabled={true}
+                disabled={isSavingReport || !todaysItems || todaysItems.length === 0}
                 className="w-full"
             >
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -536,20 +752,20 @@ originalGroup = group;
           <div className="flex flex-col items-center justify-center">
              <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">À Vista:</span>
-                <span className="font-bold text-green-500">{formatCurrency(0)}</span>
+                <span className="font-bold text-green-500">{formatCurrency(totals.totalAVista)}</span>
              </div>
              <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">Fiado:</span>
-                <span className="font-bold text-destructive">{formatCurrency(0)}</span>
+                <span className="font-bold text-destructive">{formatCurrency(totals.totalFiado)}</span>
              </div>
           </div>
           <div className="flex flex-col items-center justify-center border-l border-r border-border/50 h-full">
             <span className="text-muted-foreground">Entregas</span>
-            <span className="font-bold text-foreground">0 ({formatCurrency(0)})</span>
+            <span className="font-bold text-foreground">{totals.totalEntregas} ({formatCurrency(totals.totalTaxas)})</span>
           </div>
           <div className="flex flex-col items-center justify-center rounded-lg bg-primary/10 p-1">
             <span className="text-xs font-semibold uppercase tracking-wider text-primary/80">Total</span>
-            <span className="text-base font-bold text-primary">{formatCurrency(0)}</span>
+            <span className="text-base font-bold text-primary">{formatCurrency(totals.totalGeral)}</span>
           </div>
         </div>
       </footer>
