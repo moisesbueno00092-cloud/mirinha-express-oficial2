@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -8,29 +9,29 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
-    // Users can manage their own profile and their own subcollections
+    // Rule for the 'users' collection and its subcollections
     match /users/{userId} {
+      // Users can only manage their own profile document
       allow read, write: if isOwner(userId);
       
-      // Order items are now in a subcollection under the user.
-      // `allow read` covers both `get` and `list` operations.
+      // Users can manage the 'order_items' subcollection within their own document
       match /order_items/{orderItemId} {
         allow read, write: if isOwner(userId);
       }
     }
     
-    // Bomboniere items are public/shared
+    // bomboniere_items are public for any authenticated user
     match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
     }
 
-    // Daily reports can be managed by the owner
+    // daily_reports can be read/written by their owner
     match /daily_reports/{reportId} {
        allow read, write: if request.auth != null && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
        allow list: if request.auth != null;
     }
     
-    // Admin-related collections
+    // All other admin-related collections are accessible to any authenticated user
     match /fornecedores/{fornecedorId} {
       allow read, write: if request.auth != null;
     }
