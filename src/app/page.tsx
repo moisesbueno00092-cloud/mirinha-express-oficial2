@@ -77,10 +77,18 @@ function LancheTrackerPage({ user }: { user: User }) {
 
   // Manage items in local state
   const [items, setItems] = useState<Item[]>([]);
-  const [isLoadingItems, setIsLoadingItems] = useState(true);
+  const [isLoadingItems, setIsLoadingItems] = useState(false); // No longer fetching on load
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
-  const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
+  const { data: bomboniereItemsFromDB, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
+  
+  const bomboniereItems = useMemo(() => {
+    if (!isLoadingBomboniere && bomboniereItemsFromDB && bomboniereItemsFromDB.length > 0) {
+      return bomboniereItemsFromDB;
+    }
+    return BOMBONIERE_ITEMS_DEFAULT;
+  }, [bomboniereItemsFromDB, isLoadingBomboniere]);
+
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
@@ -98,47 +106,6 @@ function LancheTrackerPage({ user }: { user: User }) {
   const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
   
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Fetch initial data on load
-    const fetchInitialItems = async () => {
-      if (firestore && user?.uid) {
-        setIsLoadingItems(true);
-        try {
-          const userOrderItemsQuery = query(collection(firestore, 'users', user.uid, 'order_items'), orderBy('timestamp', 'desc'));
-          const snapshot = await getDocs(userOrderItemsQuery);
-          const fetchedItems: Item[] = [];
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            // Convert Firestore Timestamp to ISO string if necessary
-            const timestamp = data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : new Date().toISOString();
-            fetchedItems.push({ ...(data as Omit<Item, 'id' | 'timestamp'>), id: doc.id, timestamp });
-          });
-          setItems(fetchedItems);
-        } catch (error) {
-          console.error("Error fetching initial items:", error);
-          toast({ variant: "destructive", title: "Erro ao Carregar", description: "Não foi possível carregar os lançamentos existentes." });
-        } finally {
-          setIsLoadingItems(false);
-        }
-      } else {
-        setIsLoadingItems(false);
-      }
-    };
-    fetchInitialItems();
-  }, [firestore, user?.uid]);
-
-
-  useEffect(() => {
-    if (firestore && !isLoadingBomboniere && bomboniereItems && bomboniereItems.length === 0) {
-      const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
-      BOMBONIERE_ITEMS_DEFAULT.forEach(item => {
-        const { id, ...itemData } = item;
-        const docRef = doc(bomboniereCollectionRef, id);
-        setDocumentNonBlocking(docRef, itemData, { merge: true });
-      });
-    }
-  }, [firestore, bomboniereItems, isLoadingBomboniere]);
 
   const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
     setIsProcessing(true);
