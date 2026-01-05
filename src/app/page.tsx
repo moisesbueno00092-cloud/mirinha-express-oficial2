@@ -772,5 +772,3 @@ export default function Home() {
     </>
   );
 }
-
-    
