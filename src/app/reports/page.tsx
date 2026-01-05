@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, deleteDoc, where } from 'firebase/firestore';
+import { useState, useMemo, useEffect } from 'react';
+import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, doc, deleteDoc, where, getDocs } from 'firebase/firestore';
 import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
@@ -429,16 +429,50 @@ export default function ReportsPage() {
   const { toast } = useToast();
   const router = useRouter();
   
+  const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
+  const [bomboniereItems, setBomboniereItems] = useState<BomboniereItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
-  const dailyReportsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('reportDate', 'desc')) : null), [firestore, user]);
-  const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
+  useEffect(() => {
+    async function fetchData() {
+        if (!firestore || !user) {
+            setIsLoading(false);
+            return;
+        };
 
-  const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(dailyReportsRef);
-  const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
+        setIsLoading(true);
+
+        try {
+            const reportsQuery = query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('reportDate', 'desc'));
+            const reportsSnapshot = await getDocs(reportsQuery);
+            const reportsData = reportsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DailyReport));
+            setSavedReports(reportsData);
+            
+            const bomboniereQuery = query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc'));
+            const bomboniereSnapshot = await getDocs(bomboniereQuery);
+            const bomboniereData = bomboniereSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BomboniereItem));
+            setBomboniereItems(bomboniereData);
+
+        } catch (error) {
+            console.error("Error fetching reports or bomboniere items:", error);
+            toast({
+                variant: "destructive",
+                title: "Erro ao carregar dados",
+                description: "Não foi possível carregar os relatórios ou itens da bomboniere.",
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    fetchData();
+  }, [firestore, user, toast]);
+
   
   const filteredReportsForAggregation = useMemo(() => {
     if (!savedReports) return [];
@@ -475,6 +509,7 @@ export default function ReportsPage() {
     if (!firestore || !user || !reportToDelete) return;
     try {
       await deleteDoc(doc(firestore, "users", user.uid, "daily_reports", reportToDelete));
+      setSavedReports(prev => prev.filter(r => r.id !== reportToDelete));
       toast({
         title: "Sucesso",
         description: "Relatório excluído permanentemente.",
@@ -505,7 +540,7 @@ export default function ReportsPage() {
     }
   };
 
-  if (isUserLoading || isLoadingReports || isLoadingBomboniere) {
+  if (isUserLoading || isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -591,7 +626,7 @@ export default function ReportsPage() {
                         {savedReports.map(report => {
                           const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
                           return (
-                              <AccordionItem value={report.id} key={report.id} className="border-b-0">
+                              <AccordionItem value={report.id!} key={report.id!} className="border-b-0">
                                   <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
                                       <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
                                           <span className="text-2xl font-bold leading-none">{day}</span>
@@ -618,7 +653,7 @@ export default function ReportsPage() {
                                           className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
                                           onClick={(e) => {
                                               e.stopPropagation();
-                                              handleDeleteReportRequest(report.id);
+                                              handleDeleteReportRequest(report.id!);
                                           }}
                                           >
                                           <Trash2 className="h-4 w-4" />
