@@ -2,29 +2,8 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Regra específica para usuários acessarem seus próprios dados e subcoleções
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Regras explícitas para as outras coleções, permitindo acesso a qualquer usuário autenticado
-    match /bomboniere_items/{itemId} {
+    match /{document=**} {
       allow read, write: if request.auth != null;
     }
-    match /fornecedores/{fornecedorId} {
-      allow read, write: if request.auth != null;
-    }
-    match /contas_a_pagar/{contaId} {
-      allow read, write: if request.auth != null;
-    }
-    match /entradas_mercadorias/{entradaId} {
-      allow read, write: if request.auth != null;
-    }
-    match /funcionarios/{funcionarioId}/{document=**} {
-        allow read, write: if request.auth != null;
-    }
-    
-    // A regra de daily_reports foi removida pois agora é uma subcoleção de /users
   }
 }
