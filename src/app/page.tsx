@@ -114,7 +114,7 @@ export default function Home() {
         where("timestamp", ">=", Timestamp.fromDate(start)),
         where("timestamp", "<=", Timestamp.fromDate(end))
     );
-  }, [firestore, user]);
+  }, [firestore, user?.uid]);
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
