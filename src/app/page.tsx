@@ -582,7 +582,7 @@ function LancheTrackerPage() {
       totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0,
       totalVendasRua: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0,
       totalBomboniereSalao: 0, totalBomboniereRua: 0, totalItens: 0,
-      totalPedidos: todaysItems.length, totalEntregas: 0, totalItensRua: 0,
+      totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
       contagemTotal: {} as ItemCount, contagemRua: {} as ItemCount,
     });
   
