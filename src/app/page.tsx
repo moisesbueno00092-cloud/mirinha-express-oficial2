@@ -315,7 +315,7 @@ function LancheTrackerPage({ user }: { user: User }) {
         const localTimestamp = new Date().toISOString();
 
         const finalItemForState: Item = {
-            id: currentItem?.id || `local_${Date.now()}`, // Use temporary local ID
+            id: currentItem?.id || `local_${Date.now() + Math.random()}`, // Use temporary local ID
             userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
@@ -491,7 +491,6 @@ function LancheTrackerPage({ user }: { user: User }) {
 
       const userOrderItemsRef = collection(firestore, 'users', user.uid, 'order_items');
       
-      // Persist local items to Firestore before deleting
       for (const item of todaysItems) {
         if (item.id.startsWith('local_')) {
           const { id, ...itemData } = item;
@@ -499,7 +498,7 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...itemData,
             timestamp: serverTimestamp(),
           };
-          addDocumentNonBlocking(userOrderItemsRef, finalItemForFirestore).catch(error => {
+          addDoc(userOrderItemsRef, finalItemForFirestore).catch(error => {
               errorEmitter.emit(
                   'permission-error',
                   new FirestorePermissionError({
