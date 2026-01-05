@@ -655,5 +655,3 @@ export default function ReportsPage() {
     </>
   );
 }
-
-    
