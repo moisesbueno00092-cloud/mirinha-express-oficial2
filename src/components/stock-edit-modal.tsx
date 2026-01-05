@@ -23,6 +23,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
+import usePersistentState from '@/hooks/use-persistent-state';
+
 
 interface StockEditModalProps {
   isOpen: boolean;
@@ -30,7 +32,7 @@ interface StockEditModalProps {
   bomboniereItems: BomboniereItem[];
 }
 
-type EditableItem = Omit<BomboniereItem, 'id'> & { id?: string; estoque: string | number };
+type EditableItem = Omit<BomboniereItem, 'id' | 'estoque'> & { id?: string; estoque: string | number; price: string | number; };
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -43,18 +45,24 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [items, setItems] = useState<EditableItem[]>([]);
+  const [items, setItems] = usePersistentState<EditableItem[]>('bomboniere-stock-draft', []);
   const [isProcessing, setIsProcessing] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<EditableItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isInitialized, setIsInitialized] = useState(false);
+
 
   useEffect(() => {
     if (isOpen) {
-      const sortedItems = [...initialItems].sort((a,b) => a.name.localeCompare(b.name));
-      setItems(sortedItems.map(item => ({...item, estoque: item.estoque ?? 0})));
+      if (!isInitialized || items.length === 0) {
+          const sortedItems = [...initialItems].sort((a,b) => a.name.localeCompare(b.name));
+          setItems(sortedItems.map(item => ({...item, price: item.price ?? '', estoque: item.estoque ?? 0})));
+          setIsInitialized(true);
+      }
       setSearchTerm("");
     }
-  }, [isOpen, initialItems]);
+  }, [isOpen, initialItems, isInitialized, items.length, setItems]);
+
 
   const filteredItems = useMemo(() => {
     if (!searchTerm) return items.map((_, index) => index);
@@ -73,10 +81,8 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
     const item = newItems[index];
 
     if (field === 'price' || field === 'estoque') {
-        const numericValue = value.replace(',', '.');
-        if (!isNaN(parseFloat(numericValue)) || numericValue === '') {
-            (item[field] as any) = numericValue;
-        }
+        const numericValue = value.replace(/[^0-9,]/g, '');
+        (item[field] as any) = numericValue;
     } else {
         (item[field] as any) = value;
     }
@@ -106,6 +112,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       if (!firestore || !itemToDelete || !itemToDelete.id) return;
       const docRef = doc(firestore, 'bomboniere_items', itemToDelete.id);
       deleteDocumentNonBlocking(docRef);
+      setItems(prev => prev.filter(i => i.id !== itemToDelete.id)); // Also remove from draft
       toast({ title: "Sucesso", description: `"${itemToDelete.name}" foi removido.`});
       setItemToDelete(null);
   }
@@ -148,9 +155,16 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       
       if (!hasError) {
         toast({ title: "Sucesso", description: "Estoque da bomboniere atualizado." });
+        setItems([]); // Clear draft on successful save
+        setIsInitialized(false);
         onClose();
       }
   };
+
+  const handleClose = () => {
+      // Don't clear draft state, just close the modal
+      onClose();
+  }
   
 
   return (
@@ -170,7 +184,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={isOpen} onOpenChange={onClose}>
+      <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="max-w-2xl">
             <DialogHeader>
                 <DialogTitle className="text-center">Gerir Estoque da Bomboniere</DialogTitle>
@@ -214,7 +228,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
                         <Input
                             value={String(item.estoque)}
                             onChange={(e) => handleFieldChange(itemIndex, 'estoque', e.target.value)}
-                            type="number"
+                            type="text"
                             className="text-right"
                             placeholder="0"
                         />
