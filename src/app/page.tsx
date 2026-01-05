@@ -103,7 +103,7 @@ export default function Home() {
 
   const userOrderItemsQuery = useMemoFirebase(() => {
     // CRITICAL: Ensure both firestore and user are available before creating the query.
-    if (!firestore || !user) {
+    if (!firestore || !user?.uid) {
       return null;
     }
     const start = startOfDay(new Date());
@@ -115,7 +115,7 @@ export default function Home() {
         where("timestamp", ">=", start),
         where("timestamp", "<=", end)
     );
-  }, [firestore, user]);
+  }, [firestore, user?.uid]);
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
