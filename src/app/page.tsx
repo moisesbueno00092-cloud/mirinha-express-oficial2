@@ -797,3 +797,5 @@ export default function Home() {
   // If there is a user, render the main page.
   return <LancheTrackerPage user={user} />;
 }
+
+    
