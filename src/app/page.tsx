@@ -44,6 +44,7 @@ import { format, isToday, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import ItemList from "@/components/item-list";
+import { Separator } from "@/components/ui/separator";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -78,14 +79,12 @@ function LancheTrackerPage({ user }: { user: User }) {
 
   const userOrderItemsQuery = useMemoFirebase(
     () => {
-      // **CRITICAL FIX**: Only create the query if user.uid is available.
-      // Otherwise, the query will be null and useCollection will not execute.
       if (firestore && user?.uid) {
         return query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc'));
       }
       return null;
     },
-    [firestore, user?.uid] // Dependency on user.uid is crucial.
+    [firestore, user?.uid] 
   );
   
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -691,6 +690,18 @@ function LancheTrackerPage({ user }: { user: User }) {
             />
           </ItemForm>
           
+          <div className="space-y-4 pt-6">
+            <Separator />
+            <h2 className="text-xl font-semibold leading-none tracking-tight">Lançamentos do Dia</h2>
+            <ItemList 
+              items={todaysItems}
+              onEdit={handleEditRequest}
+              onDelete={handleDeleteRequest}
+              onFavorite={handleFavoriteSave}
+              savedFavorites={savedFavorites}
+              isLoading={isLoadingItems}
+            />
+          </div>
         </main>
 
         <div className="mt-8 mb-24 grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -746,7 +757,6 @@ function LancheTrackerPage({ user }: { user: User }) {
 export default function Home() {
   const { user, isUserLoading, userError } = useUser();
 
-  // Show a full-page loading screen while authentication is in progress.
   if (isUserLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
@@ -757,7 +767,6 @@ export default function Home() {
     );
   }
 
-  // If, after loading, there is an auth error, show an error message.
   if (userError) {
      return (
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
@@ -768,8 +777,6 @@ export default function Home() {
     );
   }
   
-  // If, after loading, there is no user, show a generic error.
-  // This case should be rare if anonymous auth is working, but it's a good safeguard.
   if (!user) {
      return (
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
@@ -779,8 +786,5 @@ export default function Home() {
     );
   }
   
-  // If there is a user, render the main page.
   return <LancheTrackerPage user={user} />;
 }
-
-    
