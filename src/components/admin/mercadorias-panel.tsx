@@ -16,7 +16,7 @@ import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings, Camera, Video } fr
 import { Separator } from '../ui/separator';
 import { format as formatDateFn, addDays } from 'date-fns';
 import { addDocumentNonBlocking, commitBatch } from '@/firebase/non-blocking-updates';
-import { Calendar } from '../ui/calendar';
+import { DatePicker } from '../ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import FornecedoresEditModal from './fornecedores-edit-modal';
@@ -505,14 +505,9 @@ export default function MercadoriasPanel() {
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                       <div className="space-y-2 self-end">
+                       <div className="space-y-2">
                             <Label htmlFor="vencimento">Vencimento da 1ª Parcela</Label>
-                            <Calendar
-                                mode="single"
-                                selected={dataVencimento}
-                                onSelect={setDataVencimento}
-                                className="rounded-md border"
-                            />
+                            <DatePicker date={dataVencimento} setDate={setDataVencimento} />
                             <p className="text-xs text-muted-foreground">Deixe em branco para pagamento à vista.</p>
                         </div>
                          <div className="space-y-2 self-start pt-7">
@@ -686,3 +681,6 @@ export default function MercadoriasPanel() {
     );
 }
 
+
+
+    
