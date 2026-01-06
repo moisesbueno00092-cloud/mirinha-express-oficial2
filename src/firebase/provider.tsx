@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
+import { Firestore, doc, setDoc } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged, signInAnonymously, signOut } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
@@ -35,6 +35,27 @@ export interface UserHookResult {
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
 /**
+ * Ensures the user profile document exists in Firestore.
+ * This is crucial for security rules that check against the user document.
+ * @param firestoreInstance The Firestore instance.
+ * @param user The authenticated user.
+ */
+const ensureUserProfileExists = async (firestoreInstance: Firestore, user: User) => {
+  if (!user?.uid) return;
+  const userDocRef = doc(firestoreInstance, 'users', user.uid);
+  // Use setDoc with merge:true to create the doc if it doesn't exist,
+  // or update it if it does, without overwriting other fields.
+  try {
+    await setDoc(userDocRef, { email: user.email || 'anonymous' }, { merge: true });
+  } catch (e) {
+    // This error will be caught and surfaced by the global error handler
+    // if it's a permission issue. We log it here for server-side debugging.
+    console.error("FirebaseProvider: Failed to ensure user profile exists.", e);
+  }
+};
+
+
+/**
  * FirebaseProvider manages and provides Firebase services and user authentication state.
  */
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
@@ -49,21 +70,27 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setIsUserLoading(true);
+      setUserError(null);
+      
       try {
         if (firebaseUser) {
-          if (firebaseUser.isAnonymous) {
-            // The user is already signed in anonymously. We're good.
-            setUser(firebaseUser);
-          } else {
-            // A non-anonymous user is signed in. Sign them out first.
+          // A user is signed in.
+          if (!firebaseUser.isAnonymous) {
+            // If it's not an anonymous user, sign them out to start fresh.
             await signOut(auth);
-            // After signOut, onAuthStateChanged will run again with a null user,
-            // which will trigger the anonymous sign-in flow.
+            // onAuthStateChanged will be called again with `null`.
             setUser(null);
+          } else {
+            // It's the anonymous user we want. Ensure their profile exists.
+            await ensureUserProfileExists(firestore, firebaseUser);
+            setUser(firebaseUser);
           }
         } else {
-          // No user is signed in, so sign in anonymously.
+          // No user is signed in. Sign in anonymously.
           const userCredential = await signInAnonymously(auth);
+          // After signing in, ensure the profile exists.
+          await ensureUserProfileExists(firestore, userCredential.user);
           setUser(userCredential.user);
         }
       } catch (error) {
@@ -81,7 +108,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     });
 
     return () => unsubscribe();
-  }, [auth]);
+  }, [auth, firestore]);
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
