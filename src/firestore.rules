@@ -4,20 +4,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Regra principal: Um utilizador só pode aceder ao seu próprio documento e a todas as suas subcoleções.
-    // Esta regra wildcard recursiva {document=**} garante que um utilizador autenticado
-    // tenha permissão de leitura e escrita para /users/{userId} e qualquer documento
-    // em qualquer subcoleção abaixo dele (ex: /users/{userId}/order_items/{orderId}).
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado.
     match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
     }
 
-    // As coleções de administração podem ser lidas e escritas por qualquer utilizador autenticado.
     match /fornecedores/{fornecedorId} {
         allow read, write: if request.auth != null;
     }
@@ -30,7 +24,6 @@ service cloud.firestore {
         allow read, write: if request.auth != null;
     }
 
-    // A coleção de funcionários e todas as suas subcoleções podem ser lidas e escritas por qualquer utilizador autenticado.
     match /funcionarios/{funcionarioId}/{document=**} {
         allow read, write: if request.auth != null;
     }

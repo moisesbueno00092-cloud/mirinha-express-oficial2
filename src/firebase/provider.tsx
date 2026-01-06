@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
@@ -47,8 +46,8 @@ const ensureUserProfileExists = async (firestoreInstance: Firestore, user: User)
   try {
     const userDoc = await getDoc(userDocRef);
     if (!userDoc.exists()) {
-        // Use a generic email for anonymous users as it's not provided.
-        await setDoc(userDocRef, { email: `anonymous_${user.uid}@example.com` }, { merge: true });
+      // Use a generic email for anonymous users as it's not provided.
+      await setDoc(userDocRef, { email: `anonymous_${user.uid}@example.com` }, { merge: true });
     }
   } catch (e) {
     console.error("FirebaseProvider: Failed to ensure user profile exists.", e);
@@ -75,9 +74,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   useEffect(() => {
     // This is the core authentication logic.
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setIsUserLoading(true);
-      setUserError(null);
-      
       try {
         if (firebaseUser) {
           // A user is signed in. We MUST ensure they are anonymous.
@@ -90,7 +86,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             // Sign them out to trigger the anonymous sign-in flow.
             await signOut(auth);
             // The listener will be called again with `null`, which will trigger signInAnonymously.
-            setUser(null); 
           }
         } else {
           // No user is signed in. This is the moment to sign in anonymously.
