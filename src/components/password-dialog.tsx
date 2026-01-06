@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -79,7 +78,6 @@ export default function PasswordDialog({ open, onOpenChange, onSuccess, showCanc
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••"
               autoFocus
               className="text-center text-lg tracking-widest"
             />
@@ -97,5 +95,3 @@ export default function PasswordDialog({ open, onOpenChange, onSuccess, showCanc
     </Dialog>
   );
 }
-
-    
