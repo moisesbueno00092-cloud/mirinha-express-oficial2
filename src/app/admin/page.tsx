@@ -22,58 +22,55 @@ import { useRouter } from 'next/navigation';
 export default function AdminPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('mercadorias');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const [isRhAuthenticated, setIsRhAuthenticated] = useState(false);
+  const [passwordPromptOpen, setPasswordPromptOpen] = useState(false);
+
 
   useEffect(() => {
     try {
-      const sessionAuth = sessionStorage.getItem('admin-authenticated');
+      const sessionAuth = sessionStorage.getItem('rh-admin-authenticated');
       if (sessionAuth === 'true') {
-        setIsAuthenticated(true);
+        setIsRhAuthenticated(true);
       }
     } catch (e) {
       console.error("Could not read sessionStorage:", e);
-    } finally {
-        setIsAuthChecked(true);
     }
   }, []);
+  
+  const handleTabChange = (value: string) => {
+    if (value === 'rh' && !isRhAuthenticated) {
+        setPasswordPromptOpen(true);
+        // Don't switch tab until authenticated
+        return;
+    }
+    setActiveTab(value);
+  }
 
   const handleAuthSuccess = () => {
     try {
-        sessionStorage.setItem('admin-authenticated', 'true');
+        sessionStorage.setItem('rh-admin-authenticated', 'true');
     } catch(e) {
         console.error("Could not write to sessionStorage:", e);
     }
-    setIsAuthenticated(true);
+    setIsRhAuthenticated(true);
+    setActiveTab('rh'); // Switch to the tab after success
+    setPasswordPromptOpen(false);
   }
 
-  if (!isAuthChecked) {
-    return (
-        <div className="flex h-screen w-full flex-col items-center justify-center p-4">
-            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
-        </div>
-    );
-  }
- 
-   if (!isAuthenticated) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-            <h2 className="text-center text-2xl font-bold mb-2 flex items-center justify-center gap-2"><ShieldX className="h-7 w-7 text-destructive"/> Acesso Restrito</h2>
-            <p className="text-center text-muted-foreground mb-6">Esta secção requer uma senha para aceder.</p>
-            <PasswordDialog 
-                open={true}
-                onOpenChange={(isOpen) => { if(!isOpen) router.push('/'); }}
-                onSuccess={handleAuthSuccess}
-                showCancel={true}
-            />
-        </div>
-      </div>
-    )
+  const handleAuthCancel = () => {
+    setPasswordPromptOpen(false);
+    // Don't switch tab, stay on the current one
   }
 
   return (
     <>
+       <PasswordDialog 
+            open={passwordPromptOpen}
+            onOpenChange={setPasswordPromptOpen}
+            onSuccess={handleAuthSuccess}
+            onCancel={handleAuthCancel}
+            showCancel={true}
+        />
       <div className="container mx-auto max-w-7xl p-2 sm:p-4 lg:p-8">
         <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -90,7 +87,7 @@ export default function AdminPage() {
         </header>
 
         <main>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-4 h-auto">
               <TabsTrigger value="mercadorias" className="flex flex-col sm:flex-row gap-2 py-2">
                 <Box className="h-5 w-5" />
@@ -147,18 +144,28 @@ export default function AdminPage() {
               </Card>
             </TabsContent>
             <TabsContent value="rh">
-              <Card>
-                <CardHeader className='flex-row items-start justify-between'>
-                  <div>
-                    <CardTitle>Recursos Humanos</CardTitle>
-                    <CardDescription>Gestão de colaboradores, admissões e lançamentos financeiros.</CardDescription>
-                  </div>
-                  <HelpSheet />
-                </CardHeader>
-                <CardContent>
-                  <FuncionariosPanel />
-                </CardContent>
-              </Card>
+               {isRhAuthenticated ? (
+                 <Card>
+                    <CardHeader className='flex-row items-start justify-between'>
+                      <div>
+                        <CardTitle>Recursos Humanos</CardTitle>
+                        <CardDescription>Gestão de colaboradores, admissões e lançamentos financeiros.</CardDescription>
+                      </div>
+                      <HelpSheet />
+                    </CardHeader>
+                    <CardContent>
+                      <FuncionariosPanel />
+                    </CardContent>
+                  </Card>
+               ) : (
+                 <Card>
+                    <CardContent className="p-10 text-center text-muted-foreground">
+                       <ShieldX className="mx-auto h-12 w-12 text-destructive mb-4" />
+                       <h3 className="text-lg font-semibold text-foreground">Acesso Restrito</h3>
+                       <p>Este separador requer uma senha para ser visualizado.</p>
+                    </CardContent>
+                 </Card>
+               )}
             </TabsContent>
           </Tabs>
         </main>
@@ -166,3 +173,4 @@ export default function AdminPage() {
     </>
   );
 }
+

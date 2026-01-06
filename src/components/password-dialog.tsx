@@ -21,10 +21,11 @@ interface PasswordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  onCancel?: () => void;
   showCancel?: boolean;
 }
 
-export default function PasswordDialog({ open, onOpenChange, onSuccess, showCancel = true }: PasswordDialogProps) {
+export default function PasswordDialog({ open, onOpenChange, onSuccess, onCancel, showCancel = true }: PasswordDialogProps) {
   const [password, setPassword] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState('');
@@ -63,6 +64,13 @@ export default function PasswordDialog({ open, onOpenChange, onSuccess, showCanc
     handleCheckPassword();
   };
 
+  const handleDialogCancel = () => {
+    onOpenChange(false);
+    if(onCancel) {
+        onCancel();
+    }
+  }
+
   // Prevent closing on outside click
   const handleInteractOutside = (e: Event) => {
     e.preventDefault();
@@ -89,12 +97,12 @@ export default function PasswordDialog({ open, onOpenChange, onSuccess, showCanc
               onChange={(e) => setPassword(e.target.value)}
               autoFocus
               className="text-center text-lg tracking-widest"
-              autoComplete="off"
+              autoComplete="new-password"
             />
             {error && <p className="text-sm text-destructive text-center">{error}</p>}
           </div>
           <DialogFooter>
-            {showCancel && <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>}
+            {showCancel && <Button type="button" variant="outline" onClick={handleDialogCancel}>Cancelar</Button>}
             <Button type="submit" disabled={isChecking || !password}>
               {isChecking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmar
