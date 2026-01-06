@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Box, HandCoins, History, Users, Wrench, BookOpen, ShieldX, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -12,16 +12,48 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import HelpSheet from '@/components/help-sheet';
 import PasswordDialog from '@/components/password-dialog';
 
-
 import MercadoriasPanel from '@/components/admin/mercadorias-panel';
 import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
 import HistoricoFinanceiroPanel from '@/components/admin/historico-financeiro-panel';
 import FuncionariosPanel from '@/components/admin/funcionarios-panel';
+import { useRouter } from 'next/navigation';
 
 
 export default function AdminPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('mercadorias');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
+
+  useEffect(() => {
+    try {
+      const sessionAuth = sessionStorage.getItem('admin-authenticated');
+      if (sessionAuth === 'true') {
+        setIsAuthenticated(true);
+      }
+    } catch (e) {
+      console.error("Could not read sessionStorage:", e);
+    } finally {
+        setIsAuthChecked(true);
+    }
+  }, []);
+
+  const handleAuthSuccess = () => {
+    try {
+        sessionStorage.setItem('admin-authenticated', 'true');
+    } catch(e) {
+        console.error("Could not write to sessionStorage:", e);
+    }
+    setIsAuthenticated(true);
+  }
+
+  if (!isAuthChecked) {
+    return (
+        <div className="flex h-screen w-full flex-col items-center justify-center p-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary"/>
+        </div>
+    );
+  }
  
    if (!isAuthenticated) {
     return (
@@ -31,9 +63,9 @@ export default function AdminPage() {
             <p className="text-center text-muted-foreground mb-6">Esta secção requer uma senha para aceder.</p>
             <PasswordDialog 
                 open={true}
-                onOpenChange={(isOpen) => { if(!isOpen) setIsAuthenticated(false); }}
-                onSuccess={() => setIsAuthenticated(true)}
-                showCancel={false}
+                onOpenChange={(isOpen) => { if(!isOpen) router.push('/'); }}
+                onSuccess={handleAuthSuccess}
+                showCancel={true}
             />
         </div>
       </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -62,9 +63,17 @@ export default function PasswordDialog({ open, onOpenChange, onSuccess, showCanc
     handleCheckPassword();
   };
 
+  // Prevent closing on outside click
+  const handleInteractOutside = (e: Event) => {
+    e.preventDefault();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent 
+        className="sm:max-w-md"
+        onInteractOutside={handleInteractOutside}
+      >
         <DialogHeader>
           <DialogTitle>Inserir Senha</DialogTitle>
           <DialogDescription>
@@ -80,6 +89,7 @@ export default function PasswordDialog({ open, onOpenChange, onSuccess, showCanc
               onChange={(e) => setPassword(e.target.value)}
               autoFocus
               className="text-center text-lg tracking-widest"
+              autoComplete="off"
             />
             {error && <p className="text-sm text-destructive text-center">{error}</p>}
           </div>

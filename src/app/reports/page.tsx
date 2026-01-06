@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import PasswordDialog from '@/components/password-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useRouter } from 'next/navigation';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -416,11 +417,35 @@ export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(String(new Date().getMonth()));
   const [currentYear, setCurrentYear] = useState(String(new Date().getFullYear()));
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
+
+  useEffect(() => {
+    try {
+        const sessionAuth = sessionStorage.getItem('admin-authenticated');
+        if (sessionAuth === 'true') {
+            setIsAuthenticated(true);
+        }
+    } catch (e) {
+        console.error("Could not read sessionStorage:", e);
+    } finally {
+        setIsAuthChecked(true);
+    }
+  }, []);
+
+  const handleAuthSuccess = () => {
+    try {
+        sessionStorage.setItem('admin-authenticated', 'true');
+    } catch (e) {
+        console.error("Could not write to sessionStorage:", e);
+    }
+    setIsAuthenticated(true);
+  }
 
   const reportsQuery = useMemoFirebase(
     () => firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports')) : null,
@@ -490,7 +515,7 @@ export default function ReportsPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !isAuthChecked) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -506,9 +531,9 @@ export default function ReportsPage() {
             <p className="text-center text-muted-foreground mb-6">Esta secção requer uma senha para aceder.</p>
             <PasswordDialog 
                 open={true}
-                onOpenChange={(isOpen) => { if(!isOpen) setIsAuthenticated(false); }}
-                onSuccess={() => setIsAuthenticated(true)}
-                showCancel={false}
+                onOpenChange={(isOpen) => { if(!isOpen) router.push('/'); }}
+                onSuccess={handleAuthSuccess}
+                showCancel={true}
             />
         </div>
       </div>
@@ -579,80 +604,74 @@ export default function ReportsPage() {
                 </CardContent>
             </Card>
 
-            {isLoading ? (
-                <div className="flex h-96 items-center justify-center">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                </div>
-            ) : (
-              <div className="space-y-4">
-                  <Tabs defaultValue="agregado" className="w-full">
-                      <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="agregado">Relatório Agregado do Mês</TabsTrigger>
-                          <TabsTrigger value="diario">Histórico Diário do Mês</TabsTrigger>
-                      </TabsList>
-                      
-                      <TabsContent value="agregado">
-                          <AggregateReport reports={filteredReports} bomboniereItems={bomboniereItems || []} />
-                      </TabsContent>
+            <div className="space-y-4">
+                <Tabs defaultValue="agregado" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="agregado">Relatório Agregado do Mês</TabsTrigger>
+                        <TabsTrigger value="diario">Histórico Diário do Mês</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="agregado">
+                        <AggregateReport reports={filteredReports} bomboniereItems={bomboniereItems || []} />
+                    </TabsContent>
 
-                      <TabsContent value="diario" className="pt-4">
-                          <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
-                          {filteredReports && filteredReports.length > 0 && bomboniereItems ? (
-                            <Accordion type="single" collapsible className="w-full space-y-2">
-                              {filteredReports.map(report => {
-                                const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
-                                return (
-                                    <AccordionItem value={report.id!} key={`${report.id}-${report.createdAt}`}>
-                                        <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
-                                            <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
-                                                <span className="text-2xl font-bold leading-none">{day}</span>
-                                                <span className="text-xs font-semibold uppercase">{month}</span>
-                                            </div>
-
-                                            <div className="flex-grow">
-                                                <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
-                                                <p className="text-sm text-muted-foreground">{fullDate}</p>
-                                            </div>
-
-                                            <div className="text-right mr-4">
-                                                <p className="text-xs text-muted-foreground">Total do Dia</p>
-                                                <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
-                                            </div>
-
-                                            <AccordionTrigger>
-                                                <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
-                                            </AccordionTrigger>
-
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteReportRequest(report.id!);
-                                                }}
-                                                >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                    <TabsContent value="diario" className="pt-4">
+                        <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
+                        {filteredReports && filteredReports.length > 0 && bomboniereItems ? (
+                        <Accordion type="single" collapsible className="w-full space-y-2">
+                            {filteredReports.map(report => {
+                            const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
+                            return (
+                                <AccordionItem value={report.id!} key={`${report.id}-${report.createdAt}`}>
+                                    <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
+                                        <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
+                                            <span className="text-2xl font-bold leading-none">{day}</span>
+                                            <span className="text-xs font-semibold uppercase">{month}</span>
                                         </div>
-                                        <AccordionContent className="p-2 pt-2">
-                                            <ReportDetail report={report} bomboniereItems={bomboniereItems} />
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                )
-                              })}
-                            </Accordion>
-                          ) : (
-                            <Card>
-                              <CardContent className="p-10 text-center text-muted-foreground">
-                                <p>Nenhum relatório salvo encontrado para o período selecionado.</p>
-                              </CardContent>
-                            </Card>
-                          )}
-                      </TabsContent>
-                  </Tabs>
-              </div>
-            )}
+
+                                        <div className="flex-grow">
+                                            <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
+                                            <p className="text-sm text-muted-foreground">{fullDate}</p>
+                                        </div>
+
+                                        <div className="text-right mr-4">
+                                            <p className="text-xs text-muted-foreground">Total do Dia</p>
+                                            <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
+                                        </div>
+
+                                        <AccordionTrigger>
+                                            <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
+                                        </AccordionTrigger>
+
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteReportRequest(report.id!);
+                                            }}
+                                            >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    <AccordionContent className="p-2 pt-2">
+                                        <ReportDetail report={report} bomboniereItems={bomboniereItems} />
+                                    </AccordionContent>
+                                </AccordionItem>
+                            )
+                            })}
+                        </Accordion>
+                        ) : (
+                        <Card>
+                            <CardContent className="p-10 text-center text-muted-foreground">
+                            <p>Nenhum relatório salvo encontrado para o período selecionado.</p>
+                            </CardContent>
+                        </Card>
+                        )}
+                    </TabsContent>
+                </Tabs>
+            </div>
         </main>
       </div>
     </>

@@ -122,19 +122,38 @@ function LancheTrackerPage({ user }: { user: User }) {
 
   const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
 
-  const [passwordPrompt, setPasswordPrompt] = useState<{ open: boolean, onSuccess: () => void } | null>(null);
+  const [passwordPrompt, setPasswordPrompt] = useState<{ open: boolean, onSuccess: () => void, onCancel?: () => void } | null>(null);
   
   const { toast } = useToast();
 
   const handlePasswordSuccess = () => {
     if (passwordPrompt?.onSuccess) {
+        try {
+            sessionStorage.setItem('admin-authenticated', 'true');
+        } catch(e) {
+            console.error("Could not write to sessionStorage:", e);
+        }
       passwordPrompt.onSuccess();
     }
     setPasswordPrompt(null);
   };
   
   const handleProtectedAction = (callback: () => void) => {
-    setPasswordPrompt({ open: true, onSuccess: callback });
+    try {
+        const sessionAuth = sessionStorage.getItem('admin-authenticated');
+        if (sessionAuth === 'true') {
+            callback();
+            return;
+        }
+    } catch(e) {
+        console.error("Could not read sessionStorage:", e);
+    }
+    
+    setPasswordPrompt({ 
+        open: true, 
+        onSuccess: callback,
+        onCancel: () => setPasswordPrompt(null)
+    });
   };
 
   const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
@@ -596,7 +615,11 @@ function LancheTrackerPage({ user }: { user: User }) {
        {passwordPrompt && (
         <PasswordDialog
           open={passwordPrompt.open}
-          onOpenChange={(isOpen) => !isOpen && setPasswordPrompt(null)}
+          onOpenChange={(isOpen) => {
+              if(!isOpen && passwordPrompt.onCancel) {
+                  passwordPrompt.onCancel();
+              }
+          }}
           onSuccess={handlePasswordSuccess}
         />
       )}
@@ -738,9 +761,3 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
-
-    
-
-    
