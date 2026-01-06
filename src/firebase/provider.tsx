@@ -46,7 +46,8 @@ const ensureUserProfileExists = async (firestoreInstance: Firestore, user: User)
   try {
     const userDoc = await getDoc(userDocRef);
     if (!userDoc.exists()) {
-        await setDoc(userDocRef, { email: user.email || `anonymous_${user.uid}@example.com` }, { merge: true });
+        // Use a generic email for anonymous users as it's not provided.
+        await setDoc(userDocRef, { email: `anonymous_${user.uid}@example.com` }, { merge: true });
     }
   } catch (e) {
     console.error("FirebaseProvider: Failed to ensure user profile exists.", e);
@@ -92,10 +93,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           }
         } else {
           // No user is signed in. This is the moment to sign in anonymously.
-          await signInAnonymously(auth);
+          const userCredential = await signInAnonymously(auth);
           // The listener will be called again with the new anonymous user,
-          // and the `if (firebaseUser)` block will handle it.
-          // We don't setUser here to avoid race conditions; let the listener be the single source of truth.
+          // and the `if (firebaseUser)` block above will handle it.
+          // We set the user here to expedite UI updates, but the next listener call will re-confirm.
+           await ensureUserProfileExists(firestore, userCredential.user);
+           setUser(userCredential.user);
         }
       } catch (error) {
         console.error("FirebaseProvider: Error during auth state change handling:", error);
@@ -110,6 +113,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
       setUserError(error);
       setIsUserLoading(false);
+      setUser(null);
     });
 
     // Cleanup subscription on unmount
