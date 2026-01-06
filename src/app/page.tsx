@@ -5,7 +5,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, SavedFavorite, User } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
-import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser, FirestorePermissionError, errorEmitter } from "@/firebase";
+import { FirebaseClientProvider, useAuth, useCollection, useFirestore, useMemoFirebase, useUser, FirestorePermissionError, errorEmitter } from "@/firebase";
 import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp, getDocs, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import usePersistentState from "@/hooks/use-persistent-state";
@@ -756,11 +756,9 @@ function LancheTrackerPage({ user }: { user: User }) {
   );
 }
 
-export default function Home() {
+function AuthWall({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading, userError } = useUser();
   
-  // This is the readiness condition. The component will only render when
-  // the user is fully loaded and confirmed to be an anonymous user.
   const isReady = !isUserLoading && user && user.isAnonymous;
 
   if (!isReady) {
@@ -779,5 +777,16 @@ export default function Home() {
     );
   }
   
-  return <LancheTrackerPage user={user} />;
+  return <>{children}</>;
+}
+
+
+export default function Home() {
+  return (
+    <FirebaseClientProvider>
+      <AuthWall>
+        <LancheTrackerPage />
+      </AuthWall>
+    </FirebaseClientProvider>
+  )
 }
