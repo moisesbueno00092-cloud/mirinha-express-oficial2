@@ -79,7 +79,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       async (currentUser) => {
         setUserError(null);
         if (currentUser) {
-          // A user is signed in (either from a previous session or just now).
+          // A user is signed in. Ensure their profile exists.
           try {
             await ensureUserProfileExists(firestore, currentUser);
             setUser(currentUser);
@@ -91,11 +91,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         } else {
           // No user is signed in. Attempt to sign in anonymously.
           try {
-            const userCredential = await signInAnonymously(auth);
-            // After successful sign-in, the onAuthStateChanged listener will be
-            // called again with the new user, so we don't need to setUser here.
-            // We just ensure their profile is created right away.
-            await ensureUserProfileExists(firestore, userCredential.user);
+            await signInAnonymously(auth);
+            // The onAuthStateChanged listener will be called again with the new user,
+            // so we don't need to do anything else here. The loading state will be
+            // resolved in the next pass of the listener.
           } catch (error) {
             console.error("FirebaseProvider: Anonymous sign-in failed", error);
             setUserError(error as Error);
