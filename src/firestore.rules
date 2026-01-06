@@ -4,13 +4,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // Regra específica para a coleção 'users' e todas as suas subcoleções
-    match /users/{userId} {
+    match /users/{userId}/{documents=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      // Permite o acesso a qualquer subcoleção dentro do documento do utilizador
-      match /{documents=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
     }
 
     // Regras para coleções partilhadas (acessíveis por qualquer utilizador autenticado)
