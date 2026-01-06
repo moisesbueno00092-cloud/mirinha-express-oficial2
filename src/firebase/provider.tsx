@@ -47,13 +47,10 @@ const ensureUserProfileExists = async (firestoreInstance: Firestore, user: User)
   try {
     const userDoc = await getDoc(userDocRef);
     if (!userDoc.exists()) {
-        // Only set the email if it doesn't exist, to prevent overwriting
         await setDoc(userDocRef, { email: user.email || `anonymous_${user.uid}@example.com` }, { merge: true });
     }
   } catch (e) {
     console.error("FirebaseProvider: Failed to ensure user profile exists.", e);
-    // This could be a permission error itself if rules are not set up for user creation.
-    // Re-throwing allows it to be caught by a higher-level boundary.
     throw e;
   }
 };
@@ -73,47 +70,54 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // This flag helps prevent race conditions during the auth flow.
-    let isSubscribed = true; 
-    
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!isSubscribed) return;
+    let isSubscribed = true;
 
-      try {
-        if (firebaseUser) {
-          // A user is logged in. Check if they are anonymous.
-          if (firebaseUser.isAnonymous) {
-            // Correct state: User is anonymous. Ensure profile exists.
-            await ensureUserProfileExists(firestore, firebaseUser);
-            setUser(firebaseUser);
-            setUserError(null);
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (firebaseUser) => {
+        if (!isSubscribed) return;
+        
+        setIsUserLoading(true);
+        setUserError(null);
+
+        try {
+          if (firebaseUser) {
+            // A user is logged in. Check if they are anonymous.
+            if (firebaseUser.isAnonymous) {
+              await ensureUserProfileExists(firestore, firebaseUser);
+              setUser(firebaseUser);
+            } else {
+              // Not an anonymous user, which is not the intended state for this app.
+              // Sign out to restart the auth flow.
+              await signOut(auth);
+              setUser(null);
+            }
           } else {
-            // Incorrect state: User is NOT anonymous. Sign them out.
-            // This will trigger onAuthStateChanged again with a null user.
-            await signOut(auth);
-            setUser(null); // Clear user immediately
+            // No user is logged in. Sign in anonymously.
+            const userCredential = await signInAnonymously(auth);
+            // The onAuthStateChanged listener will be triggered again with the new user.
+            // We can optionally set the user here to speed up the UI update.
+            await ensureUserProfileExists(firestore, userCredential.user);
+            setUser(userCredential.user);
           }
-        } else {
-          // No user is logged in. Sign in anonymously.
-          // This will trigger onAuthStateChanged again with the new anonymous user.
-          await signInAnonymously(auth);
+        } catch (error) {
+          console.error("FirebaseProvider: Auth state error:", error);
+          setUser(null);
+          setUserError(error as Error);
+        } finally {
+          if (isSubscribed) {
+            setIsUserLoading(false);
+          }
         }
-      } catch (error) {
-        console.error("FirebaseProvider: Auth state error:", error);
-        setUser(null);
-        setUserError(error as Error);
-      } finally {
-        if(isSubscribed) {
-          setIsUserLoading(false);
-        }
-      }
-    }, (error) => {
+      },
+      (error) => {
         if (!isSubscribed) return;
         console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
         setUser(null);
         setUserError(error);
         setIsUserLoading(false);
-    });
+      }
+    );
 
     return () => {
       isSubscribed = false;
