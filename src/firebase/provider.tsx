@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { Firestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
@@ -49,30 +49,20 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
       auth,
-      async (currentUser) => {
+      (currentUser) => {
         if (currentUser) {
           // A user is signed in.
-          // This app only supports anonymous users.
-          if (currentUser.isAnonymous) {
-            setUser(currentUser);
-            setUserError(null);
-          } else {
-            console.error("A non-anonymous user is signed in, which is not supported.");
-            setUserError(new Error("Authentication failed: Only anonymous users are allowed."));
-            setUser(null);
-          }
+          setUser(currentUser);
+          setUserError(null);
         } else {
           // No user is signed in. Attempt to sign in anonymously.
-          try {
-            await signInAnonymously(auth);
-            // The onAuthStateChanged listener will be triggered again by this call,
-            // which will then handle setting the user. We don't set state here.
-          } catch (error) {
+          signInAnonymously(auth).catch((error) => {
             console.error("FirebaseProvider: Anonymous sign-in failed.", error);
-            setUserError(error as Error);
-          }
+            setUserError(error);
+          });
         }
-        // Set loading to false once the logic is complete for this auth state change.
+        // Set loading to false once the initial check is complete.
+        // The listener will handle subsequent updates.
         setIsUserLoading(false);
       },
       (error) => {
@@ -86,7 +76,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   
     // Cleanup the subscription on unmount
     return () => unsubscribe();
-  }, [auth, firestore]);
+  }, [auth]);
   
 
   const contextValue = useMemo((): FirebaseContextState => {
