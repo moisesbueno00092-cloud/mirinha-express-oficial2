@@ -3,45 +3,32 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Regra para o documento de perfil de um utilizador.
-    // Permite que um utilizador autenticado leia o seu próprio perfil.
-    match /users/{userId} {
+    // Regra principal: Um utilizador só pode aceder ao seu próprio documento e subcoleções
+    match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Regra para as subcoleções de um utilizador (ex: order_items, daily_reports).
-    // Permite que um utilizador autenticado leia e escreva documentos nas suas próprias subcoleções.
-    match /users/{userId}/{collection}/{docId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // REGRAS PARA COLEÇÕES PARTILHADAS E DE ADMINISTRAÇÃO
-    // Qualquer utilizador autenticado pode ler e escrever nestas coleções.
-
-    // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado.
+    // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado
     match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
     }
 
-    // Fornecedores podem ser geridos por qualquer utilizador autenticado.
+    // Coleções de administração (qualquer utilizador autenticado pode ler e escrever)
     match /fornecedores/{fornecedorId} {
-      allow read, write: if request.auth != null;
+        allow read, write: if request.auth != null;
     }
 
-    // Contas a pagar podem ser geridas por qualquer utilizador autenticado.
     match /contas_a_pagar/{contaId} {
-      allow read, write: if request.auth != null;
+        allow read, write: if request.auth != null;
     }
 
-    // Entradas de mercadorias podem ser geridas por qualquer utilizador autenticado.
     match /entradas_mercadorias/{entradaId} {
-      allow read, write: if request.auth != null;
+        allow read, write: if request.auth != null;
     }
 
-    // Dados de funcionários (incluindo subcoleções) podem ser geridos por qualquer utilizador autenticado.
-    // O wildcard recursivo {document=**} aplica a regra a esta coleção e a todas as suas subcoleções.
+    // Permite acesso total à coleção de funcionários e suas subcoleções
     match /funcionarios/{funcionarioId}/{document=**} {
-      allow read, write: if request.auth != null;
+        allow read, write: if request.auth != null;
     }
   }
 }
