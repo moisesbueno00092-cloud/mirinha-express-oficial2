@@ -73,38 +73,32 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      async (currentUser) => {
-        setUserError(null);
-        if (currentUser) {
-          // A user is signed in. Ensure their profile exists.
-          try {
-            await ensureUserProfileExists(firestore, currentUser);
-            setUser(currentUser);
-          } catch (e: any) {
-            setUserError(e);
-          } finally {
-            setIsUserLoading(false);
-          }
-        } else {
-          // No user is signed in. Attempt to sign in anonymously.
-          signInAnonymously(auth).catch((error) => {
-            console.error("FirebaseProvider: Anonymous sign-in failed", error);
-            setUserError(error as Error);
-            setIsUserLoading(false);
-          });
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUserError(null);
+      
+      if (currentUser) {
+        try {
+          await ensureUserProfileExists(firestore, currentUser);
+          setUser(currentUser);
+        } catch (e) {
+          setUserError(e as Error);
         }
-      },
-      (error) => {
-        // This callback handles errors with the listener itself.
-        console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
-        setUserError(error);
-        setIsUserLoading(false);
+      } else {
+        // No user, sign in anonymously. The listener will be called again with the new user.
+        signInAnonymously(auth).catch((error) => {
+          console.error("FirebaseProvider: Anonymous sign-in failed", error);
+          setUserError(error);
+        });
       }
-    );
-
-    // Cleanup subscription on unmount
+      
+      // The initial check is done, so we can stop loading.
+      setIsUserLoading(false);
+    }, (error) => {
+      console.error("FirebaseProvider: Auth listener error", error);
+      setUserError(error);
+      setIsUserLoading(false);
+    });
+  
     return () => unsubscribe();
   }, [auth, firestore]);
   
