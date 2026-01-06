@@ -760,8 +760,6 @@ function LancheTrackerPage({ user }: { user: User }) {
 export default function Home() {
   const { user, isUserLoading, userError } = useUser();
   
-  // A isReady agora espera explicitamente que o utilizador seja anónimo.
-  // Isto impede a renderização da página de conteúdo principal antes de a autenticação anónima estar totalmente concluída.
   const isReady = !isUserLoading && user && user.isAnonymous;
 
   if (!isReady) {
@@ -782,5 +780,3 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
