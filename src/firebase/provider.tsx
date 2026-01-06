@@ -76,38 +76,46 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(
       auth,
       async (currentUser) => {
-        setUserError(null);
-        // We only want to deal with anonymous users in this app
-        if (currentUser && currentUser.isAnonymous) {
-          try {
-            await ensureUserProfileExists(firestore, currentUser);
-            setUser(currentUser);
-          } catch (e) {
-            setUserError(e as Error);
-          } finally {
-            setIsUserLoading(false);
+        if (currentUser) {
+          // User is signed in.
+          if (currentUser.isAnonymous) {
+            try {
+              await ensureUserProfileExists(firestore, currentUser);
+              setUser(currentUser);
+            } catch (e) {
+              setUserError(e as Error);
+            } finally {
+              setIsUserLoading(false);
+            }
+          } else {
+             // This case should ideally not happen if only anonymous auth is used.
+             // For safety, we can treat them as a valid user but might log a warning.
+             console.warn("A non-anonymous user is signed in, which is not expected.");
+             setUser(currentUser);
+             setIsUserLoading(false);
           }
         } else {
-          // If there's a non-anonymous user or no user, sign in anonymously.
-          setIsUserLoading(true);
+          // User is signed out. Attempt to sign in anonymously.
           try {
             await signInAnonymously(auth);
-            // onAuthStateChanged will be called again with the new anonymous user,
-            // so we don't need to set user/loading state here. The listener will handle it.
+            // onAuthStateChanged will be re-triggered with the new user,
+            // so we don't need to set loading to false here.
           } catch (error) {
             console.error("FirebaseProvider: Anonymous sign-in failed", error);
             setUserError(error as Error);
-            setIsUserLoading(false);
+            setIsUserLoading(false); // Stop loading on sign-in failure.
           }
         }
       },
       (error) => {
+        // This handles errors in the auth listener itself.
         console.error("FirebaseProvider: Auth listener error", error);
         setUserError(error);
         setIsUserLoading(false);
       }
     );
 
+    // Cleanup the subscription on unmount
     return () => unsubscribe();
   }, [auth, firestore]);
   
@@ -184,5 +192,3 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
-
-    
