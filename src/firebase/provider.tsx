@@ -51,15 +51,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(
       auth,
       (currentUser) => {
-        if (currentUser) {
-          setUser(currentUser);
-          setIsUserLoading(false);
-        } else {
-          // No user is signed in, attempt to sign in anonymously.
+        setUser(currentUser);
+        setIsUserLoading(false);
+        // If user is null after initial check, attempt to sign in anonymously.
+        if (!currentUser) {
           signInAnonymously(auth).catch((error) => {
             console.error("FirebaseProvider: Anonymous sign-in failed.", error);
             setUserError(error);
-            setIsUserLoading(false);
           });
         }
       },
