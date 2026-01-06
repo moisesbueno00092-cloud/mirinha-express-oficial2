@@ -90,7 +90,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         try {
           await signInAnonymously(auth);
           // The onAuthStateChanged listener will be called again with the new anonymous user,
-          // so we don't need to set the user here. We just wait.
+          // so we don't need to set the user or loading state here. We just wait for the next callback.
         } catch (error) {
           console.error("FirebaseProvider: Anonymous sign-in failed", error);
           setUserError(error as Error);
