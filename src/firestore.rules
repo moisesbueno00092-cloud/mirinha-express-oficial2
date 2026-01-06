@@ -4,9 +4,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Regra principal: Um utilizador só pode aceder ao seu próprio documento e subcoleções
-    match /users/{userId}/{document=**} {
+    // Permite que um utilizador leia e escreva o seu próprio perfil
+    match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Permite que um utilizador leia e escreva nas suas próprias subcoleções
+    match /users/{userId}/{collection}/{docId} {
+       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
     // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado
