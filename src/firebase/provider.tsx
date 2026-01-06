@@ -73,50 +73,51 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    setIsUserLoading(true);
-    
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      async (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        setIsUserLoading(true);
+        setUserError(null);
         try {
-          if (currentUser && currentUser.isAnonymous) {
-            // Utilizador anónimo já autenticado. Garanta o perfil e defina o estado.
-            await ensureUserProfileExists(firestore, currentUser);
-            setUser(currentUser);
-          } else {
-            // Se houver um utilizador não anónimo ou nenhum utilizador, inicie o fluxo de login anónimo.
-            // O onAuthStateChanged será acionado novamente pelo signInAnonymously.
-            if(currentUser) {
-              // Faz logout se for um utilizador não anónimo para garantir um estado limpo
-              await auth.signOut();
+            if (currentUser) {
+                if (currentUser.isAnonymous) {
+                    await ensureUserProfileExists(firestore, currentUser);
+                    setUser(currentUser);
+                } else {
+                    // If the user is not anonymous, sign them out to force a clean anonymous login.
+                    await auth.signOut();
+                    setUser(null); // This will trigger the `if (!currentUser)` block on the next state change
+                }
+            } else {
+                // No user, sign in anonymously.
+                const userCredential = await signInAnonymously(auth);
+                // onAuthStateChanged will be called again with the new user.
+                // We don't need to set the user here, let the listener handle it for consistency.
             }
-            // Inicia o login anónimo
-            await signInAnonymously(auth);
-          }
         } catch (error) {
-          console.error("FirebaseProvider: Error during auth state change:", error);
-          setUserError(error as Error);
-          setUser(null);
+            console.error("FirebaseProvider: Error during auth logic:", error);
+            setUserError(error as Error);
+            setUser(null);
         } finally {
-          // Apenas para de carregar quando temos a certeza de que o utilizador foi definido (ou falhou)
-          if(currentUser) {
-            setIsUserLoading(false);
-          }
+            // Only stop loading if we have a user or an error.
+            if (user || userError) {
+                setIsUserLoading(false);
+            }
         }
-      },
-      (error) => {
-        // Handle listener errors.
+    }, (error) => {
         console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
         setUserError(error);
         setIsUserLoading(false);
         setUser(null);
-      }
-    );
-  
-    // Cleanup the listener on unmount.
-    return () => unsubscribe();
-  }, [auth, firestore]);
+    });
 
+    // We also set loading to false in the useEffect that handles the final user state.
+    if(user && !isUserLoading) {
+      // Already has a user and not loading
+    } else if (user) {
+      setIsUserLoading(false);
+    }
+
+    return () => unsubscribe();
+}, [auth, firestore]);
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
@@ -190,5 +191,3 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
-
-    
