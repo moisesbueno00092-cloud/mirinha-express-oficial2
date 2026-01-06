@@ -48,18 +48,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
+    // Set up the authentication state listener.
     const unsubscribe = onAuthStateChanged(
       auth,
       (currentUser) => {
         setUser(currentUser);
         setIsUserLoading(false);
-        // If user is null after initial check, attempt to sign in anonymously.
-        if (!currentUser) {
-          signInAnonymously(auth).catch((error) => {
-            console.error("FirebaseProvider: Anonymous sign-in failed.", error);
-            setUserError(error);
-          });
-        }
       },
       (error) => {
         console.error("FirebaseProvider: Auth listener error", error);
@@ -69,6 +63,18 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       }
     );
 
+    // If there's no current user when the provider mounts,
+    // attempt to sign in anonymously.
+    if (!auth.currentUser) {
+      signInAnonymously(auth).catch((error) => {
+        console.error("FirebaseProvider: Anonymous sign-in failed on mount.", error);
+        setUserError(error);
+        // Still set loading to false to not block the UI indefinitely on error
+        setIsUserLoading(false);
+      });
+    }
+
+    // Clean up the subscription on unmount.
     return () => unsubscribe();
   }, [auth]);
 
