@@ -694,7 +694,7 @@ function LancheTrackerPage({ user }: { user: User }) {
                 <Settings className="mr-2 h-4 w-4" />
                 Gerir Estoque
             </Button>
-             <Button variant="outline" className="w-full col-span-2 md:col-span-3" onClick={() => handleProtectedAction(() => router.push('/admin'))}>
+             <Button variant="outline" className="w-full col-span-2 md:col-span-3" onClick={() => router.push('/admin')}>
                 <Wrench className="mr-2 h-4 w-4" />
                 Gestão Administrativa
             </Button>

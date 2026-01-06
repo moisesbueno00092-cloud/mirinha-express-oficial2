@@ -71,9 +71,11 @@ export default function PasswordDialog({ open, onOpenChange, onSuccess, onCancel
     }
   }
 
-  // Prevent closing on outside click
+  // Prevent closing on outside click if there's no cancel button
   const handleInteractOutside = (e: Event) => {
-    e.preventDefault();
+    if (!showCancel) {
+        e.preventDefault();
+    }
   };
 
   return (
@@ -96,7 +98,6 @@ export default function PasswordDialog({ open, onOpenChange, onSuccess, onCancel
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoFocus
-              className="text-center text-lg tracking-widest"
               autoComplete="new-password"
             />
             {error && <p className="text-sm text-destructive text-center">{error}</p>}
