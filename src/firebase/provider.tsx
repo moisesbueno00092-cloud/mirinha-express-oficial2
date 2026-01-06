@@ -48,37 +48,37 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const handleAuth = async () => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
-        await signInAnonymously(auth);
+        if (firebaseUser) {
+          if (firebaseUser.isAnonymous) {
+            // The user is already signed in anonymously. We're good.
+            setUser(firebaseUser);
+          } else {
+            // A non-anonymous user is signed in. Sign them out first.
+            await signOut(auth);
+            // After signOut, onAuthStateChanged will run again with a null user,
+            // which will trigger the anonymous sign-in flow.
+            setUser(null);
+          }
+        } else {
+          // No user is signed in, so sign in anonymously.
+          const userCredential = await signInAnonymously(auth);
+          setUser(userCredential.user);
+        }
       } catch (error) {
-        console.error("FirebaseProvider: Anonymous sign-in error:", error);
+        console.error("FirebaseProvider: Auth state error:", error);
+        setUser(null);
         setUserError(error as Error);
+      } finally {
         setIsUserLoading(false);
       }
-    };
-    
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (firebaseUser) => {
-        if (firebaseUser && firebaseUser.isAnonymous) {
-          setUser(firebaseUser);
-          setIsUserLoading(false);
-        } else if (firebaseUser && !firebaseUser.isAnonymous) {
-          // If a non-anonymous user is signed in, sign them out and sign in anonymously.
-          signOut(auth).then(handleAuth);
-        } else {
-          // No user, sign in anonymously.
-          handleAuth();
-        }
-      },
-      (error) => {
-        console.error("FirebaseProvider: Auth state error:", error);
+    }, (error) => {
+        console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
         setUser(null);
         setUserError(error);
         setIsUserLoading(false);
-      }
-    );
+    });
 
     return () => unsubscribe();
   }, [auth]);
