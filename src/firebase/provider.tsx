@@ -4,7 +4,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, setDoc, getDoc } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, signInAnonymously, signOut } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -74,23 +74,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     // This effect handles the entire auth flow and should only run once.
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
-        if (firebaseUser) {
-          // A user exists. Now, check if it's the correct type.
-          if (firebaseUser.isAnonymous) {
-            // This is the desired state. Ensure profile exists and set the user.
-            await ensureUserProfileExists(firestore, firebaseUser);
-            setUser(firebaseUser);
-            setUserError(null);
-          } else {
-            // An unwanted user type (e.g., email/pass, or 'custom' from a previous error state) is signed in.
-            // We must sign them out to trigger the auth flow again, which will lead to the 'else' block.
-            await signOut(auth);
-            // Don't set user state yet, wait for the next onAuthStateChanged call which will have a null user.
-          }
+        if (currentUser && currentUser.isAnonymous) {
+          await ensureUserProfileExists(firestore, currentUser);
+          setUser(currentUser);
+          setUserError(null);
         } else {
-          // No user is signed in, so sign in anonymously.
+          // If there's no user, or a non-anonymous user, sign in anonymously.
           // This will trigger onAuthStateChanged again with the new anonymous user.
           await signInAnonymously(auth);
         }
@@ -99,10 +90,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setUserError(error as Error);
         setUser(null);
       } finally {
-        // We only stop loading when we have a user or a definitive error.
-        if (user || userError) {
-          setIsUserLoading(false);
-        }
+        setIsUserLoading(false);
       }
     },
     (error) => {
@@ -115,7 +103,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     // Cleanup the listener on unmount.
     return () => unsubscribe();
-  }, [auth, firestore]); // Dependencies are minimal to prevent re-running.
+  }, [auth, firestore]);
 
 
   const contextValue = useMemo((): FirebaseContextState => {
