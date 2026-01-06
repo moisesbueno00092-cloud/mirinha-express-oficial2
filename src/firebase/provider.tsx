@@ -78,6 +78,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       setUserError(null);
       try {
         if (currentUser) {
+          // User is signed in.
           if (currentUser.isAnonymous) {
             await ensureUserProfileExists(firestore, currentUser);
             setUser(currentUser);
