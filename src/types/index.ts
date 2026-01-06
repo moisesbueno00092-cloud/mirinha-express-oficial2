@@ -44,6 +44,9 @@ export interface Item {
 
   // For fiado entries
   customerName?: string;
+
+  // Status field
+  reportado?: boolean;
 }
 
 export type ItemCount = { [itemName: string]: number };
@@ -164,5 +167,3 @@ export interface SavedFavorite {
   name: string;
   command: string;
 }
-
-    

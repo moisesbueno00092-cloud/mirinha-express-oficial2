@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, SavedFavorite, User } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser, FirestorePermissionError, errorEmitter } from "@/firebase";
-import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp, getDocs, getDoc } from "firebase/firestore";
+import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp, getDocs, getDoc, updateDoc } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import usePersistentState from "@/hooks/use-persistent-state";
 
@@ -33,7 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Loader2, History, Settings, Wrench, Users, Star, PiggyBank, Info } from "lucide-react";
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { addDocumentNonBlocking, commitBatch, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
 import BomboniereModal from "@/components/bomboniere-modal";
@@ -84,7 +84,8 @@ function LancheTrackerPage({ user }: { user: User }) {
     return query(
       collection(firestore, 'users', user.uid, 'order_items'),
       where('timestamp', '>=', todayStart),
-      where('timestamp', '<=', todayEnd)
+      where('timestamp', '<=', todayEnd),
+      where('reportado', '==', false) // Only fetch items that are not yet reported
     );
   }, [firestore, user]);
 
@@ -375,6 +376,7 @@ function LancheTrackerPage({ user }: { user: User }) {
             deliveryFee,
             total,
             originalCommand: rawInputToProcess,
+            reportado: false,
             ...(customerName && { customerName }),
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
@@ -535,24 +537,30 @@ function LancheTrackerPage({ user }: { user: User }) {
       const reportRef = doc(collection(firestore, 'users', user.uid, 'daily_reports'));
       setDocumentNonBlocking(reportRef, report);
 
-      // Now, instead of adding documents, we might "archive" them if needed,
-      // but since they are already in Firestore, we can just clear the view for the next day.
-      // A field like `archived: true` could be set on the items,
-      // but for this app, simply starting fresh each day by querying today's items is sufficient.
-      // We no longer need to manually clear the local state.
+      // "Archive" all items included in this report by setting `reportado: true`
+      const batch = writeBatch(firestore);
+      items.forEach(item => {
+        const itemRef = doc(firestore, 'users', user.uid, 'order_items', item.id);
+        batch.update(itemRef, { reportado: true });
+      });
+      await commitBatch(batch);
 
       toast({
         title: 'Relatório Salvo!',
-        description: 'O relatório do dia foi salvo com sucesso.',
+        description: 'O relatório do dia foi salvo e os itens foram arquivados.',
       });
 
     } catch (error) {
       console.error('Error saving report:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao Salvar',
-        description: 'Não foi possível salvar o relatório.',
-      });
+      // The commitBatch will have already emitted a permission error if that was the cause.
+      // We can show a generic fallback here.
+      if (!(error instanceof FirestorePermissionError)) {
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao Salvar',
+          description: 'Não foi possível salvar o relatório ou arquivar os itens.',
+        });
+      }
     } finally {
       setIsSavingReport(false);
     }
@@ -789,5 +797,3 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
