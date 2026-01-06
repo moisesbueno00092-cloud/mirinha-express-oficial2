@@ -73,41 +73,42 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(
       auth,
       async (currentUser) => {
+        setIsUserLoading(true); // Always start in loading state on auth change
+        setUserError(null);
+  
         if (currentUser) {
           // A user is signed in.
           if (currentUser.isAnonymous) {
             try {
+              // Ensure the user document exists before we declare auth "ready"
               await ensureUserProfileExists(firestore, currentUser);
               setUser(currentUser);
-              setUserError(null);
             } catch (error) {
               console.error("FirebaseProvider: Failed to ensure user profile.", error);
               setUserError(error as Error);
               setUser(null);
-            } finally {
-              setIsUserLoading(false);
             }
           } else {
-             // This case should not happen in an anon-only app, but if it does,
-             // we treat it as an error state for now.
+             // This is an unsupported state for this app.
              console.error("A non-anonymous user is signed in, which is not supported.");
-             setUserError(new Error("A non-anonymous user is signed in."));
+             setUserError(new Error("Authentication failed: Only anonymous users are allowed."));
              setUser(null);
-             setIsUserLoading(false);
           }
         } else {
           // No user is signed in. Attempt to sign in anonymously.
           try {
-            const userCredential = await signInAnonymously(auth);
-            // The onAuthStateChanged listener will be triggered again by this,
-            // so we don't need to set the user here. The loading state will
-            // be handled in the next execution of the listener.
+            await signInAnonymously(auth);
+            // The onAuthStateChanged listener will be triggered again by this call,
+            // which will then handle setting the user and finishing the loading state.
+            // We do not set any state here to avoid race conditions.
           } catch (error) {
             console.error("FirebaseProvider: Anonymous sign-in failed on initial load.", error);
             setUserError(error as Error);
-            setIsUserLoading(false);
           }
         }
+        
+        // Only set loading to false after all async operations for this auth state are complete.
+        setIsUserLoading(false);
       },
       (error) => {
         // This handles errors in the auth listener itself.
@@ -117,7 +118,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setIsUserLoading(false);
       }
     );
-
+  
     // Cleanup the subscription on unmount
     return () => unsubscribe();
   }, [auth, firestore]);
