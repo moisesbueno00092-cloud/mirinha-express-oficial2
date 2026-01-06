@@ -1,8 +1,9 @@
+
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
+import { Firestore } from 'firestore';
 import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
@@ -50,15 +51,16 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(
       auth,
       (currentUser) => {
-        setIsUserLoading(false);
         if (currentUser) {
           setUser(currentUser);
+          setIsUserLoading(false);
           setUserError(null);
         } else {
           // No user is signed in, attempt to sign in anonymously.
           signInAnonymously(auth).catch((error) => {
             console.error("FirebaseProvider: Anonymous sign-in failed.", error);
             setUserError(error);
+            setIsUserLoading(false);
           });
         }
       },
