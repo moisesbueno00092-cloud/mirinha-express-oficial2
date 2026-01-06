@@ -81,18 +81,16 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
             setUserError(null);
-            setIsUserLoading(false);
           } else {
             // This is an incorrect state (e.g., a previously signed-in non-anonymous user).
             // We must sign them out to enforce the anonymous-only policy.
             // The listener will be triggered again with `null`, which will then
             // trigger the anonymous sign-in flow.
-            setIsUserLoading(true); // Keep loading state while we correct the user
             await signOut(auth);
+            // We don't set user here, we let the auth state change trigger the next step.
           }
         } else {
           // No user is logged in. This is the trigger to sign in anonymously.
-          setIsUserLoading(true); // Explicitly set loading before async operation
           await signInAnonymously(auth);
           // The onAuthStateChanged listener will be called again with the new anonymous user,
           // and the logic will proceed to the `if (firebaseUser.isAnonymous)` block above.
@@ -101,7 +99,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.error("FirebaseProvider: Auth state error:", error);
         setUser(null);
         setUserError(error as Error);
-        setIsUserLoading(false);
+      } finally {
+        // We set loading to false only after we have a confirmed user state (or an error).
+        // The flow will cycle until a valid anonymous user is set.
+        if (user || userError) {
+          setIsUserLoading(false);
+        }
       }
     }, (error) => {
         console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
@@ -111,7 +114,28 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     });
 
     return () => unsubscribe();
-  }, [auth, firestore]);
+  }, [auth, firestore, user, userError]);
+  
+  // This effect specifically handles the final loading state
+  useEffect(() => {
+      if(user && !isUserLoading) {
+          // Final state is a valid user, we are done loading
+          return;
+      }
+      if(userError) {
+          // Final state is an error, we are done loading
+          setIsUserLoading(false);
+          return;
+      }
+       if (user === null && !isUserLoading) {
+          // Transient state where user is null but not yet an error/final user
+          // Keep loading until the auth flow completes
+          setIsUserLoading(true);
+      } else if (user !== null) {
+          // We got a user, so we can stop loading
+          setIsUserLoading(false);
+      }
+  }, [user, isUserLoading, userError]);
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
