@@ -72,20 +72,20 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setIsUserLoading(true);
+      setUserError(null);
+      
       try {
         if (firebaseUser) {
-          // A user is signed in. Check if they are anonymous.
           if (firebaseUser.isAnonymous) {
-            // This is the correct user type.
+            // User is anonymous, this is the correct state.
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
-            setIsUserLoading(false);
           } else {
-            // This is a non-anonymous user. We must sign them out
-            // to enforce anonymous-only access. onAuthStateChanged
-            // will be called again with `null`.
+            // User is not anonymous, which is not allowed. Sign them out.
+            // onAuthStateChanged will be called again with user=null.
             await signOut(auth);
-            // State will be updated in the next cycle.
+            setUser(null);
           }
         } else {
           // No user is signed in. We need to sign in anonymously.
@@ -96,6 +96,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.error("FirebaseProvider: Auth state error:", error);
         setUser(null);
         setUserError(error as Error);
+      } finally {
         setIsUserLoading(false);
       }
     }, (error) => {
