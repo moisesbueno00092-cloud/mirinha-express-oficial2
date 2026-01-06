@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
@@ -80,12 +79,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
              // It's the anonymous user we want. Ensure their profile exists.
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
-            setIsUserLoading(false);
           } else {
             // If it's a persistent, non-anonymous user, sign them out.
-            // onAuthStateChanged will be called again with `null`.
+            // onAuthStateChanged will be called again with `null`, triggering the sign-in flow below.
             await signOut(auth);
-            // State will be updated in the next cycle of the listener, where user will be null.
+            // We set the user to null immediately to avoid using a non-anonymous user briefly.
+            setUser(null);
           }
         } else {
           // No user is signed in at all. Let's sign in anonymously.
@@ -97,7 +96,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.error("FirebaseProvider: Auth state error:", error);
         setUser(null);
         setUserError(error as Error);
-        setIsUserLoading(false);
+      } finally {
+        // We only stop loading once we have a definitive user state (either a user or an error).
+        if (user || userError) {
+          setIsUserLoading(false);
+        }
       }
     }, (error) => {
         console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
@@ -107,7 +110,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     });
 
     return () => unsubscribe();
-  }, [auth, firestore]);
+  }, [auth, firestore, user, userError]); // Added user and userError to dependencies
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
