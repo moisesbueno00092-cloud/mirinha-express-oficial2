@@ -784,10 +784,8 @@ function AuthWall({ children }: { children: React.ReactNode }) {
 
 export default function Home() {
   return (
-    <FirebaseClientProvider>
-        <AuthWall>
-          <LancheTrackerPage />
-        </AuthWall>
-    </FirebaseClientProvider>
+    <AuthWall>
+      <LancheTrackerPage />
+    </AuthWall>
   );
 }
