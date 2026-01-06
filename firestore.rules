@@ -3,17 +3,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Regra principal: Um utilizador só pode aceder ao seu próprio documento e subcoleções
+    // Regra principal: Um utilizador só pode aceder ao seu próprio documento e a todas as suas subcoleções.
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado
+    // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado.
     match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
     }
 
-    // Coleções de administração (qualquer utilizador autenticado pode ler e escrever)
+    // As coleções de administração podem ser lidas e escritas por qualquer utilizador autenticado.
     match /fornecedores/{fornecedorId} {
         allow read, write: if request.auth != null;
     }
@@ -26,8 +26,7 @@ service cloud.firestore {
         allow read, write: if request.auth != null;
     }
 
-    // A coleção de funcionários e todas as suas subcoleções (lancamentos, holerites)
-    // podem ser lidas e escritas por qualquer utilizador autenticado.
+    // A coleção de funcionários e todas as suas subcoleções podem ser lidas e escritas por qualquer utilizador autenticado.
     match /funcionarios/{funcionarioId}/{document=**} {
         allow read, write: if request.auth != null;
     }
