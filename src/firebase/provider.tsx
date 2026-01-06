@@ -4,7 +4,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, setDoc, getDoc } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, signInAnonymously, signOut } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -76,24 +76,21 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
         if (currentUser) {
-          // A user is signed in.
-          setUser(currentUser);
+          // A user is signed in. Ensure their profile exists.
           await ensureUserProfileExists(firestore, currentUser);
+          setUser(currentUser);
           setUserError(null);
         } else {
           // No user is signed in, so sign in anonymously.
+          // The listener will be called again with the new anonymous user.
           await signInAnonymously(auth);
-          // The listener will be called again with the new anonymous user,
-          // which will trigger the `if (currentUser)` block above.
         }
       } catch (error) {
         console.error("FirebaseProvider: Error during auth state change or sign-in:", error);
         setUserError(error as Error);
       } finally {
-        // We only stop loading once we have a definite user or an error.
-        if(currentUser || userError) {
-          setIsUserLoading(false);
-        }
+        // We stop loading only when we have a user or an error.
+        setIsUserLoading(false);
       }
     }, (error) => {
       // Handle listener errors specifically.
@@ -104,7 +101,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     // Cleanup the listener on unmount.
     return () => unsubscribe();
-  }, [auth, firestore, userError]); // Added userError to dependencies
+  }, [auth, firestore]);
 
 
   const contextValue = useMemo((): FirebaseContextState => {

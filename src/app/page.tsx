@@ -760,31 +760,22 @@ function LancheTrackerPage({ user }: { user: User }) {
 export default function Home() {
   const { user, isUserLoading, userError } = useUser();
 
-  if (isUserLoading) {
+  // We must wait for the user to be fully authenticated and explicitly anonymous
+  // before rendering the main page content.
+  const isReady = !isUserLoading && user && user.isAnonymous;
+
+  if (!isReady) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
         <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">A aguardar autenticação...</p>
-      </div>
-    );
-  }
-
-  if (userError) {
-     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
-        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
-        <p className="mt-4 text-destructive font-semibold">Erro de Autenticação</p>
-        <p className="mt-2 text-muted-foreground text-sm max-w-md">{userError.message}</p>
-      </div>
-    );
-  }
-  
-  if (!user) {
-     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
-        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
-        <p className="mt-4 text-destructive">Não foi possível autenticar. Por favor, tente recarregar a página.</p>
+        <p className="mt-4 text-muted-foreground">A aguardar autenticação anónima...</p>
+        {userError && (
+            <>
+                <p className="mt-4 text-destructive font-semibold">Erro de Autenticação</p>
+                <p className="mt-2 text-muted-foreground text-sm max-w-md">{userError.message}</p>
+            </>
+        )}
       </div>
     );
   }
