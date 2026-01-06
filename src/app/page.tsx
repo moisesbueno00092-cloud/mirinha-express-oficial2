@@ -79,7 +79,7 @@ function LancheTrackerPage() {
 
   // --- Real-time items from Firestore ---
   const todaysItemsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user || !user.isAnonymous) return null;
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
     return query(
