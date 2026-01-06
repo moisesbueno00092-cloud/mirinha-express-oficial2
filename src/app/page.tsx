@@ -285,8 +285,6 @@ function LancheTrackerPage({ user }: { user: User }) {
                 const bomboniereMatch = part.match(/^(\d*)([a-zA-Z\d\s-]+)$/i);
                 const qty = bomboniereMatch && bomboniereMatch[1] ? parseInt(bomboniereMatch[1], 10) : 1;
                 const namePart = bomboniereMatch ? bomboniereMatch[2] : part;
-                const price = parseFloat(parts[i+1].replace(',', '.'));
-                
                 const existingItemDef = bomboniereItems?.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === namePart.toUpperCase());
 
                 processedBomboniereItems.push({ id: existingItemDef?.id || namePart, name: existingItemDef?.name || namePart, quantity: qty, price: price });
@@ -780,3 +778,5 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
+
+    

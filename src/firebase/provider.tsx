@@ -77,33 +77,28 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       auth,
       async (currentUser) => {
         setUserError(null);
+        // We only want to deal with anonymous users in this app
         if (currentUser && currentUser.isAnonymous) {
-            try {
-                await ensureUserProfileExists(firestore, currentUser);
-                setUser(currentUser);
-            } catch (e) {
-                setUserError(e as Error);
-            } finally {
-                setIsUserLoading(false);
-            }
-        } else if (!currentUser) {
-            // Not loading, but no user. Try to sign in.
-            setIsUserLoading(true);
-            try {
-                await signInAnonymously(auth);
-                // onAuthStateChanged will be called again with the new user,
-                // so we just wait for the next cycle.
-            } catch (error) {
-                console.error("FirebaseProvider: Anonymous sign-in failed", error);
-                setUserError(error as Error);
-                setIsUserLoading(false);
-            }
-        } else {
-            // A user exists but is not anonymous. This is an unexpected state for this app.
-            // For this app, we will treat it as an error or sign them out to force anonymous login.
-            // Here, we'll just set loading to false and let downstream components decide.
+          try {
+            await ensureUserProfileExists(firestore, currentUser);
             setUser(currentUser);
+          } catch (e) {
+            setUserError(e as Error);
+          } finally {
             setIsUserLoading(false);
+          }
+        } else {
+          // If there's a non-anonymous user or no user, sign in anonymously.
+          setIsUserLoading(true);
+          try {
+            await signInAnonymously(auth);
+            // onAuthStateChanged will be called again with the new anonymous user,
+            // so we don't need to set user/loading state here. The listener will handle it.
+          } catch (error) {
+            console.error("FirebaseProvider: Anonymous sign-in failed", error);
+            setUserError(error as Error);
+            setIsUserLoading(false);
+          }
         }
       },
       (error) => {
@@ -189,3 +184,5 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
+
+    
