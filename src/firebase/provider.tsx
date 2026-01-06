@@ -73,17 +73,20 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // This effect handles the entire auth flow and should only run once.
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setIsUserLoading(true);
+      setUserError(null);
+
       try {
-        if (currentUser && currentUser.isAnonymous) {
+        if (currentUser) {
+          // A user is signed in. Ensure their profile exists.
           await ensureUserProfileExists(firestore, currentUser);
           setUser(currentUser);
-          setUserError(null);
         } else {
-          // If there's no user, or a non-anonymous user, sign in anonymously.
-          // This will trigger onAuthStateChanged again with the new anonymous user.
-          await signInAnonymously(auth);
+          // No user is signed in, so sign in anonymously.
+          const userCredential = await signInAnonymously(auth);
+          // The onAuthStateChanged listener will be called again with the new user,
+          // so we don't need to set the user here.
         }
       } catch (error) {
         console.error("FirebaseProvider: Error during auth state handling:", error);
@@ -92,8 +95,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       } finally {
         setIsUserLoading(false);
       }
-    },
-    (error) => {
+    }, (error) => {
       // Handle listener errors specifically.
       console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
       setUserError(error);
