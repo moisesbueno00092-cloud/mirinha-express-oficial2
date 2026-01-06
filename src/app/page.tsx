@@ -768,7 +768,7 @@ export default function Home() {
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
         <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">A aguardar autenticação anónima...</p>
+        <p className="mt-4 text-muted-foreground">A aguardar autenticação...</p>
         {userError && (
             <>
                 <p className="mt-4 text-destructive font-semibold">Erro de Autenticação</p>

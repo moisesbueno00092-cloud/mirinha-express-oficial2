@@ -79,15 +79,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       async (currentUser) => {
         try {
           if (currentUser && currentUser.isAnonymous) {
-            // User is signed in and is anonymous. Ensure their profile exists.
             await ensureUserProfileExists(firestore, currentUser);
             setUser(currentUser);
           } else {
-            // No user is signed in, or is not anonymous. Sign in anonymously.
-            // onAuthStateChanged will be called again with the new anonymous user.
-            if(currentUser) {
-              await auth.signOut();
-            }
+             if(currentUser) {
+              // This is a non-anonymous user, sign them out.
+              await auth.signOut(); 
+             }
+            // Sign in anonymously, onAuthStateChanged will be re-triggered
             await signInAnonymously(auth);
           }
         } catch (error) {
@@ -95,8 +94,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           setUserError(error as Error);
           setUser(null);
         } finally {
-          // This should only be set to false once we have a stable user state.
-          // We let the next run of onAuthStateChanged handle it.
            if (currentUser) {
             setIsUserLoading(false);
           }
