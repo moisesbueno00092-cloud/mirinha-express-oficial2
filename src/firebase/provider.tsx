@@ -79,12 +79,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
       try {
         if (currentUser) {
-          // A user is signed in. Ensure their profile exists.
           await ensureUserProfileExists(firestore, currentUser);
           setUser(currentUser);
         } else {
-          // No user is signed in, so sign in anonymously.
-          // The listener will be called again with the new anonymous user.
+          // If there's no user, sign in anonymously. The listener will be called again.
           await signInAnonymously(auth);
         }
       } catch (error) {
@@ -92,7 +90,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setUserError(error as Error);
         setUser(null); // Clear user on error
       } finally {
-        // We stop loading only when we have a user or an error.
         setIsUserLoading(false);
       }
     }, (error) => {
@@ -180,3 +177,5 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
+
+    
