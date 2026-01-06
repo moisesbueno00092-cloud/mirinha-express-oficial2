@@ -76,6 +76,17 @@ function LancheTrackerPage({ user }: { user: User }) {
   const firestore = useFirestore();
   const router = useRouter();
 
+  // --- This effect ensures the user profile document exists, which is required by security rules ---
+  useEffect(() => {
+    if (firestore && user?.uid) {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        // Use setDoc with merge:true to create the doc if it doesn't exist,
+        // or update it if it does, without overwriting other fields.
+        setDocumentNonBlocking(userDocRef, { email: user.email || 'anonymous' }, { merge: true });
+    }
+  }, [firestore, user]);
+  // --- End profile creation effect ---
+
   // --- Real-time items from Firestore ---
   const todaysItemsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -101,14 +112,6 @@ function LancheTrackerPage({ user }: { user: User }) {
     }
     return BOMBONIERE_ITEMS_DEFAULT;
   }, [bomboniereItemsFromDB, isLoadingBomboniere]);
-
-  // This effect ensures the user profile document exists, which is required by security rules
-  useEffect(() => {
-    if (firestore && user) {
-        const userDocRef = doc(firestore, 'users', user.uid);
-        setDocumentNonBlocking(userDocRef, { email: user.email }, { merge: true });
-    }
-  }, [firestore, user]);
 
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -657,6 +660,8 @@ function LancheTrackerPage({ user }: { user: User }) {
               }
           }}
           onSuccess={handlePasswordSuccess}
+          onCancel={passwordPrompt.onCancel}
+          showCancel={!!passwordPrompt.onCancel}
         />
       )}
       
@@ -797,3 +802,5 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
+
+    

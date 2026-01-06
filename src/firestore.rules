@@ -4,14 +4,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Permite que um utilizador leia e escreva o seu próprio perfil
+    // Regra principal: Um utilizador só pode aceder aos seus próprios documentos
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Permite que um utilizador crie/leia o seu próprio perfil.
+    // É necessário para que as regras de subcoleção funcionem.
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, create: if isOwner(userId);
+      // Impede a modificação do email após a criação para segurança.
+      allow update: if isOwner(userId) && request.resource.data.email == resource.data.email;
     }
     
-    // Permite que um utilizador leia e escreva nas suas próprias subcoleções
+    // Permite que um utilizador leia e escreva nas suas próprias subcoleções.
+    // A condição `exists` garante que a leitura da coleção só é permitida se o documento pai (perfil) existir.
     match /users/{userId}/{collection}/{docId} {
-       allow read, write: if request.auth != null && request.auth.uid == userId;
+       allow read, write: if isOwner(userId) && exists(/databases/$(database)/documents/users/$(userId));
     }
 
     // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado
@@ -38,3 +47,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
