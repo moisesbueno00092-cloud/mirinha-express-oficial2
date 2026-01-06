@@ -3,13 +3,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Regra para o documento de perfil do utilizador
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Regra para as subcoleções do utilizador (lançamentos, relatórios, etc.)
-    match /users/{userId}/{collection}/{docId} {
+    // Regra principal: Um utilizador só pode aceder ao seu próprio documento e subcoleções
+    match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
