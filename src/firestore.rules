@@ -3,30 +3,38 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Regra principal: Um utilizador só pode aceder ao seu próprio documento e subcoleções
+    // REGRA DE DADOS DO UTILIZADOR
+    // Permite que um utilizador autenticado leia e escreva apenas nos seus próprios documentos e subcoleções.
+    // O {document=**} é um wildcard que abrange o documento do utilizador e todos os documentos em todas as subcoleções.
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado
+    // REGRAS DE COLEÇÕES PARTILHADAS E ADMINISTRATIVAS
+    // Qualquer utilizador autenticado pode ler e escrever nestas coleções.
+    // Esta abordagem é para ambientes de desenvolvimento ou cenários onde todos os utilizadores partilham estas permissões.
+
+    // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado.
     match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
     }
 
-    // Coleções de administração (qualquer utilizador autenticado pode ler e escrever)
+    // Fornecedores podem ser geridos por qualquer utilizador autenticado.
     match /fornecedores/{fornecedorId} {
         allow read, write: if request.auth != null;
     }
 
+    // Contas a pagar podem ser geridas por qualquer utilizador autenticado.
     match /contas_a_pagar/{contaId} {
         allow read, write: if request.auth != null;
     }
 
+    // Entradas de mercadorias podem ser geridas por qualquer utilizador autenticado.
     match /entradas_mercadorias/{entradaId} {
         allow read, write: if request.auth != null;
     }
 
-    // Permite acesso total à coleção de funcionários e suas subcoleções
+    // Dados de funcionários (incluindo subcoleções) podem ser geridos por qualquer utilizador autenticado.
     match /funcionarios/{funcionarioId}/{document=**} {
         allow read, write: if request.auth != null;
     }
