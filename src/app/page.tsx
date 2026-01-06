@@ -789,7 +789,3 @@ export default function Home() {
     </AuthWall>
   );
 }
-
-    
-
-    
