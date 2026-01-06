@@ -72,7 +72,8 @@ const ToastContent = ({ item, title }: { item: Partial<Item>; title: string }) =
 );
 
 
-function LancheTrackerPage({ user }: { user: User }) {
+function LancheTrackerPage() {
+  const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
 
@@ -783,10 +784,10 @@ function AuthWall({ children }: { children: React.ReactNode }) {
 
 export default function Home() {
   return (
-    <FirebaseClientProvider>
-      <AuthWall>
-        <LancheTrackerPage />
-      </AuthWall>
-    </FirebaseClientProvider>
-  )
+    <AuthWall>
+      <LancheTrackerPage />
+    </AuthWall>
+  );
 }
+
+    
