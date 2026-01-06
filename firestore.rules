@@ -1,38 +1,27 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Regra principal: Um utilizador só pode aceder ao seu próprio documento e a todas as suas subcoleções.
-    // Esta regra wildcard recursiva {document=**} garante que um utilizador autenticado
-    // tenha permissão de leitura e escrita para /users/{userId} e qualquer documento
-    // em qualquer subcoleção abaixo dele (ex: /users/{userId}/order_items/{orderId}).
-    match /users/{userId}/{document=**} {
+    // Regra para a coleção de usuários e todas as suas subcoleções (como order_items)
+    match /users/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado.
+    // Regra para coleções partilhadas/públicas
     match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
     }
-
-    // As coleções de administração podem ser lidas e escritas por qualquer utilizador autenticado.
     match /fornecedores/{fornecedorId} {
-        allow read, write: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
-
     match /contas_a_pagar/{contaId} {
-        allow read, write: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
-
     match /entradas_mercadorias/{entradaId} {
-        allow read, write: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
-
-    // A coleção de funcionários e todas as suas subcoleções podem ser lidas e escritas por qualquer utilizador autenticado.
     match /funcionarios/{funcionarioId}/{document=**} {
-        allow read, write: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
   }
 }
