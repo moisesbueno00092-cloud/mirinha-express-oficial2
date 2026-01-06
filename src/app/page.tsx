@@ -761,7 +761,7 @@ export default function Home() {
   const { user, isUserLoading, userError } = useUser();
 
   // We must wait for the user to be fully authenticated and explicitly anonymous
-  // before rendering the main page content.
+  // before rendering the main page content. This is the key fix for the race condition.
   const isReady = !isUserLoading && user && user.isAnonymous;
 
   if (!isReady) {

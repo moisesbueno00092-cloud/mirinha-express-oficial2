@@ -74,12 +74,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setIsUserLoading(true); // Always start in a loading state on auth change
+      setUserError(null);
+
       try {
         if (currentUser) {
           // A user is signed in. Ensure their profile exists.
           await ensureUserProfileExists(firestore, currentUser);
           setUser(currentUser);
-          setUserError(null);
         } else {
           // No user is signed in, so sign in anonymously.
           // The listener will be called again with the new anonymous user.
@@ -88,6 +90,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       } catch (error) {
         console.error("FirebaseProvider: Error during auth state change or sign-in:", error);
         setUserError(error as Error);
+        setUser(null); // Clear user on error
       } finally {
         // We stop loading only when we have a user or an error.
         setIsUserLoading(false);
@@ -97,6 +100,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
       setUserError(error);
       setIsUserLoading(false);
+      setUser(null);
     });
 
     // Cleanup the listener on unmount.
