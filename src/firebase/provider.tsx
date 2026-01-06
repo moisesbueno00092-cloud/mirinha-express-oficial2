@@ -74,27 +74,33 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // A user is logged in. Check if they are anonymous.
+          // A user is logged in.
           if (firebaseUser.isAnonymous) {
-            // This is the correct state. Set the user and ensure profile exists.
+            // This is the correct, expected state.
+            // Ensure profile exists and set the user.
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
+            setUserError(null);
+            setIsUserLoading(false);
           } else {
-            // This is an incorrect state. Sign out the non-anonymous user.
+            // This is an incorrect state (e.g., a previously signed-in non-anonymous user).
+            // We must sign them out to enforce the anonymous-only policy.
             // The listener will be triggered again with `null`, which will then
-            // trigger the anonymous sign-in.
+            // trigger the anonymous sign-in flow.
+            setIsUserLoading(true); // Keep loading state while we correct the user
             await signOut(auth);
           }
         } else {
-          // No user is logged in. Sign in anonymously.
-          // The listener will be triggered again with the new anonymous user.
+          // No user is logged in. This is the trigger to sign in anonymously.
+          setIsUserLoading(true); // Explicitly set loading before async operation
           await signInAnonymously(auth);
+          // The onAuthStateChanged listener will be called again with the new anonymous user,
+          // and the logic will proceed to the `if (firebaseUser.isAnonymous)` block above.
         }
       } catch (error) {
         console.error("FirebaseProvider: Auth state error:", error);
         setUser(null);
         setUserError(error as Error);
-      } finally {
         setIsUserLoading(false);
       }
     }, (error) => {
