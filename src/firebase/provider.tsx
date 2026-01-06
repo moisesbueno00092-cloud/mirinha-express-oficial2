@@ -73,30 +73,28 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setIsUserLoading(true);
-      setUserError(null);
-      
-      try {
-        if (currentUser && currentUser.isAnonymous) {
-          // User is signed in and is anonymous, proceed.
-          await ensureUserProfileExists(firestore, currentUser);
-          setUser(currentUser);
-        } else {
-          // If there is a user but they are not anonymous, or there is no user,
-          // sign out to clear any invalid state, then sign in anonymously.
-          if (currentUser) {
-            await signOut(auth);
-          }
-          const userCredential = await signInAnonymously(auth);
-          // The onAuthStateChanged listener will be re-triggered with the new anonymous user,
-          // so we let the next call handle setting the user and creating the profile.
-        }
-      } catch (error) {
-        console.error("FirebaseProvider: Error during auth state handling:", error);
-        setUserError(error as Error);
-        setUser(null);
-      } finally {
+      // If a user exists and is anonymous, we are in a good state.
+      if (currentUser?.isAnonymous) {
+        setUser(currentUser);
+        await ensureUserProfileExists(firestore, currentUser);
         setIsUserLoading(false);
+        setUserError(null);
+      } else {
+        // If there's a non-anonymous user or no user at all,
+        // we force the anonymous sign-in flow.
+        setIsUserLoading(true);
+        try {
+          // Signing out first clears any invalid state.
+          await signOut(auth);
+          const userCredential = await signInAnonymously(auth);
+          // The onAuthStateChanged listener will be called again with the new anonymous user,
+          // and the code block above will handle setting the user and loading state.
+        } catch (error) {
+          console.error("FirebaseProvider: Error during anonymous sign-in:", error);
+          setUserError(error as Error);
+          setUser(null);
+          setIsUserLoading(false);
+        }
       }
     }, (error) => {
       // Handle listener errors specifically.
