@@ -46,6 +46,7 @@ const ensureUserProfileExists = async (firestoreInstance: Firestore, user: User)
   // Use setDoc with merge:true to create the doc if it doesn't exist,
   // or update it if it does, without overwriting other fields.
   try {
+    // Set a minimal profile. The email will be null for anonymous users.
     await setDoc(userDocRef, { email: user.email || 'anonymous' }, { merge: true });
   } catch (e) {
     // This error will be caught and surfaced by the global error handler
