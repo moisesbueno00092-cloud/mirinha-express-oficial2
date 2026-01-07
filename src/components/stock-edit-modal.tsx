@@ -7,10 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Plus, Save, Loader2, Search } from 'lucide-react';
-import type { BomboniereItem } from '@/types';
+import type { BomboniereItem, EntradaMercadoria, Item as OrderItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { collection, doc, writeBatch } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
+import { collection, doc, writeBatch, query } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, commitBatch } from '@/firebase/non-blocking-updates';
 import {
   AlertDialog,
@@ -35,6 +35,7 @@ type EditableItem = BomboniereItem;
 
 export default function StockEditModal({ isOpen, onClose, bomboniereItems: initialItems }: StockEditModalProps) {
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   
   const [localItems, setLocalItems] = useState<EditableItem[]>([]);
@@ -42,6 +43,13 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
   const [itemToDelete, setItemToDelete] = useState<EditableItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [originalItemsMap, setOriginalItemsMap] = useState<Record<string, EditableItem>>({});
+
+  const allOrderItemsQuery = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'users', user.uid, 'order_items')) : null, [firestore, user]);
+  const { data: allOrderItems } = useCollection<OrderItem>(allOrderItemsQuery);
+
+  const allEntradasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'entradas_mercadorias')) : null, [firestore]);
+  const { data: allEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
+
 
   useEffect(() => {
     if (isOpen) {
@@ -99,6 +107,26 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
   };
 
   const handleDeleteRequest = (item: EditableItem) => {
+      const itemNameLower = item.name.toLowerCase();
+
+      const isInSalesHistory = allOrderItems?.some(order => 
+        order.bomboniereItems?.some(bItem => bItem.name.toLowerCase() === itemNameLower)
+      ) || false;
+
+      const isInPurchaseHistory = allEntradas?.some(entrada =>
+        entrada.produtoNome.toLowerCase() === itemNameLower
+      ) || false;
+      
+      if (isInSalesHistory || isInPurchaseHistory) {
+           toast({
+                variant: 'destructive',
+                title: 'Exclusão Bloqueada',
+                description: `"${item.name}" não pode ser apagado pois possui histórico de vendas ou compras. Para o remover da lista, considere alterar o seu nome (ex: "zz_${item.name}") ou zerar o estoque.`,
+                duration: 8000,
+           });
+           return;
+      }
+
       setItemToDelete(item);
   }
 
