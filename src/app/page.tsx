@@ -78,9 +78,7 @@ function LancheTrackerPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const liveItemsQuery = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'users', user.uid, 'live_order_items')) : null, [firestore, user]);
-  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(liveItemsQuery);
-
+  const [items, setItems] = usePersistentState<Item[]>('lanches-do-dia', []);
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   const { data: bomboniereItemsFromDB, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -91,7 +89,6 @@ function LancheTrackerPage() {
     }
     return BOMBONIERE_ITEMS_DEFAULT;
   }, [bomboniereItemsFromDB, isLoadingBomboniere]);
-
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
@@ -148,8 +145,6 @@ function LancheTrackerPage() {
     }
     
     try {
-        const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_order_items');
-
         // --- Devolver stock antigo se estiver a editar ---
         if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
             const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
@@ -365,20 +360,21 @@ function LancheTrackerPage() {
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
-        
-        if (currentItem?.id) {
-            const itemRef = doc(liveItemsCollectionRef, currentItem.id);
-            setDocumentNonBlocking(itemRef, finalItem);
-            toast({
-                duration: 4000,
-                component: <ToastContent item={finalItem} title="Lançamento Atualizado" />,
-            });
+
+        if (currentItem) {
+          const updatedItem = { ...finalItem, id: currentItem.id };
+          setItems(prevItems => prevItems.map(it => it.id === currentItem.id ? updatedItem : it));
+          toast({
+            duration: 4000,
+            component: <ToastContent item={updatedItem} title="Lançamento Atualizado" />,
+          });
         } else {
-            addDocumentNonBlocking(liveItemsCollectionRef, finalItem as Item);
-            toast({
-                duration: 4000,
-                component: <ToastContent item={finalItem} title="Lançamento Adicionado" />,
-            });
+          const newItem = { ...finalItem, id: String(Date.now()) };
+          setItems(prevItems => [...prevItems, newItem]);
+          toast({
+            duration: 4000,
+            component: <ToastContent item={newItem} title="Lançamento Adicionado" />,
+          });
         }
         
     } catch (error) {
@@ -427,7 +423,7 @@ function LancheTrackerPage() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!firestore || !user?.uid || !itemToDelete || !items) return;
+    if (!itemToDelete) return;
 
     const itemBeingDeleted = items.find(it => it.id === itemToDelete);
 
@@ -443,9 +439,7 @@ function LancheTrackerPage() {
         }
     }
     
-    const docRef = doc(firestore, "users", user.uid, "live_order_items", itemToDelete);
-    deleteDocumentNonBlocking(docRef);
-
+    setItems(prev => prev.filter(it => it.id !== itemToDelete));
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
   };
@@ -528,12 +522,9 @@ function LancheTrackerPage() {
         batch.set(itemRef, item);
       });
       
-      items.forEach(item => {
-        const liveItemRef = doc(firestore, 'users', user.uid, 'live_order_items', item.id);
-        batch.delete(liveItemRef);
-      });
-      
       await commitBatch(batch);
+
+      setItems([]);
 
       toast({
         title: 'Relatório Salvo!',
@@ -719,7 +710,7 @@ function LancheTrackerPage() {
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}
               savedFavorites={savedFavorites}
-              isLoading={isLoadingItems}
+              isLoading={isLoadingBomboniere}
             />
           </div>
         </main>
@@ -795,7 +786,5 @@ export default function Home() {
     </AuthWall>
   );
 }
-
-    
 
     

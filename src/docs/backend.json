@@ -216,16 +216,6 @@
               }
             },
             {
-              "path": "live_order_items",
-              "definition": {
-                "entityName": "OrderItem",
-                "schema": {
-                  "$ref": "#/entities/OrderItem"
-                },
-                "description": "Collection of live, temporary order items for a specific user for the current day."
-              }
-            },
-            {
               "path": "daily_reports",
               "definition": {
                 "entityName": "DailyReport",
@@ -305,6 +295,5 @@
     ]
   }
 }
-
 
     
