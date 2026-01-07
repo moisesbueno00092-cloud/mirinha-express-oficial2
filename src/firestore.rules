@@ -3,48 +3,50 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Regra explícita para o documento do utilizador e suas subcoleções
+    // Permite que um utilizador autenticado aceda à sua própria pasta de utilizador
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-
-      // Permissão explícita para listar e aceder a itens de pedido
-      match /order_items/{orderId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-      
-      // Permissão explícita para listar e aceder a relatórios diários
-      match /daily_reports/{reportId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
     }
 
+    // Permite que um utilizador autenticado aceda aos seus próprios itens de pedido
+    match /users/{userId}/order_items/{orderId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Permite que um utilizador autenticado aceda aos seus próprios relatórios diários
+    match /users/{userId}/daily_reports/{reportId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Permite que qualquer utilizador autenticado aceda aos itens da bomboniere
     match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
     }
     
+    // Permite que qualquer utilizador autenticado aceda aos fornecedores
     match /fornecedores/{fornecedorId} {
       allow read, write: if request.auth != null;
     }
     
+    // Permite que qualquer utilizador autenticado aceda às contas a pagar
     match /contas_a_pagar/{contaId} {
       allow read, write: if request.auth != null;
     }
     
+    // Permite que qualquer utilizador autenticado aceda às entradas de mercadorias
     match /entradas_mercadorias/{entradaId} {
       allow read, write: if request.auth != null;
     }
     
-    // Regra explícita para funcionários e suas subcoleções
+    // Permite que qualquer utilizador autenticado aceda aos funcionários e suas subcoleções
     match /funcionarios/{funcionarioId} {
        allow read, write: if request.auth != null;
-       
-       match /lancamentos/{lancamentoId} {
-         allow read, write: if request.auth != null;
-       }
-       
-       match /holerites/{holeriteId} {
-         allow read, write: if request.auth != null;
-       }
+    }
+    match /funcionarios/{funcionarioId}/lancamentos/{lancamentoId} {
+       allow read, write: if request.auth != null;
+    }
+    match /funcionarios/{funcionarioId}/holerites/{holeriteId} {
+       allow read, write: if request.auth != null;
     }
   }
 }
