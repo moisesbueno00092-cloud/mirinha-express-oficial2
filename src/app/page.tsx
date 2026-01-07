@@ -78,7 +78,8 @@ function LancheTrackerPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const [items, setItems] = usePersistentState<Item[]>('lanches-do-dia', []);
+  const liveItemsQuery = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, `users/${user.uid}/live_items`), orderBy('timestamp', 'asc')) : null, [firestore, user]);
+  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(liveItemsQuery);
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   const { data: bomboniereItemsFromDB, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -362,19 +363,19 @@ function LancheTrackerPage() {
         };
 
         if (currentItem) {
-          const updatedItem = { ...finalItem, id: currentItem.id };
-          setItems(prevItems => prevItems.map(it => it.id === currentItem.id ? updatedItem : it));
-          toast({
-            duration: 4000,
-            component: <ToastContent item={updatedItem} title="Lançamento Atualizado" />,
-          });
+            const docRef = doc(firestore, `users/${user.uid}/live_items`, currentItem.id);
+            setDocumentNonBlocking(docRef, finalItem);
+            toast({
+                duration: 4000,
+                component: <ToastContent item={finalItem} title="Lançamento Atualizado" />,
+            });
         } else {
-          const newItem = { ...finalItem, id: String(Date.now()) };
-          setItems(prevItems => [...prevItems, newItem]);
-          toast({
-            duration: 4000,
-            component: <ToastContent item={newItem} title="Lançamento Adicionado" />,
-          });
+            const colRef = collection(firestore, `users/${user.uid}/live_items`);
+            addDocumentNonBlocking(colRef, finalItem);
+            toast({
+                duration: 4000,
+                component: <ToastContent item={finalItem} title="Lançamento Adicionado" />,
+            });
         }
         
     } catch (error) {
@@ -423,9 +424,9 @@ function LancheTrackerPage() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete) return;
+    if (!itemToDelete || !user || !firestore) return;
 
-    const itemBeingDeleted = items.find(it => it.id === itemToDelete);
+    const itemBeingDeleted = items?.find(it => it.id === itemToDelete);
 
     if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
         const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
@@ -439,7 +440,9 @@ function LancheTrackerPage() {
         }
     }
     
-    setItems(prev => prev.filter(it => it.id !== itemToDelete));
+    const docRef = doc(firestore, `users/${user.uid}/live_items`, itemToDelete);
+    deleteDocumentNonBlocking(docRef);
+
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
   };
@@ -521,10 +524,13 @@ function LancheTrackerPage() {
         const itemRef = doc(collection(firestore, 'users', user.uid, 'order_items'));
         batch.set(itemRef, item);
       });
+
+      items.forEach(item => {
+        const liveItemRef = doc(firestore, 'users', user.uid, 'live_items', item.id);
+        batch.delete(liveItemRef);
+      });
       
       await commitBatch(batch);
-
-      setItems([]);
 
       toast({
         title: 'Relatório Salvo!',
@@ -710,7 +716,7 @@ function LancheTrackerPage() {
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}
               savedFavorites={savedFavorites}
-              isLoading={isLoadingBomboniere}
+              isLoading={isLoadingItems || isLoadingBomboniere}
             />
           </div>
         </main>
@@ -786,5 +792,3 @@ export default function Home() {
     </AuthWall>
   );
 }
-
-    
