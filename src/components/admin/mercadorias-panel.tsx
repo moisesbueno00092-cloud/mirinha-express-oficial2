@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -41,6 +42,33 @@ const generateStrongColor = () => {
   const s = Math.floor(Math.random() * 20) + 80; // Saturation: 80% to 100%
   const l = Math.floor(Math.random() * 20) + 65; // Lightness: 65% to 85% for better brightness and vibrancy
   return `hsl(${h}, ${s}%, ${l}%)`;
+};
+
+const findBestBomboniereMatch = (productName: string, bomboniereItems: BomboniereItem[]): BomboniereItem | undefined => {
+    if (!productName || !bomboniereItems) return undefined;
+
+    const lowerProductName = productName.toLowerCase();
+    let bestMatch: BomboniereItem | undefined = undefined;
+    let longestMatchLength = 0;
+
+    for (const bomboniereItem of bomboniereItems) {
+        const lowerBomboniereName = bomboniereItem.name.toLowerCase();
+        
+        // Prioritize exact match
+        if (lowerProductName === lowerBomboniereName) {
+            return bomboniereItem;
+        }
+
+        // Check if bomboniere name is a substring of the product name
+        if (lowerProductName.includes(lowerBomboniereName)) {
+            if (lowerBomboniereName.length > longestMatchLength) {
+                bestMatch = bomboniereItem;
+                longestMatchLength = lowerBomboniereName.length;
+            }
+        }
+    }
+
+    return bestMatch;
 };
 
 
@@ -346,43 +374,32 @@ export default function MercadoriasPanel() {
             toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados à lista.` });
             
             // --- Automatic Stock Update Logic ---
-            const selectedFornecedor = fornecedores?.find(f => f.id === fornecedorId);
-            const isCocaCola = selectedFornecedor?.nome.toLowerCase().includes('coca cola') || false;
-
-            const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
-            const batch = writeBatch(firestore);
-            let stockUpdatesCount = 0;
-            let newItemsCount = 0;
-
-            for (const item of items) {
-                const existingBomboniereItem = bomboniereItems?.find(bi => bi.name.toLowerCase() === item.produtoNome.toLowerCase());
-
-                if (existingBomboniereItem) {
-                    const docRef = doc(bomboniereCollectionRef, existingBomboniereItem.id);
-                    const newStock = existingBomboniereItem.estoque + item.quantidade;
-                    batch.update(docRef, { estoque: newStock });
-                    stockUpdatesCount++;
-                } else if (isCocaCola) {
-                    const newDocRef = doc(bomboniereCollectionRef);
-                    const newItem: Omit<BomboniereItem, 'id'> = {
-                        name: item.produtoNome,
-                        price: item.valorTotal / item.quantidade,
-                        estoque: item.quantidade
-                    };
-                    batch.set(newDocRef, newItem);
-                    newItemsCount++;
+            if (bomboniereItems && bomboniereItems.length > 0) {
+                const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
+                const batch = writeBatch(firestore);
+                let stockUpdatesCount = 0;
+                
+                for (const item of newProdutos) {
+                    const matchedItem = findBestBomboniereMatch(item.produtoNome, bomboniereItems);
+    
+                    if (matchedItem) {
+                        const docRef = doc(bomboniereCollectionRef, matchedItem.id);
+                        // We need the current stock from the DB, but since we have it from useCollection, we can use it.
+                        // For more accuracy in high-concurrency, a transaction would be better, but this is fine for this app.
+                        const currentStock = bomboniereItems.find(bi => bi.id === matchedItem.id)?.estoque ?? 0;
+                        const newStock = currentStock + item.quantidade;
+                        batch.update(docRef, { estoque: newStock });
+                        stockUpdatesCount++;
+                    }
                 }
-            }
-
-            if (stockUpdatesCount > 0 || newItemsCount > 0) {
-                await batch.commit();
-                let stockToastDescription = '';
-                if (stockUpdatesCount > 0) stockToastDescription += `${stockUpdatesCount} iten(s) do estoque atualizado(s). `;
-                if (newItemsCount > 0) stockToastDescription += `${newItemsCount} novo(s) iten(s) criado(s) no estoque.`;
-                toast({
-                    title: 'Estoque Atualizado Automaticamente',
-                    description: stockToastDescription.trim()
-                });
+    
+                if (stockUpdatesCount > 0) {
+                    await batch.commit();
+                    toast({
+                        title: 'Estoque Atualizado Automaticamente',
+                        description: `${stockUpdatesCount} iten(s) da bomboniere tiveram seu estoque atualizado.`
+                    });
+                }
             }
             // --- End Automatic Stock Update Logic ---
 
@@ -422,7 +439,7 @@ export default function MercadoriasPanel() {
     };
 
     const handleRegisterEntry = async () => {
-        if (!firestore || !fornecedorId || produtosLancados.length === 0 || !bomboniereItems) {
+        if (!firestore || !fornecedorId || produtosLancados.length === 0 || isLoadingBomboniere) {
             toast({ variant: 'destructive', title: 'Faltam dados', description: 'Por favor, selecione um fornecedor, espere os itens da bomboniere carregarem, e adicione pelo menos um produto.' });
             return;
         }
@@ -452,7 +469,7 @@ export default function MercadoriasPanel() {
                 batch.set(contaDocRef, novaConta);
             }
 
-            produtosLancados.forEach(produto => {
+            for (const produto of produtosLancados) {
                 const novaEntrada: Omit<EntradaMercadoria, 'id'> = {
                     produtoNome: produto.produtoNome,
                     fornecedorId: fornecedorId,
@@ -465,13 +482,15 @@ export default function MercadoriasPanel() {
                 batch.set(entradaDocRef, novaEntrada);
                 
                 // Stock update logic
-                const existingBomboniereItem = bomboniereItems.find(bi => bi.name.toLowerCase() === produto.produtoNome.toLowerCase());
-                if (existingBomboniereItem) {
-                    const bomboniereDocRef = doc(firestore, 'bomboniere_items', existingBomboniereItem.id);
-                    const newStock = existingBomboniereItem.estoque + produto.quantidade;
+                const matchedBomboniereItem = findBestBomboniereMatch(produto.produtoNome, bomboniereItems || []);
+                if (matchedBomboniereItem) {
+                    const bomboniereDocRef = doc(firestore, 'bomboniere_items', matchedBomboniereItem.id);
+                    // Get the most recent stock value to avoid race conditions if items are re-fetched
+                    const currentStock = bomboniereItems?.find(bi => bi.id === matchedBomboniereItem.id)?.estoque ?? 0;
+                    const newStock = currentStock + produto.quantidade;
                     batch.update(bomboniereDocRef, { estoque: newStock });
                 }
-            });
+            }
             
             await batch.commit();
 
