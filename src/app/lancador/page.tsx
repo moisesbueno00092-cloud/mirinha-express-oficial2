@@ -78,7 +78,18 @@ function LancheTrackerPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const [items, setItems] = usePersistentState<Item[]>('dailyItems', []);
+  const todayStart = useMemo(() => startOfDay(new Date()), []);
+  const itemsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return query(
+      collection(firestore, 'users', user.uid, 'order_items'),
+      where('timestamp', '>=', todayStart),
+      where('reportado', '==', false),
+      orderBy('timestamp', 'desc')
+    );
+  }, [firestore, user?.uid, todayStart]);
+
+  const { data: items, isLoading: isLoadingItems, error } = useCollection<Item>(itemsQuery);
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   const { data: bomboniereItemsFromDB, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -351,7 +362,7 @@ function LancheTrackerPage() {
             quantity: totalQuantity,
             price: totalPrice,
             group,
-            timestamp: new Date().toISOString(), // Use ISO string for local state
+            timestamp: serverTimestamp(),
             deliveryFee,
             total,
             originalCommand: rawInputToProcess,
@@ -365,28 +376,17 @@ function LancheTrackerPage() {
         const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
         
         if (currentItem?.id) {
-            const updatedItem = { ...finalItemForFirestore, id: currentItem.id };
-            // Update local state
-            setItems(prevItems => prevItems.map(item => item.id === currentItem.id ? updatedItem : item));
-            
-            // Update Firestore non-blockingly
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
-            // Replace serverTimestamp with the generated ISO string for Firestore
-            setDocumentNonBlocking(docRef, { ...finalItemForFirestore, timestamp: serverTimestamp() });
+            setDocumentNonBlocking(docRef, finalItemForFirestore);
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...updatedItem, total: updatedItem.total}} title="Lançamento Atualizado" />,
+                component: <ToastContent item={{...currentItem, ...finalItemForFirestore, total: finalItemForFirestore.total}} title="Lançamento Atualizado" />,
             });
         } else {
-            const newItem = { ...finalItemForFirestore, id: String(Date.now()) };
-             // Add to local state
-            setItems(prevItems => [...prevItems, newItem]);
-
-            // Add to Firestore non-blockingly
-            addDocumentNonBlocking(orderItemsCollectionRef, { ...finalItemForFirestore, timestamp: serverTimestamp() } as any);
+            addDocumentNonBlocking(orderItemsCollectionRef, finalItemForFirestore as any);
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...newItem, total: newItem.total}} title="Lançamento Adicionado" />,
+                component: <ToastContent item={{...finalItemForFirestore, total: finalItemForFirestore.total}} title="Lançamento Adicionado" />,
             });
         }
         
@@ -452,13 +452,9 @@ function LancheTrackerPage() {
         }
     }
     
-    // Check if the item ID looks like a Firestore ID (20-char alphanumeric) before trying to delete from DB
-    if (itemToDelete.length === 20 && /^[a-zA-Z0-9]+$/.test(itemToDelete)) {
-        const docRef = doc(firestore, 'users', user.uid, 'order_items', itemToDelete);
-        deleteDocumentNonBlocking(docRef);
-    }
+    const docRef = doc(firestore, 'users', user.uid, 'order_items', itemToDelete);
+    deleteDocumentNonBlocking(docRef);
 
-    setItems(prevItems => prevItems.filter(item => item.id !== itemToDelete));
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
   };
@@ -530,20 +526,14 @@ function LancheTrackerPage() {
 
       const batch = writeBatch(firestore);
       items.forEach(item => {
-        // Only "archive" items that have a firestore-like ID
-        if (item.id.length === 20 && /^[a-zA-Z0-9]+$/.test(item.id)) {
-            const itemRef = doc(firestore, 'users', user.uid, 'order_items', item.id);
-            batch.update(itemRef, { reportado: true });
-        }
+        const itemRef = doc(firestore, 'users', user.uid, 'order_items', item.id);
+        batch.update(itemRef, { reportado: true });
       });
       await commitBatch(batch);
 
-      // Clear the local state after saving the report
-      setItems([]);
-
       toast({
         title: 'Relatório Salvo!',
-        description: 'O relatório do dia foi salvo e a lista local foi limpa.',
+        description: 'O relatório do dia foi salvo e os itens arquivados.',
       });
 
     } catch (error) {
@@ -709,7 +699,7 @@ function LancheTrackerPage() {
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}
               savedFavorites={savedFavorites}
-              isLoading={false}
+              isLoading={isLoadingItems}
             />
           </div>
         </main>

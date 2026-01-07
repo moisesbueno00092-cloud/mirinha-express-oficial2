@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -38,7 +39,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // Permite que o utilizador autenticado aceda à sua própria subcoleção de order_items
+      // Permite que o utilizador autenticado leia e escreva na sua própria subcoleção de order_items
       match /order_items/{orderId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
@@ -50,3 +51,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
