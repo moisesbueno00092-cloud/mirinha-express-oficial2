@@ -3,17 +3,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // As regras para 'users' permitem ao utilizador ler/escrever o seu próprio documento
+    // Permite que o utilizador autenticado leia e escreva o seu próprio documento de perfil
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Esta regra permite ao utilizador LISTAR (ler) a coleção 'order_items'
+    // Permite que o utilizador autenticado leia (list) e escreva (create) na sua própria subcoleção de order_items
     match /users/{userId}/order_items/{orderId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Esta regra permite ao utilizador LISTAR (ler) a coleção 'daily_reports'
+    // Permite que o utilizador autenticado leia e escreva na sua própria subcoleção de daily_reports
     match /users/{userId}/daily_reports/{reportId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }

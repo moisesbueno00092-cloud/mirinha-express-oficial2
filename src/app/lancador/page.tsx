@@ -79,21 +79,19 @@ function LancheTrackerPage() {
   const router = useRouter();
 
   // --- Real-time items from Firestore ---
-  // const todaysItemsQuery = useMemoFirebase(() => {
-  //   if (!firestore || !user || !user.isAnonymous) return null;
-  //   const todayStart = startOfDay(new Date());
-  //   const todayEnd = endOfDay(new Date());
-  //   return query(
-  //     collection(firestore, 'users', user.uid, 'order_items'),
-  //     where('timestamp', '>=', todayStart),
-  //     where('timestamp', '<=', todayEnd),
-  //     where('reportado', '==', false) // Only fetch items that are not yet reported
-  //   );
-  // }, [firestore, user]);
+  const todaysItemsQuery = useMemoFirebase(() => {
+    if (!firestore || !user || !user.isAnonymous) return null;
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+    return query(
+      collection(firestore, 'users', user.uid, 'order_items'),
+      where('timestamp', '>=', todayStart),
+      where('timestamp', '<=', todayEnd),
+      where('reportado', '==', false) // Only fetch items that are not yet reported
+    );
+  }, [firestore, user]);
 
-  // const { data: items, isLoading: isLoadingItems } = useCollection<Item>(todaysItemsQuery);
-  const items: Item[] = [];
-  const isLoadingItems = false;
+  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(todaysItemsQuery);
   // --- End real-time items ---
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
@@ -774,5 +772,3 @@ export default function Lancador() {
     </AuthWall>
   );
 }
-
-    
