@@ -78,9 +78,7 @@ function LancheTrackerPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const liveItemsQuery = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'users', user.uid, 'live_items'), orderBy('timestamp', 'desc')) : null, [firestore, user]);
-  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(liveItemsQuery);
-  
+  const [items, setItems] = usePersistentState<Item[]>('dailyItems', []);
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   const { data: bomboniereItemsFromDB, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
@@ -345,7 +343,8 @@ function LancheTrackerPage() {
         consolidatedName = nameParts.join(' + ') || 'Lançamento';
         if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
         
-        const finalItem: Omit<Item, 'id'> = {
+        const finalItem: Item = {
+            id: currentItem ? currentItem.id : String(Date.now()),
             userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
@@ -361,21 +360,18 @@ function LancheTrackerPage() {
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
-
-        const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
         
         if (currentItem) {
-            const itemRef = doc(liveItemsCollectionRef, currentItem.id);
-            setDocumentNonBlocking(itemRef, finalItem);
+            setItems(prevItems => prevItems.map(item => item.id === currentItem.id ? finalItem : item));
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: currentItem.id}} title="Lançamento Atualizado" />,
+                component: <ToastContent item={finalItem} title="Lançamento Atualizado" />,
             });
         } else {
-            addDocumentNonBlocking(liveItemsCollectionRef, finalItem);
+            setItems(prevItems => [...prevItems, finalItem]);
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: ''}} title="Lançamento Adicionado" />,
+                component: <ToastContent item={finalItem} title="Lançamento Adicionado" />,
             });
         }
         
@@ -441,7 +437,7 @@ function LancheTrackerPage() {
         }
     }
     
-    deleteDocumentNonBlocking(doc(firestore, 'users', user.uid, 'live_items', itemToDelete));
+    setItems(prevItems => prevItems.filter(item => item.id !== itemToDelete));
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
   };
@@ -526,18 +522,14 @@ function LancheTrackerPage() {
         batch.set(itemRef, itemData);
       });
       
-      // Delete all items from the live collection
-      items.forEach(item => {
-          const liveItemRef = doc(firestore, 'users', user.uid, 'live_items', item.id);
-          batch.delete(liveItemRef);
-      });
-      
       await commitBatch(batch);
       
       toast({
         title: 'Relatório Salvo!',
         description: 'O relatório do dia foi salvo e os itens arquivados no Firestore.',
       });
+      
+      setItems([]); // Clear local items after successful save
 
     } catch (error) {
       console.error('Error saving report:', error);
@@ -718,7 +710,7 @@ function LancheTrackerPage() {
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}
               savedFavorites={savedFavorites}
-              isLoading={isLoadingItems || isLoadingBomboniere}
+              isLoading={isLoadingBomboniere}
             />
           </div>
         </main>
@@ -794,3 +786,5 @@ export default function Home() {
     </AuthWall>
   );
 }
+
+    

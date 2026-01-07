@@ -212,7 +212,7 @@
                 "schema": {
                   "$ref": "#/entities/OrderItem"
                 },
-                "description": "Collection of order items for a specific user."
+                "description": "Collection of historical order items for a specific user."
               }
             },
             {
