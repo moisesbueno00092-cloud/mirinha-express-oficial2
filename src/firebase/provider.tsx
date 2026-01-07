@@ -53,10 +53,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     const signInSharedUser = async () => {
+      // Use the `auth` object passed in via props directly
+      if (!auth) return; 
+
       setIsUserLoading(true);
       try {
         await signInWithEmailAndPassword(auth, SHARED_EMAIL, SHARED_PASSWORD);
-        // Auth state change will be caught by onAuthStateChanged
+        // Auth state change will be caught by onAuthStateChanged below
       } catch (error: any) {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
           try {
@@ -92,7 +95,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     });
 
     return () => unsubscribe();
-  }, [auth]);
+  }, [auth]); // Depend only on the auth object prop
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
