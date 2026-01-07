@@ -583,7 +583,7 @@ export default function MercadoriasPanel() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setIsCameraSheetOpen(true)}
-                                disabled={isParsingRomaneio || !fornecedorId}
+                                disabled={isParsingRomaneio}
                             >
                                 {isParsingRomaneio ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Video className="mr-2 h-4 w-4"/>}
                                 Usar Câmera
@@ -592,7 +592,7 @@ export default function MercadoriasPanel() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => fileInputRef.current?.click()}
-                                disabled={isParsingRomaneio || !fornecedorId}
+                                disabled={isParsingRomaneio}
                             >
                                 {isParsingRomaneio ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Camera className="mr-2 h-4 w-4"/>}
                                 Ler Romaneio
