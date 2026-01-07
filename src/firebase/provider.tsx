@@ -3,8 +3,8 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { Firestore } from 'firestore';
+import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -35,9 +35,6 @@ export interface UserHookResult {
 // React Context
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
-const SHARED_EMAIL = 'usuario@mirinha.com';
-const SHARED_PASSWORD = 'password123456'; // Use a strong password in a real app
-
 /**
  * FirebaseProvider manages and provides Firebase services and user authentication state.
  */
@@ -48,44 +45,27 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   auth,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isUserLoading, setIsUserLoading] = useState(true);
+  const [isUserLoading, setIsUserLoading] = useState(true); // Start as true
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const signInSharedUser = async () => {
-      // Use the `auth` object passed in via props directly
-      if (!auth) return; 
-
-      setIsUserLoading(true);
-      try {
-        await signInWithEmailAndPassword(auth, SHARED_EMAIL, SHARED_PASSWORD);
-        // Auth state change will be caught by onAuthStateChanged below
-      } catch (error: any) {
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-          try {
-            await createUserWithEmailAndPassword(auth, SHARED_EMAIL, SHARED_PASSWORD);
-             // Auth state change will be caught by onAuthStateChanged
-          } catch (creationError) {
-            console.error("FirebaseProvider: Failed to create shared user.", creationError);
-            setUserError(creationError as Error);
-            setIsUserLoading(false);
-          }
-        } else {
-           console.error("FirebaseProvider: Sign-in failed.", error);
-           setUserError(error);
-           setIsUserLoading(false);
-        }
-      }
-    };
-
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    // This effect handles the auth state listener
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         setUserError(null);
         setIsUserLoading(false);
       } else {
-        // If there's no user, try to sign in the shared user.
-        signInSharedUser();
+        // If there's no user, try to sign in anonymously.
+        try {
+          await signInAnonymously(auth);
+          // The onAuthStateChanged listener will handle the new user state,
+          // so we just let it run its course. isUserLoading remains true until then.
+        } catch (error) {
+          console.error("FirebaseProvider: Anonymous sign-in failed.", error);
+          setUserError(error as Error);
+          setIsUserLoading(false);
+        }
       }
     }, (error) => {
       console.error("FirebaseProvider: Auth listener error", error);

@@ -10,9 +10,6 @@ import {
   QuerySnapshot,
   CollectionReference,
 } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
-
 
 export type WithId<T> = T & { id: string };
 
@@ -22,7 +19,7 @@ export interface UseCollectionResult<T> {
   error: FirestoreError | Error | null;
 }
 
-export function useCollection<T = any>(
+export function useCollection<T = DocumentData>(
     memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean})  | null | undefined,
 ): UseCollectionResult<T> {
   type ResultItemType = WithId<T>;
@@ -53,22 +50,11 @@ export function useCollection<T = any>(
         setError(null);
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
-        // Simplified error handling.
-        // The original implementation had a bug trying to access a path that might not exist.
-        console.error("useCollection error:", error);
-        setError(error);
+      (err: FirestoreError) => {
+        console.error("useCollection error:", err);
+        setError(err);
         setData(null);
         setIsLoading(false);
-
-        // Optionally, you can still emit a generic permission error if you want to use the global handler
-        if (error.code === 'permission-denied') {
-            const contextualError = new FirestorePermissionError({
-              operation: 'list',
-              path: 'path' in memoizedTargetRefOrQuery ? memoizedTargetRefOrQuery.path : 'unknown path',
-            });
-            errorEmitter.emit('permission-error', contextualError);
-        }
       }
     );
 
