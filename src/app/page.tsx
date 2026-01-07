@@ -47,6 +47,7 @@ import ItemList from "@/components/item-list";
 import { Separator } from "@/components/ui/separator";
 import PasswordDialog from "@/components/password-dialog";
 import Link from "next/link";
+import { signInAnonymously } from "firebase/auth";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -769,10 +770,33 @@ function LancheTrackerPage() {
 
 function AuthWall({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading, userError } = useUser();
-  
-  const isReady = !isUserLoading && user && user.isAnonymous;
+  const auth = useAuth();
+  const [localAnonymousId, setLocalAnonymousId] = usePersistentState<string | null>('anonymous-user-id', null);
 
-  if (!isReady) {
+  useEffect(() => {
+    if (isUserLoading || user) return;
+
+    if (localAnonymousId) {
+      // If there's a stored ID but we are not logged in (e.g., token expired),
+      // we don't re-authenticate here. The provider handles it.
+      // This logic is simplified as the provider should handle persistence.
+      // This effect is mostly for the initial sign-in.
+    } else {
+      // First time user, sign in and store the UID.
+      signInAnonymously(auth)
+        .then((userCredential) => {
+          if (userCredential.user) {
+            setLocalAnonymousId(userCredential.user.uid);
+          }
+        })
+        .catch((error) => {
+          console.error("Anonymous sign-in failed on initial load:", error);
+        });
+    }
+  }, [user, isUserLoading, localAnonymousId, setLocalAnonymousId, auth]);
+
+
+  if (isUserLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
         <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
@@ -784,6 +808,16 @@ function AuthWall({ children }: { children: React.ReactNode }) {
                 <p className="mt-2 text-muted-foreground text-sm max-w-md">{userError.message}</p>
             </>
         )}
+      </div>
+    );
+  }
+
+   if (!user) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
+        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">A conectar...</p>
       </div>
     );
   }
@@ -799,5 +833,3 @@ export default function Home() {
     </AuthWall>
   );
 }
-
-    

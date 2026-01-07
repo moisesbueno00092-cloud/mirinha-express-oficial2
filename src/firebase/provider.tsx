@@ -48,27 +48,21 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // Proactively sign in anonymously if there's no user.
-    if (!auth.currentUser) {
-      signInAnonymously(auth).catch((error) => {
-        console.error("FirebaseProvider: Anonymous sign-in failed on initial load.", error);
-        setUserError(error);
-        setIsUserLoading(false); // Stop loading on error
-      });
-    }
-
-    // onAuthStateChanged will then pick up the state change, whether it's
-    // an existing user or the newly signed-in anonymous user.
+    // onAuthStateChanged will handle the user state.
+    // If no user is logged in, it will return null, triggering anonymous sign-in.
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
+        setIsUserLoading(false);
+        setUserError(null);
       } else {
-        // This case should be less frequent now, but handles sign-outs.
-        setUser(null);
+        // No user, so sign in anonymously.
+        signInAnonymously(auth).catch((error) => {
+            console.error("FirebaseProvider: Anonymous sign-in failed.", error);
+            setUserError(error);
+            setIsUserLoading(false); // Stop loading on error
+        });
       }
-      // Regardless of user state, once the listener fires, we are done loading.
-      setIsUserLoading(false);
-      setUserError(null);
     }, (error) => {
       console.error("FirebaseProvider: Auth listener error", error);
       setUserError(error);
