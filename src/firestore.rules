@@ -3,16 +3,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Regra explícita para o documento do utilizador
+    // Regra explícita para o documento do utilizador e suas subcoleções
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // Regra explícita para a subcoleção order_items
+      // Permissão explícita para listar e aceder a itens de pedido
       match /order_items/{orderId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
       
-      // Regra explícita para a subcoleção daily_reports
+      // Permissão explícita para listar e aceder a relatórios diários
       match /daily_reports/{reportId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
