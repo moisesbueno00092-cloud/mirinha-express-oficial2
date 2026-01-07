@@ -12,7 +12,7 @@ import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -573,6 +573,12 @@ function ReportsPageContent() {
               <p className="text-muted-foreground">Relatórios agregados e detalhamento por dia.</p>
             </div>
           </div>
+           <Link href="/reports/fiados" passHref>
+              <Button variant="outline">
+                <Users className="mr-2 h-4 w-4" />
+                Relatório de Fiados
+              </Button>
+            </Link>
         </header>
 
         <main className="space-y-8">
@@ -688,3 +694,4 @@ export default function ReportsPage() {
         </FirebaseClientProvider>
     )
 }
+
