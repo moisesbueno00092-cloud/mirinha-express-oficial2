@@ -78,7 +78,9 @@ function LancheTrackerPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const [items, setItems] = usePersistentState<Item[]>('dailyItems', []);
+  const liveItemsCollectionRef = useMemoFirebase(() => (firestore && user) ? collection(firestore, 'users', user.uid, 'live_items') : null, [firestore, user]);
+  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(liveItemsCollectionRef);
+
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   const { data: bomboniereItemsFromDB, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
@@ -137,7 +139,7 @@ function LancheTrackerPage() {
 
   const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
     setIsProcessing(true);
-    if (!user || !firestore) {
+    if (!user || !firestore || !liveItemsCollectionRef) {
         toast({ variant: "destructive", title: "Erro", description: "Utilizador não autenticado." });
         setIsProcessing(false);
         return;
@@ -271,11 +273,10 @@ function LancheTrackerPage() {
                 const bomboniereMatch = part.match(/^(\d*)([a-zA-Z\d\s-]+)$/i);
                 const qty = bomboniereMatch && bomboniereMatch[1] ? parseInt(bomboniereMatch[1], 10) : 1;
                 const namePart = bomboniereMatch ? bomboniereMatch[2] : part;
-                const price = parseFloat(parts[i+1].replace(',', '.'));
                 const existingItemDef = bomboniereItems?.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === namePart.toUpperCase());
 
-                processedBomboniereItems.push({ id: existingItemDef?.id || namePart, name: existingItemDef?.name || namePart, quantity: qty, price: price });
-                totalPrice += price * qty;
+                processedBomboniereItems.push({ id: existingItemDef?.id || namePart, name: existingItemDef?.name || namePart, quantity: qty, price: parseFloat(parts[i+1].replace(',', '.')) });
+                totalPrice += parseFloat(parts[i+1].replace(',', '.')) * qty;
                 totalQuantity += qty;
                 i++; 
             } else if (part.match(/^\d+[a-zA-Z]+/) && i + 1 < parts.length && isNumeric(parts[i+1])) {
@@ -343,8 +344,7 @@ function LancheTrackerPage() {
         consolidatedName = nameParts.join(' + ') || 'Lançamento';
         if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
         
-        const finalItem: Item = {
-            id: currentItem ? currentItem.id : String(Date.now()),
+        const finalItem: Omit<Item, 'id'> = {
             userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
@@ -362,16 +362,17 @@ function LancheTrackerPage() {
         };
         
         if (currentItem) {
-            setItems(prevItems => prevItems.map(item => item.id === currentItem.id ? finalItem : item));
+            const itemRef = doc(liveItemsCollectionRef, currentItem.id);
+            setDocumentNonBlocking(itemRef, finalItem);
             toast({
                 duration: 4000,
-                component: <ToastContent item={finalItem} title="Lançamento Atualizado" />,
+                component: <ToastContent item={{...finalItem, total: finalItem.total}} title="Lançamento Atualizado" />,
             });
         } else {
-            setItems(prevItems => [...prevItems, finalItem]);
+            addDocumentNonBlocking(liveItemsCollectionRef, finalItem);
             toast({
                 duration: 4000,
-                component: <ToastContent item={finalItem} title="Lançamento Adicionado" />,
+                component: <ToastContent item={{...finalItem, total: finalItem.total}} title="Lançamento Adicionado" />,
             });
         }
         
@@ -421,7 +422,7 @@ function LancheTrackerPage() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !user || !firestore) return;
+    if (!itemToDelete || !user || !firestore || !liveItemsCollectionRef) return;
 
     const itemBeingDeleted = items?.find(it => it.id === itemToDelete);
 
@@ -437,7 +438,9 @@ function LancheTrackerPage() {
         }
     }
     
-    setItems(prevItems => prevItems.filter(item => item.id !== itemToDelete));
+    const docRef = doc(liveItemsCollectionRef, itemToDelete);
+    deleteDocumentNonBlocking(docRef);
+
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
   };
@@ -521,6 +524,12 @@ function LancheTrackerPage() {
         const { id, ...itemData } = item;
         batch.set(itemRef, itemData);
       });
+
+      // Delete all live items after archiving
+      items.forEach(item => {
+          const liveItemRef = doc(firestore, 'users', user.uid, 'live_items', item.id);
+          batch.delete(liveItemRef);
+      });
       
       await commitBatch(batch);
       
@@ -528,8 +537,6 @@ function LancheTrackerPage() {
         title: 'Relatório Salvo!',
         description: 'O relatório do dia foi salvo e os itens arquivados no Firestore.',
       });
-      
-      setItems([]); // Clear local items after successful save
 
     } catch (error) {
       console.error('Error saving report:', error);
@@ -710,7 +717,7 @@ function LancheTrackerPage() {
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}
               savedFavorites={savedFavorites}
-              isLoading={isLoadingBomboniere}
+              isLoading={isLoadingItems || isLoadingBomboniere}
             />
           </div>
         </main>
@@ -786,5 +793,3 @@ export default function Home() {
     </AuthWall>
   );
 }
-
-    
