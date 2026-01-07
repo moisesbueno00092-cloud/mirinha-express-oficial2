@@ -154,7 +154,7 @@ function LancheTrackerPage() {
                 if (itemDef) {
                     const newStock = itemDef.estoque + oldSoldItem.quantity;
                     const docRef = doc(bomboniereCollectionRef, itemDef.id);
-                    updateDocumentNonBlocking(docRef, { estoque: newStock });
+                    await updateDoc(docRef, { estoque: newStock });
                 }
             }
         }
@@ -318,14 +318,14 @@ function LancheTrackerPage() {
 
         if (bomboniereItems) { 
           const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
-          processedBomboniereItems.forEach(soldItem => {
+          for (const soldItem of processedBomboniereItems) {
               const itemDef = bomboniereItems.find(i => i.id === soldItem.id);
               if (itemDef) {
                   const newStock = itemDef.estoque - soldItem.quantity;
                   const docRef = doc(bomboniereCollectionRef, itemDef.id);
-                  updateDocumentNonBlocking(docRef, { estoque: newStock });
+                  await updateDoc(docRef, { estoque: newStock });
               }
-          });
+          }
         }
 
         const deliveryFee = isTaxExempt ? 0 : (customDeliveryFee !== null ? customDeliveryFee : (deliveryFeeApplicable ? DELIVERY_FEE : 0));
@@ -363,13 +363,13 @@ function LancheTrackerPage() {
         
         if (currentItem) {
             const itemRef = doc(liveItemsCollectionRef, currentItem.id);
-            setDocumentNonBlocking(itemRef, finalItem);
+            await setDoc(itemRef, finalItem);
             toast({
                 duration: 4000,
                 component: <ToastContent item={{...finalItem, total: finalItem.total}} title="Lançamento Atualizado" />,
             });
         } else {
-            addDocumentNonBlocking(liveItemsCollectionRef, finalItem);
+            await addDoc(liveItemsCollectionRef, finalItem);
             toast({
                 duration: 4000,
                 component: <ToastContent item={{...finalItem, total: finalItem.total}} title="Lançamento Adicionado" />,
@@ -381,7 +381,7 @@ function LancheTrackerPage() {
         toast({
             variant: "destructive",
             title: "Erro ao processar item",
-            description: "Ocorreu um problema ao processar o lançamento.",
+            description: (error instanceof Error) ? error.message : "Ocorreu um problema ao processar o lançamento.",
         });
     } finally {
         setIsProcessing(false);
@@ -426,23 +426,29 @@ function LancheTrackerPage() {
 
     const itemBeingDeleted = items?.find(it => it.id === itemToDelete);
 
-    if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
-        const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
-        for (const soldItem of itemBeingDeleted.bomboniereItems) {
-            const itemDef = bomboniereItems.find(i => i.id === soldItem.id);
-            if (itemDef) {
-                const newStock = itemDef.estoque + soldItem.quantity;
-                const docRef = doc(bomboniereCollectionRef, itemDef.id);
-                updateDocumentNonBlocking(docRef, { estoque: newStock });
+    try {
+        if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
+            const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
+            for (const soldItem of itemBeingDeleted.bomboniereItems) {
+                const itemDef = bomboniereItems.find(i => i.id === soldItem.id);
+                if (itemDef) {
+                    const newStock = itemDef.estoque + soldItem.quantity;
+                    const docRef = doc(bomboniereCollectionRef, itemDef.id);
+                    await updateDoc(docRef, { estoque: newStock });
+                }
             }
         }
-    }
-    
-    const docRef = doc(liveItemsCollectionRef, itemToDelete);
-    deleteDocumentNonBlocking(docRef);
+        
+        const docRef = doc(liveItemsCollectionRef, itemToDelete);
+        await deleteDoc(docRef);
 
-    toast({ title: "Item removido com sucesso.", variant: "destructive" });
-    setItemToDelete(null);
+        toast({ title: "Item removido com sucesso.", variant: "destructive" });
+    } catch(error) {
+         toast({ variant: "destructive", title: "Erro ao remover", description: "Não foi possível remover o item." });
+         console.error("Error deleting item:", error);
+    } finally {
+        setItemToDelete(null);
+    }
   };
   
   const handleEditRequest = (item: Item) => {
@@ -793,3 +799,5 @@ export default function Home() {
     </AuthWall>
   );
 }
+
+    
