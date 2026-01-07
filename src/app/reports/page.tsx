@@ -572,12 +572,6 @@ function ReportsPageContent() {
               <p className="text-muted-foreground">Relatórios agregados e detalhamento por dia.</p>
             </div>
           </div>
-           <Link href="/reports/fiados" passHref>
-              <Button variant="outline">
-                <Users className="mr-2 h-4 w-4" />
-                Relatório de Fiados
-              </Button>
-            </Link>
         </header>
 
         <main className="space-y-8">
