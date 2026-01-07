@@ -3,17 +3,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Permite que um utilizador autenticado aceda à sua própria pasta de utilizador
+    // Regra para o documento do utilizador
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Permite que um utilizador autenticado aceda aos seus próprios itens de pedido
+    // Regra explícita para a subcoleção de itens de pedido
     match /users/{userId}/order_items/{orderId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Permite que um utilizador autenticado aceda aos seus próprios relatórios diários
+    // Regra explícita para a subcoleção de relatórios diários
     match /users/{userId}/daily_reports/{reportId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
