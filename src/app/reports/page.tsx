@@ -572,6 +572,9 @@ function ReportsPageContent() {
               <p className="text-muted-foreground">Relatórios agregados e detalhamento por dia.</p>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            {/* O botão para o relatório de fiados foi removido */}
+          </div>
         </header>
 
         <main className="space-y-8">
