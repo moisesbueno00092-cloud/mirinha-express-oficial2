@@ -662,16 +662,18 @@ function LancheTrackerPage() {
       </AlertDialog>
       
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
-        <header className="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex flex-col items-center flex-grow">
+        <header className="relative mb-6 flex h-20 items-center justify-center">
+            <div className="absolute left-0 flex items-center gap-2">
+                {/* Placeholder to balance the right side, can be hidden or used for other controls */}
+            </div>
+            <div className="flex flex-col items-center">
               <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
               <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-center">
+            <div className="absolute right-0 flex items-center gap-2">
                  <Button 
                     variant="outline"
                     onClick={() => handleProtectedAction(() => router.push('/reports'))}
-                    className="w-1/2 sm:w-auto"
                   >
                     <History className="mr-2 h-4 w-4"/>
                     Relatórios
@@ -679,7 +681,6 @@ function LancheTrackerPage() {
                  <Button
                     variant="outline"
                     onClick={() => handleProtectedAction(() => router.push('/admin'))}
-                    className="w-1/2 sm:w-auto"
                  >
                     <Wrench className="mr-2 h-4 w-4"/>
                     Admin
@@ -788,3 +789,5 @@ export default function Home() {
     </AuthWall>
   );
 }
+
+    
