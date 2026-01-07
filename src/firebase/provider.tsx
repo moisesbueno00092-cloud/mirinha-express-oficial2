@@ -48,28 +48,28 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // onAuthStateChanged fires when the user signs in, signs out, or the token changes.
+    // Proactively sign in anonymously if there's no user.
+    if (!auth.currentUser) {
+      signInAnonymously(auth).catch((error) => {
+        console.error("FirebaseProvider: Anonymous sign-in failed on initial load.", error);
+        setUserError(error);
+        setIsUserLoading(false); // Stop loading on error
+      });
+    }
+
+    // onAuthStateChanged will then pick up the state change, whether it's
+    // an existing user or the newly signed-in anonymous user.
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
-        // A user is available (either already signed in, or just signed in).
         setUser(currentUser);
-        setIsUserLoading(false);
-        setUserError(null);
       } else {
-        // No user is signed in. This is where we initiate the anonymous sign-in.
-        signInAnonymously(auth).catch((error) => {
-          // If anonymous sign-in fails, it's a critical error.
-          console.error("FirebaseProvider: Anonymous sign-in failed.", error);
-          setUserError(error);
-          setUser(null);
-          // Crucially, set loading to false even on error to stop the loading loop.
-          setIsUserLoading(false);
-        });
-        // We remain in a loading state until signInAnonymously() resolves
-        // and onAuthStateChanged is triggered again with the new anonymous user.
+        // This case should be less frequent now, but handles sign-outs.
+        setUser(null);
       }
+      // Regardless of user state, once the listener fires, we are done loading.
+      setIsUserLoading(false);
+      setUserError(null);
     }, (error) => {
-      // This is the error observer for onAuthStateChanged itself.
       console.error("FirebaseProvider: Auth listener error", error);
       setUserError(error);
       setUser(null);
