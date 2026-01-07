@@ -78,7 +78,9 @@ function LancheTrackerPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  // --- Real-time items from Firestore ---
+  // --- Real-time items from Firestore (Temporarily Disabled) ---
+  const todaysItemsQuery = null;
+  /*
   const todaysItemsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !user.isAnonymous) return null;
     const todayStart = startOfDay(new Date());
@@ -90,8 +92,10 @@ function LancheTrackerPage() {
       where('reportado', '==', false) // Only fetch items that are not yet reported
     );
   }, [firestore, user]);
+  */
 
-  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(todaysItemsQuery);
+  const { data: items, isLoading: isLoadingItems } = { data: [], isLoading: false };
+  // const { data: items, isLoading: isLoadingItems } = useCollection<Item>(todaysItemsQuery);
   // --- End real-time items ---
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);

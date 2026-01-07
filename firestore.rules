@@ -3,21 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Permite que o utilizador autenticado leia e escreva o seu próprio documento de perfil
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Permite que o utilizador autenticado leia (list) e escreva (create) na sua própria subcoleção de order_items
-    match /users/{userId}/order_items/{orderId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Permite que o utilizador autenticado leia e escreva na sua própria subcoleção de daily_reports
-    match /users/{userId}/daily_reports/{reportId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
     // Permite que qualquer utilizador autenticado aceda aos itens da bomboniere
     match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
@@ -47,6 +32,21 @@ service cloud.firestore {
     }
     match /funcionarios/{funcionarioId}/holerites/{holeriteId} {
        allow read, write: if request.auth != null;
+    }
+
+    // Regras para a coleção 'users' e suas subcoleções
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Permite que o utilizador autenticado aceda à sua própria subcoleção de order_items
+      match /order_items/{orderId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Permite que o utilizador autenticado aceda à sua própria subcoleção de daily_reports
+      match /daily_reports/{reportId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }
