@@ -73,17 +73,14 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
     setLocalItems(prevItems =>
       prevItems.map(item => {
         if (item.id === id) {
-          let finalValue: string | number;
           if (field === 'price' || field === 'estoque') {
             const stringValue = String(value).trim();
-            finalValue = stringValue === '' ? 0 : parseFloat(stringValue.replace(',', '.'));
+            const finalValue = stringValue === '' ? 0 : parseFloat(stringValue.replace(',', '.'));
+             if (isNaN(finalValue)) return item; // Don't update if it's not a valid number
+             return { ...item, [field]: finalValue };
           } else {
-            finalValue = value;
+             return { ...item, [field]: value };
           }
-          
-          if(isNaN(finalValue as number)) return item;
-          
-          return { ...item, [field]: finalValue };
         }
         return item;
       })
