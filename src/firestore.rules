@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -10,6 +11,11 @@ service cloud.firestore {
 
     // Permite que o utilizador autenticado leia (list) e escreva (create) na sua própria subcoleção de order_items
     match /users/{userId}/order_items/{orderId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Permite que o utilizador autenticado aceda aos seus próprios live_order_items
+    match /users/{userId}/live_order_items/{itemId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
@@ -50,3 +56,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

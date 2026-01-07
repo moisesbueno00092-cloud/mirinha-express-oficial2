@@ -78,8 +78,8 @@ function LancheTrackerPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const [items, setItems] = usePersistentState<Item[]>('dailyItems', []);
-  const isLoadingItems = false;
+  const liveItemsQuery = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'users', user.uid, 'live_order_items')) : null, [firestore, user]);
+  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(liveItemsQuery);
 
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
@@ -148,6 +148,8 @@ function LancheTrackerPage() {
     }
     
     try {
+        const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_order_items');
+
         // --- Devolver stock antigo se estiver a editar ---
         if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
             const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
@@ -347,8 +349,7 @@ function LancheTrackerPage() {
         consolidatedName = nameParts.join(' + ') || 'Lançamento';
         if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
         
-        const finalItem: Item = {
-            id: currentItem?.id || String(Date.now()),
+        const finalItem: Omit<Item, 'id'> = {
             userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
@@ -366,13 +367,14 @@ function LancheTrackerPage() {
         };
         
         if (currentItem?.id) {
-            setItems(prev => prev.map(it => it.id === currentItem.id ? finalItem : it));
+            const itemRef = doc(liveItemsCollectionRef, currentItem.id);
+            setDocumentNonBlocking(itemRef, finalItem);
             toast({
                 duration: 4000,
                 component: <ToastContent item={finalItem} title="Lançamento Atualizado" />,
             });
         } else {
-            setItems(prev => [...prev, finalItem]);
+            addDocumentNonBlocking(liveItemsCollectionRef, finalItem as Item);
             toast({
                 duration: 4000,
                 component: <ToastContent item={finalItem} title="Lançamento Adicionado" />,
@@ -441,7 +443,8 @@ function LancheTrackerPage() {
         }
     }
     
-    setItems(prev => prev.filter(it => it.id !== itemToDelete));
+    const docRef = doc(firestore, "users", user.uid, "live_order_items", itemToDelete);
+    deleteDocumentNonBlocking(docRef);
 
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
@@ -515,19 +518,22 @@ function LancheTrackerPage() {
         contagemRua: totals.contagemRua
       };
       
-      const reportRef = doc(collection(firestore, 'users', user.uid, 'daily_reports'));
       const batch = writeBatch(firestore);
 
+      const reportRef = doc(collection(firestore, 'users', user.uid, 'daily_reports'));
       batch.set(reportRef, report);
-
+      
       itemsToReport.forEach(item => {
         const itemRef = doc(collection(firestore, 'users', user.uid, 'order_items'));
         batch.set(itemRef, item);
       });
       
+      items.forEach(item => {
+        const liveItemRef = doc(firestore, 'users', user.uid, 'live_order_items', item.id);
+        batch.delete(liveItemRef);
+      });
+      
       await commitBatch(batch);
-
-      setItems([]); // Clear local items after successful save
 
       toast({
         title: 'Relatório Salvo!',
@@ -615,7 +621,7 @@ function LancheTrackerPage() {
     return result;
   }, [items]);
   
-  const hasUnsavedChanges = items.length > 0;
+  const hasUnsavedChanges = items && items.length > 0;
   
   return (
     <>
@@ -789,5 +795,7 @@ export default function Home() {
     </AuthWall>
   );
 }
+
+    
 
     
