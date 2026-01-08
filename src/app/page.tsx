@@ -182,7 +182,7 @@ function LancheTrackerPage() {
     });
   };
 
-  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
+  const handleUpsertItem = useCallback(async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
     setIsProcessing(true);
     if (!user || !firestore || !liveItemsCollectionRef) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Utilizador não autenticado ou base de dados indisponível.' });
@@ -466,7 +466,7 @@ function LancheTrackerPage() {
         inputRef.current?.focus();
       }, 0);
     }
-  };
+  }, [firestore, user, liveItemsCollectionRef, toast, bomboniereItems, savedFavorites]);
 
 
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
