@@ -449,9 +449,10 @@ function ReportsPageContent() {
   }
 
   const reportsQuery = useMemoFirebase(
-    () => firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports')) : null,
+    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports')) : null),
     [firestore, user]
   );
+  
   const bomboniereQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
     [firestore]
