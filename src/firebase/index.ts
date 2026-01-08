@@ -1,4 +1,3 @@
-
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
@@ -46,6 +45,3 @@ export * from './firestore/use-collection';
 export * from './firestore/use-doc';
 export * from './errors';
 export * from './error-emitter';
-    
-
-    
