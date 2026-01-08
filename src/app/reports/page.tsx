@@ -464,7 +464,10 @@ function ReportsPageContent() {
     setIsLoadingReports(true);
     
     try {
+        // Query 1: Global reports collection
         const globalReportsQuery = query(collection(firestore, 'daily_reports'), orderBy('createdAt', 'desc'));
+
+        // Query 2: User-specific (old) reports collection
         const userReportsQuery = query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('createdAt', 'desc'));
 
         const [globalReportsSnapshot, userReportsSnapshot] = await Promise.all([
@@ -474,11 +477,12 @@ function ReportsPageContent() {
 
         const allReportsMap = new Map<string, DailyReport>();
 
+        // Add user-specific reports first
         userReportsSnapshot.forEach(doc => {
-            // Assume user-specific reports are older and might be duplicates, so they can be overwritten by global ones if IDs clash.
             allReportsMap.set(doc.id, { ...doc.data(), id: doc.id } as DailyReport);
         });
 
+        // Add global reports, overwriting any duplicates (by ID) from user collection
         globalReportsSnapshot.forEach(doc => {
             allReportsMap.set(doc.id, { ...doc.data(), id: doc.id } as DailyReport);
         });
@@ -499,6 +503,7 @@ function ReportsPageContent() {
         setIsLoadingReports(false);
     }
   }, [firestore, user, toast]);
+
 
   useEffect(() => {
     if (isAuthenticated) {
