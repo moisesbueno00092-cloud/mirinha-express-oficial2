@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO } from 'date-fns';
+import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 
@@ -543,12 +543,12 @@ function ReportsPageContent() {
 
         const orderItemsCollectionRef = collection(firestore, 'order_items');
         const liveItemsCollectionRef = collection(firestore, 'live_items');
-        const startOfDay = startOfDay(parseISO(reportToDelete.reportDate));
-        const endOfDay = endOfDay(parseISO(reportToDelete.reportDate));
+        const reportStartOfDay = startOfDay(parseISO(reportToDelete.reportDate));
+        const reportEndOfDay = endOfDay(parseISO(reportToDelete.reportDate));
         
         const q = query(orderItemsCollectionRef, 
-            where('timestamp', '>=', startOfDay), 
-            where('timestamp', '<=', endOfDay)
+            where('timestamp', '>=', reportStartOfDay), 
+            where('timestamp', '<=', reportEndOfDay)
         );
 
         const orderItemsSnapshot = await getDocs(q);
@@ -778,5 +778,3 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    
