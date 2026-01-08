@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
 import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
@@ -450,8 +450,8 @@ function ReportsPageContent() {
   }
 
   const reportsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('createdAt', 'desc')) : null),
-    [firestore, user]
+    () => (firestore ? query(collection(firestore, 'daily_reports'), orderBy('createdAt', 'desc')) : null),
+    [firestore]
   );
 
   const bomboniereQuery = useMemoFirebase(
@@ -496,7 +496,8 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
 
-        const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
+        const orderItemsCollectionRef = collection(firestore, 'order_items');
+        const liveItemsCollectionRef = collection(firestore, 'live_items');
         const startOfDay = startOfDay(parseISO(reportToDelete.reportDate));
         const endOfDay = endOfDay(parseISO(reportToDelete.reportDate));
         
@@ -506,18 +507,22 @@ function ReportsPageContent() {
         );
 
         const orderItemsSnapshot = await getDocs(q);
-        orderItemsSnapshot.forEach((doc) => {
-            batch.update(doc.ref, { reportado: false });
+        
+        orderItemsSnapshot.forEach((docSnapshot) => {
+            const liveItemRef = doc(liveItemsCollectionRef, docSnapshot.id);
+            // Move item back to live_items by setting it there and deleting from order_items
+            batch.set(liveItemRef, { ...docSnapshot.data(), reportado: false });
+            batch.delete(docSnapshot.ref);
         });
 
-        const reportDocRef = doc(firestore, "users", user.uid, "daily_reports", reportToDelete.id);
+        const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
         batch.delete(reportDocRef);
 
         await batch.commit();
 
         toast({
             title: "Sucesso",
-            description: "Relatório excluído e os seus itens foram marcados como não reportados.",
+            description: "Relatório excluído e os seus itens foram movidos de volta para a tela principal.",
         });
 
     } catch (error) {
@@ -578,7 +583,7 @@ function ReportsPageContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Relatório?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Isso excluirá permanentemente o relatório selecionado e reverterá os seus itens para o estado "não reportado", fazendo-os reaparecer na tela principal.
+              Esta ação não pode ser desfeita. O relatório será excluído e os seus itens voltarão para a tela principal como "não reportados".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

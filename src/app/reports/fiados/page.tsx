@@ -73,7 +73,7 @@ function FiadosPageContent() {
         const start = startOfMonth(selectedMonth);
         const end = endOfMonth(selectedMonth);
 
-        const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+        const orderItemsCollectionRef = collection(firestore, 'live_items');
         const q = query(orderItemsCollectionRef, 
             where('group', 'in', ['Fiados salão', 'Fiados rua']),
             where('timestamp', '>=', start),
@@ -81,7 +81,7 @@ function FiadosPageContent() {
             orderBy('timestamp', 'asc')
         );
         
-        const historicItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
+        const historicItemsCollectionRef = collection(firestore, 'order_items');
         const qHistoric = query(historicItemsCollectionRef, 
             where('group', 'in', ['Fiados salão', 'Fiados rua']),
             where('timestamp', '>=', start),

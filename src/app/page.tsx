@@ -32,6 +32,7 @@ import {
   serverTimestamp,
   Timestamp,
   where,
+  getDocs,
 } from 'firebase/firestore';
 import { parseCustomItemPrice } from '@/ai/flows/parse-custom-item-price';
 
@@ -101,16 +102,21 @@ function LancheTrackerPage() {
   const { toast } = useToast();
 
   const liveItemsCollectionRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'users', user.uid, 'live_items') : null),
-    [firestore, user]
+    () => (firestore ? collection(firestore, 'live_items') : null),
+    [firestore]
   );
   
   const liveItemsQuery = useMemoFirebase(
-    () => (liveItemsCollectionRef ? query(liveItemsCollectionRef, where('reportado', '==', false), orderBy('timestamp', 'desc')) : null),
+    () => (liveItemsCollectionRef ? query(liveItemsCollectionRef, orderBy('timestamp', 'desc')) : null),
     [liveItemsCollectionRef]
   );
   
-  const { data: items, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
+  const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
+
+  const items = useMemo(() => {
+    if (!allItems) return [];
+    return allItems.filter(item => !item.reportado);
+  }, [allItems]);
 
 
   useEffect(() => {
@@ -596,19 +602,21 @@ function LancheTrackerPage() {
         contagemRua: totals.contagemRua,
       };
 
-      const reportRef = doc(collection(firestore, 'users', user.uid, 'daily_reports'));
+      const reportRef = doc(collection(firestore, 'daily_reports'));
       batch.set(reportRef, report);
 
       items.forEach((item) => {
         const liveItemRef = doc(liveItemsCollectionRef!, item.id);
-        batch.update(liveItemRef, { reportado: true });
+        const archiveItemRef = doc(collection(firestore, 'order_items'), item.id);
+        batch.set(archiveItemRef, { ...item, reportado: true });
+        batch.delete(liveItemRef);
       });
 
       await batch.commit();
 
       toast({
         title: 'Relatório Salvo!',
-        description: 'O relatório do dia foi salvo e os itens marcados como reportados.',
+        description: 'O relatório do dia foi salvo e os itens arquivados.',
       });
     } catch (error: any) {
       console.error('Error saving report:', error);
