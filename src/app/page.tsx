@@ -30,6 +30,7 @@ import {
   addDoc,
   setDoc,
   serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore';
 import { parseCustomItemPrice } from '@/ai/flows/parse-custom-item-price';
 
@@ -60,7 +61,7 @@ import BomboniereModal from '@/components/bomboniere-modal';
 import StockEditModal from '@/components/stock-edit-modal';
 import MirinhaLogo from '@/components/mirinha-logo';
 import FavoritesMenu from '@/components/favorites-menu';
-import { format } from 'date-fns';
+import { format as formatDateFn } from 'date-fns';
 import ItemList from '@/components/item-list';
 import { Separator } from '@/components/ui/separator';
 import PasswordDialog from '@/components/password-dialog';
@@ -104,11 +105,13 @@ function LancheTrackerPage() {
   );
   
   const orderItemsQuery = useMemoFirebase(
-    () => (orderItemsCollectionRef ? query(orderItemsCollectionRef, orderBy('timestamp', 'asc')) : null),
+    () => (orderItemsCollectionRef ? query(orderItemsCollectionRef, orderBy('timestamp', 'desc')) : null),
     [orderItemsCollectionRef]
   );
 
-  const { data: items, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(orderItemsQuery);
+  const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(orderItemsQuery);
+
+  const items = useMemo(() => allItems?.filter(item => !item.reportado) || [], [allItems]);
 
   useEffect(() => {
     if (itemsError) {
@@ -424,7 +427,7 @@ function LancheTrackerPage() {
         quantity: totalQuantity,
         price: totalPrice,
         group,
-        timestamp: new Date().toISOString(),
+        timestamp: Timestamp.now(),
         deliveryFee,
         total,
         originalCommand: rawInputToProcess,
@@ -499,9 +502,9 @@ function LancheTrackerPage() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !firestore || !orderItemsCollectionRef || !items) return;
+    if (!itemToDelete || !firestore || !orderItemsCollectionRef || !allItems) return;
 
-    const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
+    const itemBeingDeleted = allItems.find((it) => it.id === itemToDelete);
 
     try {
       if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
@@ -560,7 +563,7 @@ function LancheTrackerPage() {
   };
 
   async function handleSaveReport() {
-    if (!user || !firestore || !items || items.length === 0) {
+    if (!firestore || !items || items.length === 0) {
       toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há itens para gerar o relatório.' });
       return;
     }
@@ -569,11 +572,7 @@ function LancheTrackerPage() {
     try {
       const reportDate = new Date();
 
-      const itemsToReport = items.filter(item => !item.reportado).map((item) => ({
-        ...item,
-        timestamp: serverTimestamp(), 
-        reportado: true,
-      }));
+      const itemsToReport = items.filter(item => !item.reportado);
 
       if(itemsToReport.length === 0) {
         toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Nenhum item novo para reportar.' });
@@ -582,9 +581,9 @@ function LancheTrackerPage() {
       }
 
       const report: DailyReport = {
-        userId: user.uid,
-        reportDate: reportDate.toISOString(),
-        createdAt: new Date().toISOString(),
+        userId: user?.uid || 'global',
+        reportDate: formatDateFn(reportDate, 'yyyy-MM-dd'),
+        createdAt: reportDate.toISOString(),
         totalGeral: totals.totalGeral,
         totalAVista: totals.totalAVista,
         totalFiado: totals.totalFiado,
@@ -610,7 +609,7 @@ function LancheTrackerPage() {
       batch.set(reportRef, report);
 
       if (orderItemsCollectionRef) {
-          items.forEach((item) => {
+          itemsToReport.forEach((item) => {
             const liveItemRef = doc(orderItemsCollectionRef, item.id);
             batch.update(liveItemRef, { reportado: true });
           });
@@ -635,8 +634,7 @@ function LancheTrackerPage() {
   };
 
   const totals = useMemo(() => {
-    const currentItems = items || [];
-    if (currentItems.length === 0) {
+    if (items.length === 0) {
       return {
         totalGeral: 0,
         totalAVista: 0,
@@ -658,9 +656,7 @@ function LancheTrackerPage() {
       };
     }
 
-    const itemsDoDia = currentItems.filter(item => !item.reportado);
-
-    const result = itemsDoDia.reduce(
+    const result = items.reduce(
       (acc, item) => {
         acc.totalGeral += item.total;
         acc.totalItens += item.quantity;
@@ -736,10 +732,11 @@ function LancheTrackerPage() {
       }
     );
 
+    result.totalPedidos = items.length;
     return result;
   }, [items]);
 
-  const hasUnsavedChanges = items && items.some(item => !item.reportado);
+  const hasUnsavedChanges = items && items.length > 0;
   
   if (isUserLoading) {
     return (
@@ -832,7 +829,7 @@ function LancheTrackerPage() {
             <Separator />
             <h2 className="text-xl font-semibold leading-none tracking-tight">Lançamentos do Dia</h2>
             <ItemList
-              items={items?.filter(item => !item.reportado) || []}
+              items={items}
               onEdit={handleEditRequest}
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}
