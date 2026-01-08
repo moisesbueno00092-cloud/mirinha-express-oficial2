@@ -3,7 +3,7 @@
   "indexes": [
     {
       "collectionGroup": "order_items",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "reportado",
@@ -17,7 +17,7 @@
     },
     {
       "collectionGroup": "order_items",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "reportado",
@@ -32,5 +32,3 @@
   ],
   "fieldOverrides": []
 }
-
-    

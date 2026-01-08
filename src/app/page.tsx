@@ -32,6 +32,7 @@ import {
   serverTimestamp,
   Timestamp,
   where,
+  collectionGroup,
 } from 'firebase/firestore';
 import { parseCustomItemPrice } from '@/ai/flows/parse-custom-item-price';
 
@@ -106,8 +107,8 @@ function LancheTrackerPage() {
   );
   
   const orderItemsQuery = useMemoFirebase(
-    () => (orderItemsCollectionRef ? query(orderItemsCollectionRef, where('reportado', '==', false), orderBy('timestamp', 'desc')) : null),
-    [orderItemsCollectionRef]
+    () => (firestore ? query(collectionGroup(firestore, 'order_items'), where('reportado', '==', false), orderBy('timestamp', 'desc')) : null),
+    [firestore]
   );
 
   const { data: items, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(orderItemsQuery);
@@ -884,5 +885,3 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
-
-    
