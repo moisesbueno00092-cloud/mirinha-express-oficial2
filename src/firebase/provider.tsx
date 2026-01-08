@@ -58,8 +58,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       } else {
         // If there's no user, try to sign in anonymously.
         try {
-          // This ensures all devices and sessions share the same anonymous user
-          // if one is already logged in, it will be returned.
           await signInAnonymously(auth);
           // The onAuthStateChanged listener will handle the new user state,
           // so we just let it run its course. isUserLoading remains true until a user is set.
