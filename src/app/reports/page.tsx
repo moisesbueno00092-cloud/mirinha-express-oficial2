@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -674,6 +674,10 @@ function ReportsPageContent() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => router.push('/reports/favoritos')}>
+                <Star className="mr-2 h-4 w-4" />
+                Relatório por Cliente
+            </Button>
             <Button variant="outline" onClick={() => router.push('/reports/fiados')}>
                 <Users className="mr-2 h-4 w-4" />
                 Relatório de Fiados
