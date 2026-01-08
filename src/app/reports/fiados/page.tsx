@@ -246,5 +246,3 @@ export default function FiadosPage() {
         <FiadosPageContent />
     )
 }
-
-    

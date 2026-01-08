@@ -541,24 +541,38 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
 
-        const orderItemsCollectionRef = collection(firestore, 'order_items');
         const liveItemsCollectionRef = collection(firestore, 'live_items');
         const reportStartOfDay = startOfDay(parseISO(reportToDelete.reportDate));
         const reportEndOfDay = endOfDay(parseISO(reportToDelete.reportDate));
         
-        const q = query(orderItemsCollectionRef, 
+        // Define queries for both global and user-specific order_items
+        const globalOrderItemsQuery = query(collection(firestore, 'order_items'), 
+            where('timestamp', '>=', reportStartOfDay), 
+            where('timestamp', '<=', reportEndOfDay)
+        );
+        const userOrderItemsQuery = query(collection(firestore, 'users', user.uid, 'order_items'), 
             where('timestamp', '>=', reportStartOfDay), 
             where('timestamp', '<=', reportEndOfDay)
         );
 
-        const orderItemsSnapshot = await getDocs(q);
+        const [globalOrderItemsSnapshot, userOrderItemsSnapshot] = await Promise.all([
+            getDocs(globalOrderItemsQuery),
+            getDocs(userOrderItemsQuery)
+        ]);
         
-        orderItemsSnapshot.forEach((docSnapshot) => {
-            const liveItemRef = doc(liveItemsCollectionRef, docSnapshot.id);
-            // Move item back to live_items by setting it there and deleting from order_items
-            batch.set(liveItemRef, { ...docSnapshot.data(), reportado: false });
-            batch.delete(docSnapshot.ref);
+        // Combine results and move items back to live_items
+        const allItemsToMove = new Map<string, any>();
+        globalOrderItemsSnapshot.forEach(doc => allItemsToMove.set(doc.id, doc.data()));
+        userOrderItemsSnapshot.forEach(doc => allItemsToMove.set(doc.id, doc.data()));
+
+        allItemsToMove.forEach((data, id) => {
+            const liveItemRef = doc(liveItemsCollectionRef, id);
+            batch.set(liveItemRef, { ...data, reportado: false });
         });
+
+        // Also delete from original locations
+        globalOrderItemsSnapshot.forEach(doc => batch.delete(doc.ref));
+        userOrderItemsSnapshot.forEach(doc => batch.delete(doc.ref));
         
         // Reports could be global or user-specific. Try deleting from both.
         // It's safe to call delete on a non-existent doc.
@@ -778,5 +792,3 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    
