@@ -583,7 +583,9 @@ function ReportsPageContent() {
   
     const filtered = savedReports.filter(r => {
       try {
-        const reportDate = new Date(r.reportDate);
+        // Robust date parsing, ignoring timezones.
+        const [y, m, d] = r.reportDate.split('-').map(Number);
+        const reportDate = new Date(y, m - 1, d);
         return isWithinInterval(reportDate, { start: startDate, end: endDate });
       } catch {
         return false;
@@ -612,7 +614,8 @@ function ReportsPageContent() {
   
   const getFormattedDate = (dateString: string) => {
     try {
-        const date = new Date(dateString);
+        const [y, m, d] = dateString.split('-').map(Number);
+        const date = new Date(y, m - 1, d);
         return {
             day: format(date, "dd"),
             month: format(date, "MMM", { locale: ptBR }).toUpperCase(),
