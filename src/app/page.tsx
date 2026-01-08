@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type {
   Item,
@@ -892,3 +892,5 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
+
+    
