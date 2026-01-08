@@ -205,8 +205,8 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between items-center"><span className="text-purple-400">Vendas Salão:</span> <span className="font-mono">{formatCurrency(report.totalVendasSalao)}</span></div>
                   <div className="flex justify-between items-center"><span className="text-blue-400">Vendas Rua:</span> <span className="font-mono">{formatCurrency(report.totalVendasRua)}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-destructive">Fiado Salão:</span> <span className="font-mono text-destructive">{formatCurrency(report.totalFiadoSalao)}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-destructive">Fiado Rua:</span> <span className="font-mono text-destructive">{formatCurrency(report.totalFiadoRua)}</span></div>
+                  <div className="flex justify-between items-center text-destructive"><span>Fiado Salão:</span> <span className="font-mono text-destructive">{formatCurrency(report.totalFiadoSalao)}</span></div>
+                  <div className="flex justify-between items-center text-destructive"><span>Fiado Rua:</span> <span className="font-mono text-destructive">{formatCurrency(report.totalFiadoRua)}</span></div>
                 </div>
               </div>
               <Separator/>
@@ -778,3 +778,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    

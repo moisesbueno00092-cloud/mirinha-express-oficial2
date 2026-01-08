@@ -73,30 +73,42 @@ function FiadosPageContent() {
         const start = startOfMonth(selectedMonth);
         const end = endOfMonth(selectedMonth);
 
-        const orderItemsCollectionRef = collection(firestore, 'live_items');
-        const q = query(orderItemsCollectionRef, 
-            where('group', 'in', ['Fiados salão', 'Fiados rua']),
-            where('timestamp', '>=', start),
-            where('timestamp', '<=', end),
-            orderBy('timestamp', 'asc')
-        );
+        const queries = [
+            // Global Collections
+            query(collection(firestore, 'live_items'), 
+                where('group', 'in', ['Fiados salão', 'Fiados rua']),
+                where('timestamp', '>=', start),
+                where('timestamp', '<=', end)
+            ),
+            query(collection(firestore, 'order_items'), 
+                where('group', 'in', ['Fiados salão', 'Fiados rua']),
+                where('timestamp', '>=', start),
+                where('timestamp', '<=', end)
+            ),
+            // User-specific (old) collections
+            query(collection(firestore, 'users', user.uid, 'live_items'),
+                where('group', 'in', ['Fiados salão', 'Fiados rua']),
+                where('timestamp', '>=', start),
+                where('timestamp', '<=', end)
+            ),
+            query(collection(firestore, 'users', user.uid, 'order_items'),
+                where('group', 'in', ['Fiados salão', 'Fiados rua']),
+                where('timestamp', '>=', start),
+                where('timestamp', '<=', end)
+            )
+        ];
         
-        const historicItemsCollectionRef = collection(firestore, 'order_items');
-        const qHistoric = query(historicItemsCollectionRef, 
-            where('group', 'in', ['Fiados salão', 'Fiados rua']),
-            where('timestamp', '>=', start),
-            where('timestamp', '<=', end),
-            orderBy('timestamp', 'asc')
-        );
+        const snapshots = await Promise.all(queries.map(q => getDocs(q)));
 
-        const [liveSnapshot, historicSnapshot] = await Promise.all([
-             getDocs(q),
-             getDocs(qHistoric)
-        ]);
+        const allFiadosMap = new Map<string, Item>();
+        snapshots.forEach(snapshot => {
+            snapshot.forEach((doc) => {
+                allFiadosMap.set(doc.id, { ...doc.data(), id: doc.id } as Item);
+            });
+        });
         
-        const allFiados: Item[] = [];
-        liveSnapshot.forEach((doc) => allFiados.push({ ...doc.data(), id: doc.id } as Item));
-        historicSnapshot.forEach((doc) => allFiados.push({ ...doc.data(), id: doc.id } as Item));
+        const allFiados = Array.from(allFiadosMap.values())
+            .sort((a, b) => a.timestamp.toDate().getTime() - b.timestamp.toDate().getTime());
         
         setFiadoItems(allFiados);
 
