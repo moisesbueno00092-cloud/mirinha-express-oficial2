@@ -107,11 +107,17 @@ function LancheTrackerPage() {
   );
   
   const orderItemsQuery = useMemoFirebase(
-    () => (firestore ? query(collectionGroup(firestore, 'order_items'), where('reportado', '==', false), orderBy('timestamp', 'desc')) : null),
+    () => (firestore ? query(collectionGroup(firestore, 'order_items'), orderBy('timestamp', 'desc')) : null),
     [firestore]
   );
 
-  const { data: items, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(orderItemsQuery);
+  const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(orderItemsQuery);
+
+  const items = useMemo(() => {
+      if (!allItems) return [];
+      return allItems.filter(item => !item.reportado);
+  }, [allItems]);
+
 
   useEffect(() => {
     if (itemsError) {
