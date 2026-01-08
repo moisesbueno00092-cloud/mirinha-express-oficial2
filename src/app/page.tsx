@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type {
   Item,
@@ -19,6 +19,8 @@ import {
   useCollection,
   useMemoFirebase,
   useUser,
+  errorEmitter,
+  FirestorePermissionError,
 } from '@/firebase';
 import {
   collection,
@@ -182,10 +184,10 @@ function LancheTrackerPage() {
     });
   };
 
-  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
+  const handleUpsertItem = useCallback(async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
     setIsProcessing(true);
     if (!user || !firestore) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Utilizador não autenticado.' });
+      toast({ variant: 'destructive', title: 'Erro', description: 'Utilizador não autenticado ou base de dados indisponível.' });
       setIsProcessing(false);
       return;
     }
@@ -439,17 +441,35 @@ function LancheTrackerPage() {
 
       if (currentItem && liveItemsCollectionRef) {
         const itemRef = doc(liveItemsCollectionRef, currentItem.id);
-        await setDoc(itemRef, finalItem);
-        toast({
-          duration: 4000,
-          component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Atualizado" />,
-        });
+        setDoc(itemRef, finalItem)
+          .then(() => {
+            toast({
+              duration: 4000,
+              component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Atualizado" />,
+            });
+          })
+          .catch((serverError) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: itemRef.path,
+              operation: 'update',
+              requestResourceData: finalItem,
+            }));
+          });
       } else if (liveItemsCollectionRef) {
-        await addDoc(liveItemsCollectionRef, finalItem);
-        toast({
-          duration: 4000,
-          component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Adicionado" />,
-        });
+        addDoc(liveItemsCollectionRef, finalItem)
+          .then(() => {
+            toast({
+              duration: 4000,
+              component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Adicionado" />,
+            });
+          })
+          .catch((serverError) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: liveItemsCollectionRef.path,
+              operation: 'create',
+              requestResourceData: finalItem,
+            }));
+          });
       }
     } catch (error: any) {
       console.error('Error upserting item:', error);
@@ -466,7 +486,7 @@ function LancheTrackerPage() {
         inputRef.current?.focus();
       }, 0);
     }
-  };
+  }, [firestore, user, toast, bomboniereItems]);
 
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
     if (!bomboniereItems) return;
@@ -889,3 +909,5 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
+
+    
