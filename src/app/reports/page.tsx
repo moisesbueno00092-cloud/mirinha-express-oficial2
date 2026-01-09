@@ -362,6 +362,10 @@ function ReportsPageContent() {
     const endDate = endOfMonth(currentDate);
     return allReports
       .filter(report => {
+          if (!report.reportDate) {
+              console.warn("Report with missing date found and skipped:", report);
+              return false;
+          }
           try {
               const reportDate = parseISO(report.reportDate);
               return isWithinInterval(reportDate, { start: startDate, end: endDate });
@@ -370,7 +374,14 @@ function ReportsPageContent() {
               return false;
           }
       })
-      .sort((a, b) => parseISO(b.reportDate).getTime() - parseISO(a.reportDate).getTime());
+      .sort((a, b) => {
+        if (!a.reportDate || !b.reportDate) return 0;
+        try {
+          return parseISO(b.reportDate).getTime() - parseISO(a.reportDate).getTime();
+        } catch {
+          return 0;
+        }
+      });
   }, [allReports, currentDate]);
 
   const bomboniereQuery = useMemoFirebase(
@@ -389,7 +400,7 @@ function ReportsPageContent() {
   };
 
   const confirmDeleteReport = async () => {
-    if (!firestore || !user || !reportToDelete?.id) return;
+    if (!firestore || !user || !reportToDelete?.id || !reportToDelete.reportDate) return;
     
     try {
         const batch = writeBatch(firestore);
@@ -456,7 +467,7 @@ function ReportsPageContent() {
 
         const initial: DailyReport = {
             id: String(savedReports.length),
-            userId: savedReports[0].userId,
+            userId: savedReports[0]?.userId || '',
             reportDate: '',
             createdAt: '',
             totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
