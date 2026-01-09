@@ -527,10 +527,10 @@ function ReportsPageContent() {
 
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
         
-        orderItemsSnapshot.forEach(doc => {
-            const liveItemRef = doc(liveItemsCollectionRef, doc.id);
-            batch.set(liveItemRef, { ...doc.data(), reportado: false });
-            batch.delete(doc.ref);
+        orderItemsSnapshot.forEach(orderDoc => {
+            const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
+            batch.set(liveItemRef, { ...orderDoc.data(), reportado: false });
+            batch.delete(orderDoc.ref);
         });
 
         const reportDocRefGlobal = doc(firestore, "daily_reports", reportToDelete.id);
@@ -546,12 +546,12 @@ function ReportsPageContent() {
 
         fetchReports();
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error deleting report:", error);
         toast({
             variant: "destructive",
             title: "Erro",
-            description: "Não foi possível excluir o relatório.",
+            description: error.message || "Não foi possível excluir o relatório.",
         });
     } finally {
         setReportToDelete(null);
@@ -725,3 +725,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
