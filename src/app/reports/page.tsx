@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users, Star } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -559,7 +559,7 @@ function ReportsPageContent() {
 
         const [globalOrderItemsSnapshot, userOrderItemsSnapshot] = await Promise.all([
             getDocs(globalOrderItemsQuery),
-            getDocs(userOrderItemsSnapshot)
+            getDocs(userOrderItemsQuery)
         ]);
         
         // Combine results and move items back to live_items
@@ -622,8 +622,8 @@ function ReportsPageContent() {
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    if(value === 'porCliente') {
-        router.push('/reports/favoritos');
+    if(value === 'fiados') {
+        router.push('/reports/fiados');
     }
   }
 
@@ -724,9 +724,9 @@ function ReportsPageContent() {
                     <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="geral">Relatório Geral</TabsTrigger>
                         <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
-                        <TabsTrigger value="porCliente" className="flex items-center gap-2">
-                            <Star className="h-4 w-4"/>
-                            Por Cliente
+                        <TabsTrigger value="fiados" className="flex items-center gap-2">
+                            <Users className="h-4 w-4"/>
+                            Relatório de Fiados
                         </TabsTrigger>
                     </TabsList>
                     
