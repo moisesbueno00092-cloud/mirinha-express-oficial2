@@ -610,23 +610,25 @@ function ReportsPageContent() {
                                                 <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd/MM/yyyy")}</p>
                                             </div>
                                         </div>
-                                        <div className="text-right ml-auto">
+                                        <div className="ml-auto text-right">
                                             <p className="text-xs text-muted-foreground">Total do Dia</p>
                                             <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                         </div>
-                                        <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
+                                        <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200 ml-4" />
                                     </AccordionTrigger>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive mr-2"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteReportRequest(report.id!);
-                                        }}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    <div className="pr-4">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteReportRequest(report.id!);
+                                            }}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
                                 <AccordionContent className="p-0 border border-t-0 rounded-b-lg bg-card overflow-hidden">
                                      {selectedReportId === report.id && bomboniereItems ? (
@@ -657,5 +659,7 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
 
     
