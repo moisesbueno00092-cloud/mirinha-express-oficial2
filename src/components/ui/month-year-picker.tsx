@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -21,6 +22,10 @@ interface MonthYearPickerProps {
 export function MonthYearPicker({ date, setDate }: MonthYearPickerProps) {
   const [open, setOpen] = React.useState(false);
   const [displayDate, setDisplayDate] = React.useState(date || new Date());
+
+  React.useEffect(() => {
+    setDisplayDate(date || new Date());
+  }, [date]);
 
   const handleMonthChange = (month: number) => {
     const newDate = new Date(displayDate.getFullYear(), month, 1);

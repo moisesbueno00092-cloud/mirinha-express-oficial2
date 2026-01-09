@@ -671,110 +671,108 @@ function ReportsPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="container mx-auto max-w-5xl p-2 sm:p-4 lg:p-8">
+      <main className="space-y-8">
+        <Card>
+            <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
+                <div className="flex-1 w-full sm:w-auto">
+                    <Label htmlFor="report-month" className="text-xs text-muted-foreground">Mês</Label>
+                      <Select value={currentMonth} onValueChange={setCurrentMonth}>
+                        <SelectTrigger id="report-month">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {monthOptions.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                  <div className="flex-1 w-full sm:w-auto">
+                    <Label htmlFor="report-year" className="text-xs text-muted-foreground">Ano</Label>
+                      <Select value={currentYear} onValueChange={setCurrentYear}>
+                        <SelectTrigger id="report-year">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {yearOptions.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </CardContent>
+        </Card>
 
-        <main className="space-y-8">
-            <Card>
-                <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
-                    <div className="flex-1 w-full sm:w-auto">
-                        <Label htmlFor="report-month" className="text-xs text-muted-foreground">Mês</Label>
-                         <Select value={currentMonth} onValueChange={setCurrentMonth}>
-                            <SelectTrigger id="report-month">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {monthOptions.map(opt => (
-                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                     <div className="flex-1 w-full sm:w-auto">
-                        <Label htmlFor="report-year" className="text-xs text-muted-foreground">Ano</Label>
-                         <Select value={currentYear} onValueChange={setCurrentYear}>
-                            <SelectTrigger id="report-year">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {yearOptions.map(opt => (
-                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </CardContent>
-            </Card>
+        <div className="space-y-4">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="geral">Relatório Geral</TabsTrigger>
+                    <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
+                    <TabsTrigger value="fiados">Relatório de Fiados</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="geral">
+                    <AggregateReport reports={filteredReports} bomboniereItems={bomboniereItems || []} />
+                </TabsContent>
 
-            <div className="space-y-4">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="geral">Relatório Geral</TabsTrigger>
-                        <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="geral">
-                        <AggregateReport reports={filteredReports} bomboniereItems={bomboniereItems || []} />
-                    </TabsContent>
-
-                    <TabsContent value="diario" className="pt-4">
-                        <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
-                        {filteredReports && filteredReports.length > 0 && bomboniereItems ? (
-                        <Accordion type="single" collapsible className="w-full space-y-2">
-                            {filteredReports.map(report => {
-                            const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.createdAt);
-                            return (
-                                <AccordionItem value={report.id!} key={`${report.id}-${report.createdAt}`}>
-                                    <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
-                                        <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
-                                            <span className="text-2xl font-bold leading-none">{day}</span>
-                                            <span className="text-xs font-semibold uppercase">{month}</span>
-                                        </div>
-
-                                        <div className="flex-grow">
-                                            <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
-                                            <p className="text-sm text-muted-foreground">{fullDate}</p>
-                                        </div>
-
-                                        <div className="text-right mr-4">
-                                            <p className="text-xs text-muted-foreground">Total do Dia</p>
-                                            <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
-                                        </div>
-
-                                        <AccordionTrigger>
-                                            <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
-                                        </AccordionTrigger>
-
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteReportRequest(report);
-                                            }}
-                                            >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                <TabsContent value="diario" className="pt-4">
+                    <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
+                    {filteredReports && filteredReports.length > 0 && bomboniereItems ? (
+                    <Accordion type="single" collapsible className="w-full space-y-2">
+                        {filteredReports.map(report => {
+                        const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.createdAt);
+                        return (
+                            <AccordionItem value={report.id!} key={`${report.id}-${report.createdAt}`}>
+                                <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
+                                    <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
+                                        <span className="text-2xl font-bold leading-none">{day}</span>
+                                        <span className="text-xs font-semibold uppercase">{month}</span>
                                     </div>
-                                    <AccordionContent className="p-2 pt-2">
-                                        <ReportDetail report={report} bomboniereItems={bomboniereItems} />
-                                    </AccordionContent>
-                                </AccordionItem>
-                            )
-                            })}
-                        </Accordion>
-                        ) : (
-                        <Card>
-                            <CardContent className="p-10 text-center text-muted-foreground">
-                            <p>Nenhum relatório salvo encontrado para o período selecionado.</p>
-                            </CardContent>
-                        </Card>
-                        )}
-                    </TabsContent>
-                </Tabs>
-            </div>
-        </main>
-      </div>
+
+                                    <div className="flex-grow">
+                                        <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
+                                        <p className="text-sm text-muted-foreground">{fullDate}</p>
+                                    </div>
+
+                                    <div className="text-right mr-4">
+                                        <p className="text-xs text-muted-foreground">Total do Dia</p>
+                                        <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
+                                    </div>
+
+                                    <AccordionTrigger>
+                                        <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
+                                    </AccordionTrigger>
+
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteReportRequest(report);
+                                        }}
+                                        >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                <AccordionContent className="p-2 pt-2">
+                                    <ReportDetail report={report} bomboniereItems={bomboniereItems} />
+                                </AccordionContent>
+                            </AccordionItem>
+                        )
+                        })}
+                    </Accordion>
+                    ) : (
+                    <Card>
+                        <CardContent className="p-10 text-center text-muted-foreground">
+                        <p>Nenhum relatório salvo encontrado para o período selecionado.</p>
+                        </CardContent>
+                    </Card>
+                    )}
+                </TabsContent>
+            </Tabs>
+        </div>
+      </main>
     </>
   );
 }
