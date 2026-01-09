@@ -581,24 +581,24 @@ function ReportsPageContent() {
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <AccordionTrigger className="flex-1 px-4 py-3 hover:no-underline [&[data-state=open]]:rounded-b-none w-full">
-                                        <div className="flex w-full items-center justify-between">
+                                    <AccordionTrigger className="flex-1 p-0 hover:no-underline [&[data-state=open]]:rounded-b-none w-full">
+                                        <div className="flex w-full items-center justify-between p-4">
                                             <div className="flex items-center gap-4">
-                                                <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-14 h-14 shrink-0">
-                                                    <span className="text-2xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
-                                                    <span className="text-xs font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
+                                                <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
+                                                    <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
+                                                    <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-base capitalize">{format(parseISO(report.reportDate), "eeee'-feira'", { locale: ptBR })}</p>
-                                                    <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd/MM/yyyy")}</p>
+                                                    <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee'-feira'", { locale: ptBR })}</p>
+                                                    <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-6">
                                                 <div className="text-right">
-                                                    <p className="text-xs text-muted-foreground">Total do Dia</p>
-                                                    <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                                                    <p className="text-sm text-muted-foreground">Total do Dia</p>
+                                                    <p className="text-xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                                 </div>
-                                                <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
+                                                <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200 text-muted-foreground" />
                                             </div>
                                         </div>
                                     </AccordionTrigger>
@@ -645,5 +645,3 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    
