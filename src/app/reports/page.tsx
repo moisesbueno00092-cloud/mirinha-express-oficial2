@@ -556,7 +556,7 @@ function ReportsPageContent() {
 
         const [globalOrderItemsSnapshot, userOrderItemsSnapshot] = await Promise.all([
             getDocs(globalOrderItemsQuery),
-            getDocs(userOrderItemsQuery)
+            getDocs(userOrderItemsSnapshot)
         ]);
         
         // Combine results and move items back to live_items
@@ -673,7 +673,7 @@ function ReportsPageContent() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* O botão para o relatório de fiados foi removido */}
+            
           </div>
         </header>
 
