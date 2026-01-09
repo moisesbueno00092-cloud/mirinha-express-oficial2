@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Trash2, Plus, Save, Loader2, Search } from 'lucide-react';
+import { Trash2, Plus, Save, Loader2, Search, XCircle } from 'lucide-react';
 import type { BomboniereItem, EntradaMercadoria, Item as OrderItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { collection, doc, writeBatch, query, addDoc, deleteDoc } from 'firebase/firestore';
@@ -29,7 +29,7 @@ interface StockEditModalProps {
   bomboniereItems: BomboniereItem[];
 }
 
-type EditableItem = BomboniereItem;
+type EditableItem = Partial<BomboniereItem> & { isNew?: boolean };
 
 
 export default function StockEditModal({ isOpen, onClose, bomboniereItems: initialItems }: StockEditModalProps) {
@@ -64,7 +64,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
     if (!searchTerm) return itemsToFilter;
     
     return itemsToFilter.filter(item => 
-      item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      item.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [localItems, searchTerm]);
 
@@ -87,23 +87,29 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
     );
   };
   
-  const handleAddNewItem = async () => {
-    if (!firestore) return;
-    const newItemData = { name: 'Novo Item', price: 0, estoque: 0 };
-    await addDoc(collection(firestore, "bomboniere_items"), newItemData);
+  const handleAddNewItem = () => {
+    const newItem: EditableItem = {
+      id: `new-${Date.now()}`,
+      name: '',
+      price: 0,
+      estoque: 0,
+      isNew: true,
+    };
+    setLocalItems(prev => [newItem, ...prev]);
+  };
 
-    toast({ title: "Item Adicionado", description: "Um 'Novo Item' foi criado. Por favor, edite-o."});
-
-    setTimeout(() => {
-      const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollArea) {
-        scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'smooth' });
-      }
-    }, 500); // Give time for the new item to be received from Firestore and rendered
+  const handleRemoveNewItem = (id: string) => {
+    setLocalItems(prev => prev.filter(item => item.id !== id));
   };
 
   const handleDeleteRequest = (item: EditableItem) => {
-      const itemNameLower = item.name.toLowerCase();
+      if (item.isNew && item.id) {
+        handleRemoveNewItem(item.id);
+        return;
+      }
+      
+      const itemNameLower = item.name?.toLowerCase();
+      if (!itemNameLower) return;
 
       const isInSalesHistory = allOrderItems?.some(order => 
         order.bomboniereItems?.some(bItem => bItem.name.toLowerCase() === itemNameLower)
@@ -127,7 +133,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
   }
 
   const confirmDelete = async () => {
-      if (!firestore || !itemToDelete || !itemToDelete.id) return;
+      if (!firestore || !itemToDelete || !itemToDelete.id || itemToDelete.isNew) return;
       const docRef = doc(firestore, 'bomboniere_items', itemToDelete.id);
       await deleteDoc(docRef);
       toast({ title: "Sucesso", description: `"${itemToDelete.name}" foi removido.`});
@@ -143,26 +149,42 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       let hasValidationError = false;
 
       for (const localItem of localItems) {
-          const originalItem = originalItemsMap[localItem.id];
-
-          const hasChanged = !originalItem || 
-              originalItem.name !== localItem.name || 
-              originalItem.price !== localItem.price || 
-              originalItem.estoque !== localItem.estoque;
-
-          if (hasChanged) {
-              if (!localItem.name.trim()) {
-                  toast({ variant: 'destructive', title: 'Erro de Validação', description: `O nome de um item não pode ser vazio.`});
+          if (!localItem.id) continue;
+          
+          if (localItem.isNew) {
+              if (!localItem.name?.trim()) {
+                  toast({ variant: 'destructive', title: 'Erro de Validação', description: `O nome de um novo item não pode ser vazio.`});
                   hasValidationError = true;
                   break;
               }
-              const docRef = doc(firestore, 'bomboniere_items', localItem.id);
-              batch.update(docRef, {
+              const newDocRef = doc(collection(firestore, 'bomboniere_items'));
+              batch.set(newDocRef, {
                   name: localItem.name,
-                  price: localItem.price,
-                  estoque: localItem.estoque
+                  price: localItem.price || 0,
+                  estoque: localItem.estoque || 0,
               });
               changesCount++;
+          } else {
+              const originalItem = originalItemsMap[localItem.id];
+              const hasChanged = !originalItem || 
+                  originalItem.name !== localItem.name || 
+                  originalItem.price !== localItem.price || 
+                  originalItem.estoque !== localItem.estoque;
+
+              if (hasChanged) {
+                  if (!localItem.name?.trim()) {
+                      toast({ variant: 'destructive', title: 'Erro de Validação', description: `O nome de um item não pode ser vazio.`});
+                      hasValidationError = true;
+                      break;
+                  }
+                  const docRef = doc(firestore, 'bomboniere_items', localItem.id);
+                  batch.update(docRef, {
+                      name: localItem.name,
+                      price: localItem.price,
+                      estoque: localItem.estoque
+                  });
+                  changesCount++;
+              }
           }
       }
       
@@ -232,19 +254,19 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
                 {filteredItems.map((item) => (
                     <div key={item.id} className="grid grid-cols-[2fr_1fr_1fr_auto] items-center gap-x-4 py-2">
                         <Input
-                            value={item.name}
-                            onChange={(e) => handleFieldChange(item.id, 'name', e.target.value)}
+                            value={item.name || ''}
+                            onChange={(e) => item.id && handleFieldChange(item.id, 'name', e.target.value)}
                             placeholder="Nome do Item"
                         />
                         <Input
-                           value={String(item.price).replace('.', ',')}
-                           onChange={(e) => handleFieldChange(item.id, 'price', e.target.value.replace(/[^0-9,]/g, ''))}
+                           value={String(item.price || '0').replace('.', ',')}
+                           onChange={(e) => item.id && handleFieldChange(item.id, 'price', e.target.value.replace(/[^0-9,]/g, ''))}
                            className="text-right"
                            placeholder="0,00"
                         />
                         <Input
-                            value={String(item.estoque)}
-                             onChange={(e) => handleFieldChange(item.id, 'estoque', e.target.value.replace(/[^0-9]/g, ''))}
+                            value={String(item.estoque || '0')}
+                             onChange={(e) => item.id && handleFieldChange(item.id, 'estoque', e.target.value.replace(/[^0-9]/g, ''))}
                             type="text"
                             className="text-right"
                             placeholder="0"
@@ -255,7 +277,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
                             className="h-9 w-9 text-muted-foreground hover:text-destructive"
                             onClick={() => handleDeleteRequest(item)}
                         >
-                            <Trash2 className="h-4 w-4" />
+                            {item.isNew ? <XCircle className="h-5 w-5" /> : <Trash2 className="h-4 w-4" />}
                         </Button>
                     </div>
                   )
