@@ -571,8 +571,8 @@ function ReportsPageContent() {
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <AccordionTrigger className="flex-1 p-0 hover:no-underline [&[data-state=open]]:rounded-b-none">
-                                        <div className="flex w-full items-center justify-between p-4">
+                                    <AccordionTrigger className="flex-1 p-4 hover:no-underline [&[data-state=open]]:rounded-b-none">
+                                        <div className="flex w-full items-center justify-between">
                                             <div className="flex items-center gap-4">
                                                 <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-14 h-14 shrink-0">
                                                     <span className="text-2xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
@@ -592,17 +592,19 @@ function ReportsPageContent() {
                                             </div>
                                         </div>
                                     </AccordionTrigger>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive mr-4"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteReportRequest(report.id!);
-                                        }}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    <div className="pr-4">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteReportRequest(report.id!);
+                                            }}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
                                 <AccordionContent className="p-0 border border-t-0 rounded-b-lg bg-card overflow-hidden">
                                      {selectedReportId === report.id && bomboniereItems ? (
