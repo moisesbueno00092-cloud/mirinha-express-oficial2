@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users, User } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -47,13 +47,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import type { DailyReport, ItemCount, BomboniereItem, Item, SavedFavorite } from '@/types';
+import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import PasswordDialog from '@/components/password-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import usePersistentState from '@/hooks/use-persistent-state';
-import { renderItemName } from '@/components/item-list';
 
 
 const formatCurrency = (value: number | undefined | null) => {
@@ -408,84 +406,6 @@ const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[],
     )
 }
 
-const CustomerReport = ({ allItemsInPeriod, savedFavorites, bomboniereItems }: { allItemsInPeriod: Item[], savedFavorites: SavedFavorite[], bomboniereItems: BomboniereItem[] }) => {
-    const [selectedCustomerName, setSelectedCustomerName] = useState<string | undefined>(undefined);
-
-    const customerItems = useMemo(() => {
-        if (!selectedCustomerName) return [];
-        return allItemsInPeriod
-            .filter(item => item.customerName === selectedCustomerName)
-            .sort((a,b) => new Date(a.timestamp as any).getTime() - new Date(b.timestamp as any).getTime());
-    }, [allItemsInPeriod, selectedCustomerName]);
-    
-    const customerTotal = useMemo(() => {
-        return customerItems.reduce((acc, item) => acc + item.total, 0);
-    }, [customerItems]);
-
-    return (
-        <Card className="mt-6">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                    <User className="h-5 w-5 text-muted-foreground"/>
-                    Relatório por Cliente
-                </CardTitle>
-                <CardDescription>
-                    Selecione um cliente para ver os seus lançamentos de fiado no mês.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <Select value={selectedCustomerName} onValueChange={setSelectedCustomerName}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Selecione um cliente favorito..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {savedFavorites.sort((a,b) => a.name.localeCompare(b.name)).map(fav => (
-                            <SelectItem key={fav.id} value={fav.name}>{fav.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                {selectedCustomerName && (
-                    <div className="mt-4">
-                         {customerItems.length > 0 ? (
-                             <>
-                                <div className="rounded-md border">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Data</TableHead>
-                                                <TableHead>Itens</TableHead>
-                                                <TableHead className="text-right">Total</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {customerItems.map(item => (
-                                                <TableRow key={item.id}>
-                                                    <TableCell>{format(new Date(item.timestamp as any), 'dd/MM/yy')}</TableCell>
-                                                    <TableCell>{renderItemName(item)}</TableCell>
-                                                    <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                                <div className="flex justify-end items-center gap-4 pt-4 font-semibold text-lg">
-                                    <span>Total Fiado para {selectedCustomerName}:</span>
-                                    <span className="text-destructive">{formatCurrency(customerTotal)}</span>
-                                </div>
-                             </>
-                         ) : (
-                            <div className="text-center text-muted-foreground p-10">
-                                <Info className="mx-auto h-8 w-8 mb-2"/>
-                                Nenhum lançamento de fiado encontrado para {selectedCustomerName} neste período.
-                            </div>
-                         )}
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    )
-}
 
 const generateYearOptions = () => {
     const currentYear = new Date().getFullYear();
@@ -517,10 +437,6 @@ function ReportsPageContent() {
   const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(true);
   const [activeTab, setActiveTab] = useState('geral');
-  
-  const [savedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
-  const [allItemsInPeriod, setAllItemsInPeriod] = useState<Item[]>([]);
-  const [isLoadingItems, setIsLoadingItems] = useState(true);
 
 
   useEffect(() => {
@@ -545,10 +461,9 @@ function ReportsPageContent() {
 
   const { data: bomboniereItems, isLoading: isLoadingBomboniere, error: bomboniereError } = useCollection<BomboniereItem>(bomboniereQuery);
 
-  const fetchReportsAndItems = useCallback(async () => {
+  const fetchReports = useCallback(async () => {
     if (!firestore || !user) return;
     setIsLoadingReports(true);
-    setIsLoadingItems(true);
 
     const year = parseInt(currentYear);
     const month = parseInt(currentMonth);
@@ -556,7 +471,6 @@ function ReportsPageContent() {
     const endDate = endOfMonth(new Date(year, month));
 
     try {
-        // Fetch Daily Reports
         const reportsQuery = query(
             collection(firestore, 'daily_reports'), 
             where('reportDate', '>=', startDate.toISOString()),
@@ -567,39 +481,28 @@ function ReportsPageContent() {
         const reportsData = reportsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as DailyReport));
         setSavedReports(reportsData);
 
-        // Fetch all order items in the same period
-        const itemsQuery = query(
-            collection(firestore, 'order_items'), 
-            where('timestamp', '>=', startDate),
-            where('timestamp', '<=', endDate),
-        );
-        const itemsSnapshot = await getDocs(itemsQuery);
-        const itemsData = itemsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
-        setAllItemsInPeriod(itemsData);
-
     } catch (error: any) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching reports:", error);
         toast({
-            title: "Erro ao buscar dados",
-            description: `Não foi possível carregar os dados. Verifique as permissões ou se os índices da base de dados estão correctos. Detalhes: ${error.message}`,
+            title: "Erro ao buscar relatórios",
+            description: `Não foi possível carregar os relatórios. Verifique as permissões ou se os índices da base de dados estão correctos. Detalhes: ${error.message}`,
             variant: "destructive",
             duration: 8000
         });
     } finally {
         setIsLoadingReports(false);
-        setIsLoadingItems(false);
     }
   }, [firestore, user, toast, currentYear, currentMonth]);
 
 
   useEffect(() => {
     if (isAuthenticated) {
-        fetchReportsAndItems();
+        fetchReports();
     }
-  }, [isAuthenticated, fetchReportsAndItems]);
+  }, [isAuthenticated, fetchReports]);
 
 
-  const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere || isLoadingItems;
+  const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
 
   const yearOptions = useMemo(() => generateYearOptions(), []);
   
@@ -641,7 +544,7 @@ function ReportsPageContent() {
             description: "Relatório excluído e os seus itens foram movidos de volta para a tela principal.",
         });
 
-        fetchReportsAndItems();
+        fetchReports();
 
     } catch (error) {
         console.error("Error deleting report:", error);
@@ -746,10 +649,9 @@ function ReportsPageContent() {
 
         <div className="space-y-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="geral">Relatório Geral</TabsTrigger>
                     <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
-                    <TabsTrigger value="clientes">Clientes</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="geral">
@@ -811,13 +713,6 @@ function ReportsPageContent() {
                     </Card>
                     )}
                 </TabsContent>
-                <TabsContent value="clientes">
-                    <CustomerReport 
-                        allItemsInPeriod={allItemsInPeriod} 
-                        savedFavorites={savedFavorites} 
-                        bomboniereItems={bomboniereItems || []}
-                    />
-                </TabsContent>
             </Tabs>
         </div>
       </main>
@@ -830,5 +725,3 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    
