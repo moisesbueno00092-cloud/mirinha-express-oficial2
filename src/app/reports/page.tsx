@@ -4,15 +4,14 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay, isSameDay } from 'date-fns';
+import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay, isSameDay, setMonth, setYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users } from 'lucide-react';
+import { Loader2, Trash2, ChevronDown, TrendingUp, Info, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -30,28 +29,16 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Calendar } from "@/components/ui/calendar";
-
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-
-import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
+import { PieChart, Pie, ResponsiveContainer } from "recharts"
+import type { DailyReport, ItemCount, BomboniereItem, SavedFavorite } from '@/types';
 import { cn } from '@/lib/utils';
-import { Label } from '@/components/ui/label';
-import PasswordDialog from '@/components/password-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 const formatCurrency = (value: number | undefined | null) => {
@@ -206,7 +193,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
     <Card>
         <CardHeader className="flex flex-row items-start justify-between">
             <div>
-                <CardTitle className="text-lg">{isAggregate ? "Relatório Agregado" : "Resumo do Dia"}</CardTitle>
+                <CardTitle className="text-lg">{isAggregate ? "Relatório Agregado do Mês" : "Resumo do Dia"}</CardTitle>
                 {isAggregate && <CardDescription>{report.totalPedidos} pedidos em {report.id} dias</CardDescription>}
             </div>
             <div className="text-right">
@@ -335,15 +322,29 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
   )
 }
 
+const generateYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = currentYear; i >= currentYear - 5; i--) {
+        years.push(i);
+    }
+    return years;
+}
+
+const monthOptions = Array.from({ length: 12 }, (_, i) => ({
+    value: String(i),
+    label: format(new Date(2000, i), 'MMMM', { locale: ptBR })
+}));
+
 function ReportsPageContent() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
-  const router = useRouter();
   
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('daily');
   
   const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(true);
@@ -352,15 +353,15 @@ function ReportsPageContent() {
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
     [firestore]
   );
-
-  const { data: bomboniereItems, isLoading: isLoadingBomboniere, error: bomboniereError } = useCollection<BomboniereItem>(bomboniereQuery);
+  const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereQuery);
 
   const fetchReports = useCallback(async () => {
     if (!firestore || !user) return;
     setIsLoadingReports(true);
+    setSelectedReportId(null);
 
-    const startDate = startOfMonth(currentMonth);
-    const endDate = endOfMonth(currentMonth);
+    const startDate = startOfMonth(currentDate);
+    const endDate = endOfMonth(currentDate);
 
     try {
         const reportsQuery = query(
@@ -384,14 +385,14 @@ function ReportsPageContent() {
     } finally {
         setIsLoadingReports(false);
     }
-  }, [firestore, user, toast, currentMonth]);
+  }, [firestore, user, toast, currentDate]);
 
 
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
 
-  const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
+  const isLoading = isUserLoading || isLoadingReports;
 
   const handleDeleteReportRequest = (reportId: string) => {
     const report = savedReports.find(r => r.id === reportId);
@@ -405,8 +406,7 @@ function ReportsPageContent() {
     
     try {
         const batch = writeBatch(firestore);
-
-        const liveItemsCollectionRef = collection(firestore, 'live_items');
+        
         const reportStartOfDay = startOfDay(parseISO(reportToDelete.reportDate));
         const reportEndOfDay = endOfDay(parseISO(reportToDelete.reportDate));
         
@@ -500,11 +500,6 @@ function ReportsPageContent() {
         }, initial);
     }, [savedReports]);
 
-  const selectedReport = useMemo(() => {
-    if (!selectedReportId || !savedReports) return null;
-    return savedReports.find(report => report.id === selectedReportId) || null;
-  }, [selectedReportId, savedReports]);
-
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -531,46 +526,89 @@ function ReportsPageContent() {
       </AlertDialog>
 
       <main className="space-y-6">
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-center justify-between">
+            <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <CardTitle>Relatórios Salvos</CardTitle>
-                    <div className="flex items-center gap-4 mt-2">
-                        <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                            <ChevronLeft className="h-5 w-5" />
-                        </Button>
-                        <span className="text-lg font-semibold text-foreground w-48 text-center capitalize">{format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}</span>
-                        <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                            <ChevronRight className="h-5 w-5" />
-                        </Button>
-                        <Button variant="outline" size="icon" onClick={fetchReports}>
-                            <RefreshCw className="h-4 w-4" />
-                        </Button>
-                    </div>
+                    <label htmlFor="month-select" className="text-sm font-medium text-muted-foreground">Mês</label>
+                    <Select
+                        value={String(currentDate.getMonth())}
+                        onValueChange={(value) => setCurrentDate(setMonth(currentDate, parseInt(value)))}
+                    >
+                        <SelectTrigger id="month-select">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {monthOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                 </div>
-                 <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Faturamento Total do Mês</p>
-                      <p className="text-3xl font-bold text-primary">{formatCurrency(aggregateReport.totalGeral)}</p>
-                  </div>
-            </CardHeader>
-            <CardContent>
+                 <div>
+                    <label htmlFor="year-select" className="text-sm font-medium text-muted-foreground">Ano</label>
+                    <Select
+                        value={String(currentDate.getFullYear())}
+                        onValueChange={(value) => setCurrentDate(setYear(currentDate, parseInt(value)))}
+                    >
+                        <SelectTrigger id="year-select">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {generateYearOptions().map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+             <Button variant="outline"><Users className="mr-2 h-4 w-4"/> Relatório de Fiados</Button>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="aggregate">Relatório Agregado do Mês</TabsTrigger>
+                <TabsTrigger value="daily">Histórico Diário do Mês</TabsTrigger>
+            </TabsList>
+            <TabsContent value="aggregate" className="mt-4">
+                 {isLoadingReports ? (
+                    <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                 ) : savedReports.length > 0 ? (
+                    <ReportDetail report={aggregateReport} bomboniereItems={bomboniereItems || []} isAggregate={true} />
+                 ) : (
+                    <Card>
+                        <CardContent className="text-center text-muted-foreground py-20">
+                            <Info className="mx-auto h-8 w-8 mb-2"/>
+                            <p>Nenhum relatório encontrado para o mês de {format(currentDate, 'MMMM', { locale: ptBR })}.</p>
+                        </CardContent>
+                    </Card>
+                 )}
+            </TabsContent>
+            <TabsContent value="daily" className="mt-4">
+                 <h2 className="text-lg font-semibold mb-4">Relatórios Diários Salvos</h2>
                 {isLoadingReports ? (
                     <div className="flex items-center justify-center h-40">
                         <Loader2 className="h-8 w-8 animate-spin text-primary"/>
                     </div>
                 ) : (
-                <Accordion type="single" collapsible className="w-full" value={selectedReportId || ''} onValueChange={setSelectedReportId}>
+                <Accordion type="single" collapsible className="w-full space-y-3" value={selectedReportId || ''} onValueChange={setSelectedReportId}>
                     {savedReports.length > 0 ? (
                         savedReports.map(report => (
-                            <AccordionItem value={report.id!} key={report.id}>
-                                <AccordionTrigger>
-                                    <div className="flex items-center justify-between w-full pr-4">
-                                        <div className="text-left">
-                                            <p className="font-semibold text-base">Relatório de {format(parseISO(report.reportDate), "eeee, dd 'de' MMMM", { locale: ptBR })}</p>
-                                            <p className="text-sm text-muted-foreground">Total: {formatCurrency(report.totalGeral)}</p>
+                            <AccordionItem value={report.id!} key={report.id} className="border-b-0">
+                                <AccordionTrigger className="p-4 bg-card rounded-lg border hover:no-underline hover:bg-accent/50 [&[data-state=open]]:rounded-b-none">
+                                    <div className="flex items-center gap-4 text-left">
+                                        <div className="flex flex-col items-center justify-center p-2 rounded-md bg-primary text-primary-foreground w-14 h-14">
+                                            <span className="text-2xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
+                                            <span className="text-xs font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                           <Button
+                                        <div>
+                                            <p className="font-semibold text-base capitalize">{format(parseISO(report.reportDate), "eeee-feira", { locale: ptBR })}</p>
+                                            <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd/MM/yyyy")}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 ml-auto">
+                                        <div className="text-right">
+                                            <p className="text-xs text-muted-foreground">Total do Dia</p>
+                                            <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
+                                            <Button
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
@@ -581,12 +619,11 @@ function ReportsPageContent() {
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
-                                            <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
                                         </div>
                                     </div>
                                 </AccordionTrigger>
-                                <AccordionContent>
-                                    {selectedReportId === report.id && bomboniereItems ? (
+                                <AccordionContent className="p-0 border border-t-0 rounded-b-lg bg-card overflow-hidden">
+                                     {selectedReportId === report.id && bomboniereItems ? (
                                         <ReportDetail report={report} bomboniereItems={bomboniereItems} />
                                     ) : (
                                         <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin"/></div>
@@ -597,13 +634,13 @@ function ReportsPageContent() {
                     ) : (
                          <div className="text-center text-muted-foreground py-10">
                             <Info className="mx-auto h-8 w-8 mb-2"/>
-                            <p>Nenhum relatório encontrado para o mês de {format(currentMonth, 'MMMM', { locale: ptBR })}.</p>
+                            <p>Nenhum relatório encontrado para o mês de {format(currentDate, 'MMMM', { locale: ptBR })}.</p>
                         </div>
                     )}
                 </Accordion>
                 )}
-            </CardContent>
-        </Card>
+            </TabsContent>
+        </Tabs>
       </main>
     </>
   );
@@ -614,3 +651,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
