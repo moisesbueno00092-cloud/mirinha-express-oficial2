@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Trash2, ChevronDown, TrendingUp, Info, Users } from 'lucide-react';
+import { Loader2, Trash2, ChevronDown, TrendingUp, Info, Users, BarChart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -33,8 +33,9 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  type ChartConfig,
 } from "@/components/ui/chart"
-import { PieChart, Pie, ResponsiveContainer } from "recharts"
+import { PieChart, Pie, ResponsiveContainer, Cell } from "recharts"
 import type { DailyReport, ItemCount, BomboniereItem, SavedFavorite } from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -98,18 +99,18 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
     }
 
     const chartData = [
-        { name: 'Vendas Salão', value: report.totalVendasSalao, fill: 'hsl(var(--primary))' },
-        { name: 'Vendas Rua', value: report.totalVendasRua, fill: 'hsl(var(--chart-2))' },
-        { name: 'Fiado Salão', value: report.totalFiadoSalao, fill: 'hsl(var(--chart-3))' },
-        { name: 'Fiado Rua', value: report.totalFiadoRua, fill: 'hsl(var(--chart-5))' },
+        { name: 'Vendas Salão', value: report.totalVendasSalao || 0, fill: 'hsl(var(--chart-1))' },
+        { name: 'Vendas Rua', value: report.totalVendasRua || 0, fill: 'hsl(var(--chart-2))' },
+        { name: 'Fiado Salão', value: report.totalFiadoSalao || 0, fill: 'hsl(var(--chart-3))' },
+        { name: 'Fiado Rua', value: report.totalFiadoRua || 0, fill: 'hsl(var(--chart-5))' },
     ].filter(item => item.value > 0);
 
     const chartConfig = {
-        "Vendas Salão": { label: "Vendas Salão", color: "hsl(var(--primary))" },
+        "Vendas Salão": { label: "Vendas Salão", color: "hsl(var(--chart-1))" },
         "Vendas Rua": { label: "Vendas Rua", color: "hsl(var(--chart-2))" },
         "Fiado Salão": { label: "Fiado Salão", color: "hsl(var(--chart-3))" },
         "Fiado Rua": { label: "Fiado Rua", color: "hsl(var(--chart-5))" },
-    };
+    } satisfies ChartConfig;
 
     const { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua } = useMemo(() => {
         const contagemSalao: ItemCount = {};
@@ -294,7 +295,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
               <Separator />
               <div>
                   <h3 className="font-semibold mb-2">Proporção de Vendas</h3>
-                  <ChartContainer config={chartConfig as any} className="mx-auto aspect-square h-[180px]">
+                  <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px]">
                       <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                               <ChartTooltip
@@ -418,7 +419,8 @@ function ReportsPageContent() {
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
         
         orderItemsSnapshot.forEach(orderDoc => {
-            const liveItemRef = doc(firestore, 'live_items', orderDoc.id);
+            const liveItemsCollectionRef = collection(firestore, 'live_items');
+            const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
             batch.set(liveItemRef, { ...orderDoc.data(), reportado: false });
             batch.delete(orderDoc.ref);
         });
@@ -534,7 +536,7 @@ function ReportsPageContent() {
                         value={String(currentDate.getMonth())}
                         onValueChange={(value) => setCurrentDate(setMonth(currentDate, parseInt(value)))}
                     >
-                        <SelectTrigger id="month-select">
+                        <SelectTrigger id="month-select" className="w-[180px]">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -548,7 +550,7 @@ function ReportsPageContent() {
                         value={String(currentDate.getFullYear())}
                         onValueChange={(value) => setCurrentDate(setYear(currentDate, parseInt(value)))}
                     >
-                        <SelectTrigger id="year-select">
+                        <SelectTrigger id="year-select" className="w-[120px]">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -562,8 +564,14 @@ function ReportsPageContent() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="aggregate">Relatório Agregado do Mês</TabsTrigger>
-                <TabsTrigger value="daily">Histórico Diário do Mês</TabsTrigger>
+                <TabsTrigger value="aggregate">
+                    <BarChart className="mr-2 h-4 w-4" />
+                    Relatório Agregado do Mês
+                </TabsTrigger>
+                <TabsTrigger value="daily">
+                    <BarChart className="mr-2 h-4 w-4" />
+                    Histórico Diário do Mês
+                </TabsTrigger>
             </TabsList>
             <TabsContent value="aggregate" className="mt-4">
                  {isLoadingReports ? (
