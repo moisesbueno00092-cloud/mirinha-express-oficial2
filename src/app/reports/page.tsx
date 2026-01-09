@@ -7,6 +7,7 @@ import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch 
 import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -43,7 +44,7 @@ import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import PasswordDialog from '@/components/password-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useRouter } from 'next/navigation';
+
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -621,9 +622,10 @@ function ReportsPageContent() {
   };
 
   const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    if(value === 'fiados') {
+    if (value === 'fiados') {
         router.push('/reports/fiados');
+    } else {
+        setActiveTab(value);
     }
   }
 
@@ -724,10 +726,7 @@ function ReportsPageContent() {
                     <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="geral">Relatório Geral</TabsTrigger>
                         <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
-                        <TabsTrigger value="fiados" className="flex items-center gap-2">
-                            <Users className="h-4 w-4"/>
-                            Relatório de Fiados
-                        </TabsTrigger>
+                        <TabsTrigger value="fiados">Relatório de Fiados</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="geral">
