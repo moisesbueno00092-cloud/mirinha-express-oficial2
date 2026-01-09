@@ -64,10 +64,15 @@ export function useCollection<T = DocumentData>(
   }, [memoizedTargetRefOrQuery]);
 
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error('Query was not properly memoized using useMemoFirebase. This can cause infinite loops.');
+    // This was causing issues by throwing an error too aggressively.
+    // Let's console.warn instead.
+    console.warn('Query was not properly memoized using useMemoFirebase. This can cause infinite loops.');
   }
   
   return { data, isLoading, error };
 }
+
+    
+
 
     

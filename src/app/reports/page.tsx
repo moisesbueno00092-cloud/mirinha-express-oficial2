@@ -347,8 +347,19 @@ function ReportsPageContent() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('daily');
   
-  const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
-  const [isLoadingReports, setIsLoadingReports] = useState(true);
+  const reportsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    const startDate = startOfMonth(currentDate);
+    const endDate = endOfMonth(currentDate);
+    return query(
+        collection(firestore, 'daily_reports'), 
+        where('reportDate', '>=', startDate.toISOString()),
+        where('reportDate', '<=', endDate.toISOString()),
+        orderBy('reportDate', 'desc')
+    );
+  }, [firestore, user, currentDate]);
+
+  const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
 
   const bomboniereQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
@@ -356,54 +367,17 @@ function ReportsPageContent() {
   );
   const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereQuery);
 
-  const fetchReports = useCallback(async () => {
-    if (!firestore || !user) return;
-    setIsLoadingReports(true);
-    setSelectedReportId(null);
-
-    const startDate = startOfMonth(currentDate);
-    const endDate = endOfMonth(currentDate);
-
-    try {
-        const reportsQuery = query(
-            collection(firestore, 'daily_reports'), 
-            where('reportDate', '>=', startDate.toISOString()),
-            where('reportDate', '<=', endDate.toISOString()),
-            orderBy('reportDate', 'desc')
-        );
-        const reportsSnapshot = await getDocs(reportsQuery);
-        const reportsData = reportsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as DailyReport));
-        setSavedReports(reportsData);
-
-    } catch (error: any) {
-        console.error("Error fetching reports:", error);
-        toast({
-            title: "Erro ao buscar relatórios",
-            description: `Não foi possível carregar os relatórios. Verifique as permissões ou se os índices da base de dados estão correctos. Detalhes: ${error.message}`,
-            variant: "destructive",
-            duration: 8000
-        });
-    } finally {
-        setIsLoadingReports(false);
-    }
-  }, [firestore, user, toast, currentDate]);
-
-
-  useEffect(() => {
-    fetchReports();
-  }, [fetchReports]);
-
   const isLoading = isUserLoading || isLoadingReports;
 
   const handleDeleteReportRequest = (reportId: string) => {
-    const report = savedReports.find(r => r.id === reportId);
+    const report = savedReports?.find(r => r.id === reportId);
     if(report) {
         setReportToDelete(report);
     }
   };
 
   const confirmDeleteReport = async () => {
-    if (!firestore || !user || !reportToDelete?.id) return;
+    if (!firestore || !user || !reportToDelete?.id || !savedReports) return;
     
     try {
         const batch = writeBatch(firestore);
@@ -432,8 +406,7 @@ function ReportsPageContent() {
         await batch.commit();
         
         setSelectedReportId(null);
-        fetchReports();
-
+        
         toast({
             title: "Sucesso",
             description: "Relatório excluído e os seus itens foram movidos de volta para a tela principal.",
@@ -575,7 +548,7 @@ function ReportsPageContent() {
             <TabsContent value="aggregate" className="mt-4">
                  {isLoadingReports ? (
                     <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-                 ) : savedReports.length > 0 ? (
+                 ) : savedReports && savedReports.length > 0 ? (
                     <ReportDetail report={aggregateReport} bomboniereItems={bomboniereItems || []} isAggregate={true} />
                  ) : (
                     <Card>
@@ -594,12 +567,12 @@ function ReportsPageContent() {
                     </div>
                 ) : (
                 <Accordion type="single" collapsible className="w-full space-y-3" value={selectedReportId || ''} onValueChange={setSelectedReportId}>
-                    {savedReports.length > 0 ? (
+                    {savedReports && savedReports.length > 0 ? (
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <AccordionTrigger className="flex-1 p-4 hover:no-underline [&[data-state=open]]:rounded-b-none">
-                                        <div className="flex w-full items-center justify-between">
+                                    <AccordionTrigger className="flex-1 p-0 hover:no-underline [&[data-state=open]]:rounded-b-none">
+                                        <div className="flex w-full items-center justify-between p-4">
                                             <div className="flex items-center gap-4">
                                                 <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-14 h-14 shrink-0">
                                                     <span className="text-2xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
@@ -660,5 +633,7 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
 
     
