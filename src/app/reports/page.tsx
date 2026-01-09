@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -426,6 +426,8 @@ function ReportsPageContent() {
   
   const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(true);
+  const [activeTab, setActiveTab] = useState('geral');
+
 
   useEffect(() => {
     // Only run on client
@@ -618,6 +620,13 @@ function ReportsPageContent() {
     }
   };
 
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if(value === 'porCliente') {
+        router.push('/reports/favoritos');
+    }
+  }
+
   if (isLoading || !isAuthChecked) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -711,10 +720,14 @@ function ReportsPageContent() {
             </Card>
 
             <div className="space-y-4">
-                <Tabs defaultValue="geral" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="geral">Relatório Geral</TabsTrigger>
                         <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
+                        <TabsTrigger value="porCliente" className="flex items-center gap-2">
+                            <Star className="h-4 w-4"/>
+                            Por Cliente
+                        </TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="geral">
