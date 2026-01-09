@@ -587,7 +587,7 @@ function ReportsPageContent() {
                  )}
             </TabsContent>
             <TabsContent value="daily" className="mt-4">
-                 <h2 className="text-lg font-semibold mb-4">Relatórios Diários Salvos</h2>
+                 <h2 className="text-lg font-semibold mb-4">Relatórios Salvos no Mês</h2>
                 {isLoadingReports ? (
                     <div className="flex items-center justify-center h-40">
                         <Loader2 className="h-8 w-8 animate-spin text-primary"/>
@@ -658,7 +658,3 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    
-
-    
