@@ -609,13 +609,11 @@ function ReportsPageContent() {
                                                 <p className="font-semibold text-base capitalize">{format(parseISO(report.reportDate), "eeee'-feira'", { locale: ptBR })}</p>
                                                 <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd/MM/yyyy")}</p>
                                             </div>
-                                            <div className="flex items-center gap-4 ml-auto">
-                                                <div className="text-right">
-                                                    <p className="text-xs text-muted-foreground">Total do Dia</p>
-                                                    <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                                                </div>
-                                                <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
+                                            <div className="text-right ml-auto">
+                                                <p className="text-xs text-muted-foreground">Total do Dia</p>
+                                                <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                             </div>
+                                            <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200 ml-4" />
                                         </div>
                                     </AccordionTrigger>
                                     <div className="pr-4">
