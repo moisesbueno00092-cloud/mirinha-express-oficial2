@@ -75,7 +75,11 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
         if (item.id === id) {
           if (field === 'price' || field === 'estoque') {
             const stringValue = String(value).trim();
-            const finalValue = stringValue === '' ? 0 : parseFloat(stringValue.replace(',', '.'));
+            // Allow empty string for temporary state, it will be treated as 0 on save
+            if (stringValue === '') {
+                 return { ...item, [field]: '' };
+            }
+            const finalValue = parseFloat(stringValue.replace(',', '.'));
              if (isNaN(finalValue)) return item; // Don't update if it's not a valid number
              return { ...item, [field]: finalValue };
           } else {
@@ -160,16 +164,16 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
               const newDocRef = doc(collection(firestore, 'bomboniere_items'));
               batch.set(newDocRef, {
                   name: localItem.name,
-                  price: localItem.price || 0,
-                  estoque: localItem.estoque || 0,
+                  price: Number(localItem.price) || 0,
+                  estoque: Number(localItem.estoque) || 0,
               });
               changesCount++;
           } else {
               const originalItem = originalItemsMap[localItem.id];
               const hasChanged = !originalItem || 
                   originalItem.name !== localItem.name || 
-                  originalItem.price !== localItem.price || 
-                  originalItem.estoque !== localItem.estoque;
+                  originalItem.price !== Number(localItem.price) || 
+                  originalItem.estoque !== Number(localItem.estoque);
 
               if (hasChanged) {
                   if (!localItem.name?.trim()) {
@@ -180,8 +184,8 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
                   const docRef = doc(firestore, 'bomboniere_items', localItem.id);
                   batch.update(docRef, {
                       name: localItem.name,
-                      price: localItem.price,
-                      estoque: localItem.estoque
+                      price: Number(localItem.price) || 0,
+                      estoque: Number(localItem.estoque) || 0,
                   });
                   changesCount++;
               }
@@ -259,13 +263,13 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
                             placeholder="Nome do Item"
                         />
                         <Input
-                           value={String(item.price || '0').replace('.', ',')}
+                           value={String(item.price ?? '0').replace('.', ',')}
                            onChange={(e) => item.id && handleFieldChange(item.id, 'price', e.target.value.replace(/[^0-9,]/g, ''))}
                            className="text-right"
                            placeholder="0,00"
                         />
                         <Input
-                            value={String(item.estoque || '0')}
+                            value={String(item.estoque ?? '0')}
                              onChange={(e) => item.id && handleFieldChange(item.id, 'estoque', e.target.value.replace(/[^0-9]/g, ''))}
                             type="text"
                             className="text-right"
@@ -306,3 +310,5 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
     </>
   );
 }
+
+    

@@ -348,6 +348,7 @@ function ReportsPageContent() {
   
   const reportsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
+    // Load ALL reports, filtering will be done client-side
     return query(
         collection(firestore, 'daily_reports'), 
         orderBy('reportDate', 'desc')
@@ -365,6 +366,7 @@ function ReportsPageContent() {
             const reportDate = parseISO(report.reportDate);
             return isWithinInterval(reportDate, { start: startDate, end: endDate });
         } catch (e) {
+            console.error(`Invalid report date found: ${report.reportDate}`, report);
             return false;
         }
     });
@@ -379,14 +381,14 @@ function ReportsPageContent() {
   const isLoading = isUserLoading || isLoadingReports;
 
   const handleDeleteReportRequest = (reportId: string) => {
-    const report = savedReports?.find(r => r.id === reportId);
+    const report = allReports?.find(r => r.id === reportId);
     if(report) {
         setReportToDelete(report);
     }
   };
 
   const confirmDeleteReport = async () => {
-    if (!firestore || !user || !reportToDelete?.id || !savedReports) return;
+    if (!firestore || !user || !reportToDelete?.id) return;
     
     try {
         const batch = writeBatch(firestore);
@@ -394,9 +396,11 @@ function ReportsPageContent() {
         const reportStartOfDay = startOfDay(parseISO(reportToDelete.reportDate));
         const reportEndOfDay = endOfDay(parseISO(reportToDelete.reportDate));
         
-        const orderItemsQuery = query(collection(firestore, 'order_items'), 
-            where('timestamp', '>=', reportStartOfDay), 
-            where('timestamp', '<=', reportEndOfDay)
+        // This query might need indexes, but is safer for data integrity
+        const orderItemsQuery = query(
+            collection(firestore, 'order_items'), 
+            where('userId', '==', user.uid),
+            where('reportDate', '==', reportToDelete.reportDate.split('T')[0])
         );
 
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
@@ -408,9 +412,9 @@ function ReportsPageContent() {
             batch.delete(orderDoc.ref);
         });
 
-        const reportDocRefGlobal = doc(firestore, "daily_reports", reportToDelete.id);
+        const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
         
-        batch.delete(reportDocRefGlobal);
+        batch.delete(reportDocRef);
 
         await batch.commit();
         
@@ -644,3 +648,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
