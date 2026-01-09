@@ -146,6 +146,15 @@ function LancheTrackerPage() {
     }
     return BOMBONIERE_ITEMS_DEFAULT;
   }, [bomboniereItemsFromDB, isLoadingBomboniere]);
+  
+  const bomboniereItemsByName = useMemo(() => {
+    if (!bomboniereItems) return {};
+    return bomboniereItems.reduce((acc, item) => {
+        acc[item.name.toLowerCase()] = item;
+        return acc;
+    }, {} as Record<string, BomboniereItem>);
+  }, [bomboniereItems]);
+
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
@@ -260,7 +269,8 @@ function LancheTrackerPage() {
 
       let potentialCustomerNameParts: string[] = [];
 
-      for (let i = 0; i < parts.length; i++) {
+      let i = 0;
+      while (i < parts.length) {
         const part = parts[i];
         const upperPart = part.toUpperCase();
 
@@ -274,6 +284,7 @@ function LancheTrackerPage() {
           }
           i--;
           totalQuantity += individualPrices.length;
+          i++;
           continue;
         }
 
@@ -282,99 +293,82 @@ function LancheTrackerPage() {
             customDeliveryFee = parseFloat(parts[i + 1].replace(',', '.'));
             i++;
           }
+          i++;
           continue;
         }
+        
+        let qty = 1;
+        let startIdx = i;
 
-        const quantityMatch = part.match(/^(\d+)([\w\d-]+)$/i);
-        let baseQuantity = 1;
-        let currentItemCode = upperPart;
-        let currentItemNameOnly = upperPart;
+        if (isNumeric(part) && parseInt(part) > 0 && i + 1 < parts.length && !isNumeric(parts[i + 1])) {
+            qty = parseInt(part, 10);
+            startIdx++; // Start looking for item name from the next part
+        }
+
+        const quantityMatch = parts[startIdx]?.match(/^(\d+)([\w\d-]+)$/i);
+        let baseQuantity = qty;
+        let currentItemNameOnly = parts[startIdx] || '';
 
         if (quantityMatch) {
-          baseQuantity = parseInt(quantityMatch[1], 10);
-          currentItemCode = quantityMatch[2].toUpperCase();
-          currentItemNameOnly = quantityMatch[2];
-        } else {
-          currentItemNameOnly = part;
+            baseQuantity = qty * parseInt(quantityMatch[1], 10);
+            currentItemNameOnly = quantityMatch[2];
         }
 
-        const isPredefined = PREDEFINED_PRICES[currentItemCode];
-        const bomboniereItemDef = bomboniereItems?.find(
-          (bi) => bi.name.toLowerCase().replace(/\s+/g, '-') === currentItemNameOnly.toLowerCase()
-        );
-
+        const isPredefined = PREDEFINED_PRICES[currentItemNameOnly.toUpperCase()];
         if (isPredefined) {
-          const defaultPrice = PREDEFINED_PRICES[currentItemCode];
-          let priceToUse = defaultPrice;
-
-          if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
-            priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
-            i++;
-          }
-
-          for (let j = 0; j < baseQuantity; j++) {
-            predefinedItems.push({ name: currentItemCode, price: priceToUse });
-            totalPrice += priceToUse;
-          }
-          totalQuantity += baseQuantity;
-        } else if (bomboniereItemDef) {
-          let priceToUse = bomboniereItemDef.price;
-          if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
-            priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
-            i++;
-          }
-          processedBomboniereItems.push({
-            id: bomboniereItemDef.id,
-            name: bomboniereItemDef.name,
-            quantity: baseQuantity,
-            price: priceToUse,
-          });
-          totalPrice += priceToUse * baseQuantity;
-          totalQuantity += baseQuantity;
-        } else if (!isNumeric(part) && /^\d*[a-zA-Z-]+$/.test(part) && i + 1 < parts.length && isNumeric(parts[i + 1])) {
-          const bomboniereMatch = part.match(/^(\d*)([a-zA-Z\d\s-]+)$/i);
-          const qty = bomboniereMatch && bomboniereMatch[1] ? parseInt(bomboniereMatch[1], 10) : 1;
-          const namePart = bomboniereMatch ? bomboniereMatch[2] : part;
-          const existingItemDef = bomboniereItems?.find(
-            (bi) => bi.name.toUpperCase().replace(/\s+/g, '-') === namePart.toUpperCase()
-          );
-
-          processedBomboniereItems.push({
-            id: existingItemDef?.id || namePart,
-            name: existingItemDef?.name || namePart,
-            quantity: qty,
-            price: parseFloat(parts[i + 1].replace(',', '.')),
-          });
-          totalPrice += parseFloat(parts[i + 1].replace(',', '.')) * qty;
-          totalQuantity += qty;
-          i++;
-        } else if (part.match(/^\d+[a-zA-Z]+/) && i + 1 < parts.length && isNumeric(parts[i + 1])) {
-          try {
-            const { itemName, customPrice } = await parseCustomItemPrice({ itemName: `${part} ${parts[i + 1]}`.trim() });
-            if (customPrice !== undefined) {
-              const bomboniereMatch = itemName.match(/^(\d*)([A-Z\d\s-]+)$/i);
-              const qty = bomboniereMatch && bomboniereMatch[1] ? parseInt(bomboniereMatch[1], 10) : 1;
-              const name = bomboniereMatch ? bomboniereMatch[2] : itemName;
-              const existingItemDef = bomboniereItems?.find(
-                (bi) => bi.name.toUpperCase().replace(/\s+/g, '-') === name.toUpperCase()
-              );
-
-              processedBomboniereItems.push({
-                id: existingItemDef?.id || name,
-                name: existingItemDef?.name || name,
-                quantity: qty,
-                price: customPrice,
-              });
-              totalPrice += customPrice * qty;
-              totalQuantity += qty;
-              i++;
+            let priceToUse = isPredefined;
+            if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
+                priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
+                i++;
             }
-          } catch (e) {
-            console.error('AI parsing failed, skipping part:', part, e);
-          }
-        } else if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado') || !customerName)) {
-          potentialCustomerNameParts.push(part);
+
+            for (let j = 0; j < baseQuantity; j++) {
+                predefinedItems.push({ name: currentItemNameOnly.toUpperCase(), price: priceToUse });
+                totalPrice += priceToUse;
+            }
+            totalQuantity += baseQuantity;
+            i++; // Move to the next part
+            continue;
         }
+        
+        // New Bomboniere logic
+        let bomboniereMatch = null;
+        let wordsConsumed = 0;
+        for (let j = parts.length - 1; j >= startIdx; j--) {
+            const potentialName = parts.slice(startIdx, j + 1).join(' ').toLowerCase();
+            if (bomboniereItemsByName[potentialName]) {
+                bomboniereMatch = bomboniereItemsByName[potentialName];
+                wordsConsumed = j - startIdx + 1;
+                break;
+            }
+        }
+
+        if (bomboniereMatch) {
+            let priceToUse = bomboniereMatch.price;
+            // Check for custom price
+            if (startIdx + wordsConsumed < parts.length && isNumeric(parts[startIdx + wordsConsumed])) {
+                priceToUse = parseFloat(parts[startIdx + wordsConsumed].replace(',', '.'));
+                i = startIdx + wordsConsumed + 1; // move index past name and price
+            } else {
+                i = startIdx + wordsConsumed; // move index past name
+            }
+
+            processedBomboniereItems.push({
+                id: bomboniereMatch.id,
+                name: bomboniereMatch.name,
+                quantity: baseQuantity,
+                price: priceToUse,
+            });
+            totalPrice += priceToUse * baseQuantity;
+            totalQuantity += baseQuantity;
+            continue;
+        }
+        
+        if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado') || !customerName)) {
+            potentialCustomerNameParts.push(part);
+        }
+        
+        i++;
       }
 
       if (!customerName && potentialCustomerNameParts.length > 0) {
@@ -481,9 +475,10 @@ function LancheTrackerPage() {
     if (!bomboniereItems) return;
     const itemsString = itemsToAdd
       .map((item) => {
-        const qtyPart = item.quantity > 1 ? item.quantity : '';
-        const namePart = bomboniereItems.find((bi) => bi.id === item.id)?.name.replace(/\s+/g, '-').toLowerCase() || item.name;
-        return `${qtyPart}${namePart} ${String(item.price).replace('.', ',')}`;
+        const qtyPart = item.quantity;
+        const namePart = bomboniereItems.find((bi) => bi.id === item.id)?.name || item.name;
+        // Use the structure <qty> <name> <price> to be compatible with the new parser
+        return `${qtyPart} ${namePart} ${String(item.price).replace('.', ',')}`;
       })
       .join(' ');
 
