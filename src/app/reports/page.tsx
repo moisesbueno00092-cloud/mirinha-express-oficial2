@@ -584,8 +584,8 @@ function ReportsPageContent() {
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <AccordionTrigger className="flex-1 p-4 hover:no-underline [&[data-state=open]]:rounded-b-none w-full">
-                                        <div className="flex w-full items-center justify-between">
+                                    <AccordionTrigger className="flex-1 p-0 hover:no-underline [&[data-state=open]]:rounded-b-none w-full">
+                                        <div className="flex w-full items-center justify-between p-4">
                                             <div className="flex items-center gap-4">
                                                 <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
                                                     <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
@@ -648,5 +648,3 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    
