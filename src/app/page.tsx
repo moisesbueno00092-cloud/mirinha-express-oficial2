@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
@@ -660,7 +661,9 @@ function LancheTrackerPage() {
 
         const itemIsRua = item.group === 'Vendas rua' || item.group === 'Fiados rua';
         if (itemIsRua) {
-          acc.totalEntregas++;
+          if (item.deliveryFee > 0) {
+            acc.totalEntregas++;
+          }
           acc.totalItensRua += item.quantity;
         }
 
