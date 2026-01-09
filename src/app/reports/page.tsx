@@ -610,13 +610,11 @@ function ReportsPageContent() {
                                                 <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd/MM/yyyy")}</p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-4 ml-auto">
-                                            <div className="text-right">
-                                                <p className="text-xs text-muted-foreground">Total do Dia</p>
-                                                <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                                            </div>
-                                            <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
+                                        <div className="text-right ml-auto">
+                                            <p className="text-xs text-muted-foreground">Total do Dia</p>
+                                            <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                         </div>
+                                        <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
                                     </AccordionTrigger>
                                     <Button
                                         variant="ghost"
