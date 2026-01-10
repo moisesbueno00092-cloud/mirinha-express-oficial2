@@ -364,14 +364,14 @@ function ReportsPageContent() {
     return allReports
       .filter(report => {
           if (!report.reportDate) {
-              console.error(`Invalid report date found: ${report.reportDate}`, report);
+              console.error(`Invalid report data: missing reportDate`, report);
               return false;
           }
           try {
               const reportDate = parseISO(report.reportDate);
               return isWithinInterval(reportDate, { start: startDate, end: endDate });
           } catch (e) {
-              console.error(`Invalid report date found: ${report.reportDate}`, report);
+              console.error(`Invalid report date format: ${report.reportDate}`, report);
               return false;
           }
       });
@@ -529,7 +529,7 @@ function ReportsPageContent() {
                     <label htmlFor="month-select" className="text-sm font-medium text-muted-foreground">Mês</label>
                     <Select
                         value={String(currentDate.getMonth())}
-                        onValueChange={(value) => setCurrentDate(setMonth(new Date(), parseInt(value)))}
+                        onValueChange={(value) => setCurrentDate(setMonth(currentDate, parseInt(value)))}
                     >
                         <SelectTrigger id="month-select" className="w-[180px]">
                             <SelectValue />
@@ -543,7 +543,7 @@ function ReportsPageContent() {
                     <label htmlFor="year-select" className="text-sm font-medium text-muted-foreground">Ano</label>
                     <Select
                         value={String(currentDate.getFullYear())}
-                        onValueChange={(value) => setCurrentDate(setYear(new Date(), parseInt(value)))}
+                        onValueChange={(value) => setCurrentDate(setYear(currentDate, parseInt(value)))}
                     >
                         <SelectTrigger id="year-select" className="w-[120px]">
                             <SelectValue />
@@ -593,7 +593,7 @@ function ReportsPageContent() {
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <div className="flex items-center p-4">
+                                    <div className="flex items-center justify-between p-4">
                                         <AccordionTrigger className="p-0 flex-1 hover:no-underline [&>svg]:hidden">
                                             <div className="flex items-center gap-4">
                                                 <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
@@ -606,15 +606,15 @@ function ReportsPageContent() {
                                                 </div>
                                             </div>
                                         </AccordionTrigger>
-                                        <div className="flex items-center gap-2 ml-4">
-                                             <div className="text-right">
+                                        <div className="flex items-center gap-2 ml-4 shrink-0">
+                                            <div className="text-right">
                                                 <p className="text-sm text-muted-foreground">Total do Dia</p>
                                                 <p className="text-xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                             </div>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                                className="h-9 w-9 text-muted-foreground hover:text-destructive"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleDeleteReportRequest(report.id!);
@@ -660,4 +660,3 @@ export default function ReportsPage() {
     )
 }
 
-    
