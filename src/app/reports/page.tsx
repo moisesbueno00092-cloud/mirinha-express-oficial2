@@ -425,8 +425,6 @@ function ReportsPageContent() {
         const reportDateString = reportToDelete.reportDate.split('T')[0];
         const reportDateToDelete = parseISO(`${reportDateString}T12:00:00Z`);
         
-        // This query now only needs to filter by the 'reportado' flag,
-        // which has a simple index and will work correctly.
         const orderItemsQuery = query(
           collection(firestore, 'users', user.uid, 'order_items'), 
           where('reportado', '==', true)
@@ -439,7 +437,6 @@ function ReportsPageContent() {
                 console.warn("Skipping item without timestamp:", item);
                 return;
             }
-            // We perform the date check on the client-side.
             const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
 
             if (isSameDay(itemTimestamp, reportDateToDelete)) {
@@ -450,21 +447,13 @@ function ReportsPageContent() {
             }
         });
         
-        // Decide which report document to delete
         let reportDocRef;
-        const userReportDoc = doc(firestore, 'users', user.uid, "daily_reports", reportToDelete.id);
-        const globalReportDoc = doc(firestore, "daily_reports", reportToDelete.id);
-        
-        // This logic is a bit tricky. We assume if it has a userId, it's in the user's subcollection.
-        // A more robust way might be to check existence, but for now this should work.
         if (reportToDelete.userId) {
-            reportDocRef = userReportDoc;
+            reportDocRef = doc(firestore, 'users', user.uid, "daily_reports", reportToDelete.id);
         } else {
-            reportDocRef = globalReportDoc;
+            reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
         }
-        // To be safe, let's just try deleting from both possible locations if we're not sure.
-        batch.delete(globalReportDoc);
-        batch.delete(userReportDoc);
+        batch.delete(reportDocRef);
 
         await batch.commit();
         
