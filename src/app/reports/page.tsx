@@ -361,7 +361,7 @@ function ReportsPageContent() {
         if (!report || !report.reportDate) return null;
         // The 'Z' at the end is crucial to interpret the date as UTC.
         // Appending T12:00:00 places it safely in the middle of the day.
-        const utcDate = new Date(`${report.reportDate}T12:00:00Z`);
+        const utcDate = parseISO(`${report.reportDate}T12:00:00Z`);
         if (isNaN(utcDate.getTime())) return null;
         return utcDate;
     } catch {
@@ -372,21 +372,21 @@ function ReportsPageContent() {
   const savedReports = useMemo(() => {
     if (!allReports) return [];
     
-    // Format the selected month and year into a "YYYY-MM" string for prefix matching.
-    const selectedMonthPrefix = format(currentDate, "yyyy-MM");
+    const startDate = startOfMonth(currentDate);
+    const endDate = endOfMonth(currentDate);
 
     return allReports.filter(report => {
-        // Ensure reportDate exists and is a string before matching.
-        if (typeof report.reportDate === 'string') {
-            return report.reportDate.startsWith(selectedMonthPrefix);
-        }
-        return false;
+        const reportDate = getReportDate(report);
+        if (!reportDate) return false;
+        return isWithinInterval(reportDate, { start: startDate, end: endDate });
     }).sort((a, b) => {
-        // Sort by the original date string to ensure descending order.
-        return b.reportDate.localeCompare(a.reportDate);
+        const dateA = getReportDate(a);
+        const dateB = getReportDate(b);
+        if (!dateA || !dateB) return 0;
+        return dateB.getTime() - dateA.getTime();
     });
+  }, [allReports, currentDate, getReportDate]);
 
-  }, [allReports, currentDate]);
 
   const bomboniereQuery = useMemo(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
