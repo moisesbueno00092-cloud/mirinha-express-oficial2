@@ -384,6 +384,19 @@ function ReportsPageContent() {
     }
   };
 
+  const getReportDate = (report: DailyReport): Date | null => {
+    try {
+        if (!report || !report.reportDate) return null;
+        // The reportDate is "YYYY-MM-DD". parseISO needs a full ISO string.
+        // To avoid timezone issues, we force it to be parsed as UTC.
+        const date = parseISO(report.reportDate + 'T12:00:00.000Z');
+        if (isNaN(date.getTime())) return null; // Check for invalid date
+        return date;
+    } catch {
+        return null; 
+    }
+  }
+  
   const confirmDeleteReport = async () => {
     if (!firestore || !reportToDelete?.id || !reportToDelete.reportDate) return;
     
@@ -391,6 +404,10 @@ function ReportsPageContent() {
         const batch = writeBatch(firestore);
         
         const reportDateToDelete = getReportDate(reportToDelete);
+        if (!reportDateToDelete) {
+             toast({ variant: "destructive", title: "Erro", description: "Data do relatório inválida." });
+             return;
+        }
         
         const orderItemsQuery = query(
           collection(firestore, 'order_items'), 
@@ -486,16 +503,6 @@ function ReportsPageContent() {
             return acc;
         }, initial);
     }, [savedReports]);
-    
-  const getReportDate = (report: DailyReport) => {
-    try {
-        if (!report || !report.reportDate) return new Date(0);
-        // Force UTC interpretation by adding a time and Z
-        return new Date(report.reportDate + 'T12:00:00Z');
-    } catch {
-        return new Date(0); 
-    }
-  }
 
   if (isLoading) {
     return (
@@ -591,9 +598,10 @@ function ReportsPageContent() {
                 <Accordion type="single" collapsible className="w-full space-y-3" value={selectedReportId || ''} onValueChange={setSelectedReportId}>
                     {savedReports && savedReports.length > 0 ? (
                         savedReports.map(report => {
-                            if (!report || !report.id) return null;
                             const reportDate = getReportDate(report);
-                            if (reportDate.getTime() === 0) return null;
+                            if (!report || !report.id || !reportDate) {
+                                return null;
+                            }
 
                             return (
                                 <AccordionItem value={report.id} key={report.id} className="border-b-0">
@@ -674,3 +682,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
