@@ -359,16 +359,15 @@ function ReportsPageContent() {
   const savedReports = useMemo(() => {
     if (!allReports) return [];
     
-    const start = startOfMonth(currentDate);
-    const end = endOfMonth(currentDate);
+    // Format the selected month and year into a "YYYY-MM" string for prefix matching.
+    const year = currentDate.getFullYear();
+    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+    const selectedMonthPrefix = `${year}-${month}`;
 
     return allReports.filter(report => {
-        try {
-            const reportDate = parseISO(report.reportDate + 'T12:00:00.000Z');
-            return isWithinInterval(reportDate, { start, end });
-        } catch {
-            return false;
-        }
+        // Filter by checking if the reportDate string starts with the "YYYY-MM" prefix.
+        // This is timezone-agnostic and robust.
+        return report.reportDate.startsWith(selectedMonthPrefix);
     }).sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
 
   }, [allReports, currentDate]);
@@ -686,7 +685,3 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
-
-    
-
-    
