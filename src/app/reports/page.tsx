@@ -372,20 +372,21 @@ function ReportsPageContent() {
   const savedReports = useMemo(() => {
     if (!allReports) return [];
     
-    const startOfSelectedMonth = startOfMonth(currentDate);
-    const endOfSelectedMonth = endOfMonth(currentDate);
+    // Format the selected month and year into a "YYYY-MM" string for prefix matching.
+    const selectedMonthPrefix = format(currentDate, "yyyy-MM");
 
     return allReports.filter(report => {
-        const reportDate = getReportDate(report);
-        if (!reportDate) return false;
-        return isWithinInterval(reportDate, { start: startOfSelectedMonth, end: endOfSelectedMonth });
+        // Ensure reportDate exists and is a string before matching.
+        if (typeof report.reportDate === 'string') {
+            return report.reportDate.startsWith(selectedMonthPrefix);
+        }
+        return false;
     }).sort((a, b) => {
-        const dateA = getReportDate(a)?.getTime() || 0;
-        const dateB = getReportDate(b)?.getTime() || 0;
-        return dateB - dateA;
+        // Sort by the original date string to ensure descending order.
+        return b.reportDate.localeCompare(a.reportDate);
     });
 
-  }, [allReports, currentDate, getReportDate]);
+  }, [allReports, currentDate]);
 
   const bomboniereQuery = useMemo(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
