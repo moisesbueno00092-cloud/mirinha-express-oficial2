@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -363,6 +364,7 @@ function ReportsPageContent() {
     return allReports
       .filter(report => {
           if (!report.reportDate) {
+              console.error(`Invalid report date found: ${report.reportDate}`, report);
               return false;
           }
           try {
@@ -599,7 +601,7 @@ function ReportsPageContent() {
                                                     <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee", { locale: ptBR })}</p>
+                                                    <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee-feira", { locale: ptBR })}</p>
                                                     <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
                                                 </div>
                                             </div>
