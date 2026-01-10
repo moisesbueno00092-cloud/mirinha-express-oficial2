@@ -276,6 +276,7 @@ function LancheTrackerPageContent() {
         let bomboniereQty = 1;
         let bestMatchEndIndex = -1;
 
+        // Greedy search for the longest matching bomboniere item name
         for (let j = parts.length; j > i; j--) {
             const potentialName = parts.slice(i, j).join(' ').toLowerCase();
             if (bomboniereItemsByName[potentialName]) {
@@ -284,30 +285,27 @@ function LancheTrackerPageContent() {
                 break;
             }
         }
-
+        
         if (bomboniereMatch) {
+            // Check if the part *before* the bomboniere item name is a quantity
             if (i > 0 && isNumeric(parts[i - 1])) {
                 bomboniereQty = parseInt(parts[i - 1], 10);
-                parts[i-1] = ''; // Blank out the already processed quantity part
             }
 
             let priceToUse = bomboniereMatch.price;
-            const nextPartIndex = bestMatchEndIndex;
+            let partsToAdvance = bestMatchEndIndex - i;
 
-            if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
-                priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
-                i = nextPartIndex + 1;
-            } else {
-                i = nextPartIndex;
+            // Check if there is a custom price immediately after the bomboniere item name
+            if (bestMatchEndIndex < parts.length && isNumeric(parts[bestMatchEndIndex])) {
+                priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.'));
+                partsToAdvance++;
             }
             
             processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
             totalPrice += priceToUse * bomboniereQty;
             totalQuantity += bomboniereQty;
-
-            for(let k = i - (bestMatchEndIndex - (i - (nextPartIndex < i ? 1 : 0))); k < i; k++) {
-                if(k >=0) parts[k] = '';
-            }
+            
+            i += partsToAdvance;
             continue;
         }
 
@@ -364,6 +362,7 @@ function LancheTrackerPageContent() {
             if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
                  let isPriceForCurrent = true;
                  
+                 // Lookahead: if the number is followed by another predefined item, it's probably a quantity, not a price
                  if (nextPartIndex + 1 < parts.length) {
                     const followingPart = parts[nextPartIndex + 1].toUpperCase();
                     if(predefinedPrices[followingPart]) {
@@ -386,6 +385,7 @@ function LancheTrackerPageContent() {
             continue;
         }
         
+        // If part is not predefined, not bomboniere, and not numeric, it could be a customer name
         if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado') || !customerName)) {
             potentialCustomerNameParts.push(part);
         }
@@ -420,7 +420,7 @@ function LancheTrackerPageContent() {
           const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
           if (itemDef) {
             const newStock = itemDef.estoque - soldItem.quantity;
-            const docRef = doc(bomboniereCollectionRef, soldItem.id);
+            const docRef = doc(bomboniereCollectionRef, itemDef.id);
             batch.update(docRef, { estoque: newStock });
           }
         }
@@ -912,3 +912,4 @@ export default function Home() {
     
 
     
+
