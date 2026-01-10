@@ -359,13 +359,17 @@ function ReportsPageContent() {
   const savedReports = useMemo(() => {
     if (!allReports) return [];
     
-    // Format the selected month and year into a "YYYY-MM" string for comparison.
-    const selectedPeriod = format(currentDate, 'yyyy-MM');
+    const start = startOfMonth(currentDate);
+    const end = endOfMonth(currentDate);
 
     return allReports.filter(report => {
-        // Ensure reportDate is a non-empty string before checking.
-        return report.reportDate && report.reportDate.startsWith(selectedPeriod);
-    });
+        try {
+            const reportDate = parseISO(report.reportDate + 'T12:00:00.000Z');
+            return isWithinInterval(reportDate, { start, end });
+        } catch {
+            return false;
+        }
+    }).sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
 
   }, [allReports, currentDate]);
 
@@ -682,5 +686,7 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
 
     
