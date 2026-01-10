@@ -398,28 +398,30 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
         
-        const startOfReportDay = startOfDay(parseISO(reportToDelete.reportDate));
-        const endOfReportDay = endOfDay(parseISO(reportToDelete.reportDate));
+        const reportDate = parseISO(reportToDelete.reportDate);
 
         const orderItemsCollectionRef = collection(firestore, 'order_items');
         const q = query(
             orderItemsCollectionRef,
-            where('reportado', '==', true),
-            where('timestamp', '>=', startOfReportDay),
-            where('timestamp', '<=', endOfReportDay)
+            where('reportado', '==', true)
         );
 
         const orderItemsSnapshot = await getDocs(q);
         
         if (orderItemsSnapshot.empty) {
-          console.warn("No archived items found for this report to revert.");
+          console.warn("No archived items found to revert.");
         }
         
         orderItemsSnapshot.forEach(orderDoc => {
-            const liveItemsCollectionRef = collection(firestore, 'live_items');
-            const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
-            batch.set(liveItemRef, { ...orderDoc.data(), reportado: false });
-            batch.delete(orderDoc.ref);
+            const item = orderDoc.data();
+            const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
+
+            if (isSameDay(itemTimestamp, reportDate)) {
+                const liveItemsCollectionRef = collection(firestore, 'live_items');
+                const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
+                batch.set(liveItemRef, { ...item, reportado: false });
+                batch.delete(orderDoc.ref);
+            }
         });
 
         const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
