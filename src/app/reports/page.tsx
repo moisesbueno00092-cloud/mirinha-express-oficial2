@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay, isSameDay, setMonth, setYear, getUTCMonth, getUTCFullYear } from 'date-fns';
+import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay, isSameDay, setMonth, setYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 
@@ -369,10 +369,9 @@ function ReportsPageContent() {
               return false;
           }
           try {
-              const dateString = report.reportDate.split('T')[0];
-              const reportDate = parseISO(`${dateString}T12:00:00Z`);
-
-              return getUTCMonth(reportDate) === selectedMonth && getUTCFullYear(reportDate) === selectedYear;
+              // By adding a fixed time, we prevent timezone shifts from moving the date.
+              const reportDate = new Date(report.reportDate + 'T12:00:00Z');
+              return reportDate.getUTCMonth() === selectedMonth && reportDate.getUTCFullYear() === selectedYear;
           } catch (e) {
               console.error(`Invalid report date format: ${report.reportDate}`, report);
               return false;
@@ -401,8 +400,7 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
         
-        const reportDateString = reportToDelete.reportDate.split('T')[0];
-        const reportDateToDelete = parseISO(`${reportDateString}T12:00:00Z`);
+        const reportDateToDelete = new Date(reportToDelete.reportDate + 'T12:00:00Z');
         
         const orderItemsQuery = query(
           collection(firestore, 'order_items'), 
@@ -416,11 +414,10 @@ function ReportsPageContent() {
                 console.warn("Skipping item without timestamp:", item);
                 return;
             }
-            const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
+            const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : new Date(item.timestamp);
 
             if (isSameDay(itemTimestamp, reportDateToDelete)) {
-                const liveItemsCollectionRef = collection(firestore, 'live_items');
-                const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
+                const liveItemRef = doc(collection(firestore, 'live_items'), orderDoc.id);
                 batch.set(liveItemRef, { ...item, reportado: false });
                 batch.delete(orderDoc.ref);
             }
@@ -502,7 +499,7 @@ function ReportsPageContent() {
     
   const getReportDate = (report: DailyReport) => {
     try {
-        return parseISO(`${report.reportDate.split('T')[0]}T12:00:00Z`);
+        return new Date(report.reportDate + 'T12:00:00Z');
     } catch {
         return new Date(0); // Return an invalid date
     }
@@ -684,8 +681,3 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
-
-    
-
-    
-
