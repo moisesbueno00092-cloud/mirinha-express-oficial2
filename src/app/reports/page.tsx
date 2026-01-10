@@ -359,10 +359,11 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        // Use parseISO for robust parsing of YYYY-MM-DD
-        const date = parseISO(report.reportDate);
-        if (isNaN(date.getTime())) return null;
-        return date;
+        // The 'Z' at the end is crucial to interpret the date as UTC.
+        // Appending T12:00:00 places it safely in the middle of the day.
+        const utcDate = new Date(`${report.reportDate}T12:00:00Z`);
+        if (isNaN(utcDate.getTime())) return null;
+        return utcDate;
     } catch {
         return null; 
     }
