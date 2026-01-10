@@ -608,20 +608,17 @@ function ReportsPageContent() {
                                                     <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee'-feira'", { locale: ptBR })}</p>
+                                                    <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee", { locale: ptBR })}</p>
                                                     <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-6">
-                                                <div className="text-right">
-                                                    <p className="text-sm text-muted-foreground">Total do Dia</p>
-                                                    <p className="text-xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                                                </div>
-                                                <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200 text-muted-foreground" />
+                                            <div className="text-right">
+                                                <p className="text-sm text-muted-foreground">Total do Dia</p>
+                                                <p className="text-xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                             </div>
                                         </div>
                                     </AccordionTrigger>
-                                    <div className="pr-4">
+                                     <div className="flex items-center pr-4">
                                         <Button
                                             variant="ghost"
                                             size="icon"
@@ -633,6 +630,11 @@ function ReportsPageContent() {
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
+                                        <AccordionTrigger asChild className="p-0 flex-none [&_svg]:h-5 [&_svg]:w-5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground [&_svg]:transition-transform [&_svg]:duration-200">
+                                            <Button variant="ghost" size="icon" className="h-9 w-9">
+                                                <ChevronDown/>
+                                            </Button>
+                                        </AccordionTrigger>
                                     </div>
                                 </div>
                                 <AccordionContent className="p-0 border border-t-0 rounded-b-lg bg-card overflow-hidden">
