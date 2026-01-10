@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
@@ -273,36 +272,49 @@ function LancheTrackerPage() {
       
       let i = 0;
       while (i < parts.length) {
-        let bomboniereMatch = null;
-        let wordsConsumedForBomboniere = 0;
         
-        // Prioritize matching longest bomboniere names first
-        for (let j = parts.length; j > i; j--) {
-            const potentialName = parts.slice(i, j).join(' ').toLowerCase();
-            if (bomboniereItemsByName[potentialName]) {
-                bomboniereMatch = bomboniereItemsByName[potentialName];
-                wordsConsumedForBomboniere = j - i;
-                break;
+        let bomboniereMatch = null;
+        let bomboniereQty = 1;
+        let wordsConsumedForBomboniere = 0;
+        let bomboniereStartIndex = i;
+
+        // Check for quantity before bomboniere name
+        if (isNumeric(parts[i]) && i + 1 < parts.length) {
+             // Look ahead to find the longest matching bomboniere name starting from the next part
+            for (let j = parts.length; j > i + 1; j--) {
+                const potentialName = parts.slice(i + 1, j).join(' ').toLowerCase();
+                if (bomboniereItemsByName[potentialName]) {
+                    bomboniereMatch = bomboniereItemsByName[potentialName];
+                    bomboniereQty = parseInt(parts[i], 10);
+                    wordsConsumedForBomboniere = j - (i + 1);
+                    bomboniereStartIndex = i + 1;
+                    break;
+                }
+            }
+        }
+        
+        // If no quantity was found, try matching from the current position
+        if (!bomboniereMatch) {
+            for (let j = parts.length; j > i; j--) {
+                const potentialName = parts.slice(i, j).join(' ').toLowerCase();
+                if (bomboniereItemsByName[potentialName]) {
+                    bomboniereMatch = bomboniereItemsByName[potentialName];
+                    bomboniereQty = 1;
+                    wordsConsumedForBomboniere = j - i;
+                    bomboniereStartIndex = i;
+                    break;
+                }
             }
         }
 
         if (bomboniereMatch) {
-            let qty = 1;
             let priceToUse = bomboniereMatch.price;
             
-            // Check if the part *before* the name is a quantity
-            if (i > 0 && isNumeric(parts[i - 1])) {
-                // Heuristic: if the part before the quantity isn't a predefined item, assume the number is a quantity for this bomboniere item
-                const prevPartIsQtyForBomboniere = i - 2 < 0 || !Object.keys(predefinedPrices).includes(parts[i - 2].toUpperCase());
-                 if (prevPartIsQtyForBomboniere) {
-                   qty = parseInt(parts[i-1], 10);
-                   parts.splice(i-1, 1);
-                   i--; // Adjust index because we removed a part
-                 }
-            }
-            
-            // Check if the part *after* the name is a custom price
-            const nextPartIndex = i + wordsConsumedForBomboniere;
+            // This is where we determine how many parts of the string were consumed
+            // If we matched a quantity, we consumed it + the name parts
+            const totalPartsConsumed = (bomboniereStartIndex - i) + wordsConsumedForBomboniere;
+            const nextPartIndex = bomboniereStartIndex + wordsConsumedForBomboniere;
+
             if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
                 priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
                 i = nextPartIndex + 1; // Consume name + price
@@ -310,10 +322,10 @@ function LancheTrackerPage() {
                 i = nextPartIndex; // Consume name only
             }
             
-            processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: qty, price: priceToUse });
-            totalPrice += priceToUse * qty;
-            totalQuantity += qty;
-            continue; // Continue to next part of the input string
+            processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
+            totalPrice += priceToUse * bomboniereQty;
+            totalQuantity += bomboniereQty;
+            continue;
         }
 
         const part = parts[i];
@@ -342,7 +354,6 @@ function LancheTrackerPage() {
 
         let qty = 1;
         let itemNamePart = part;
-        // Supports "2m" or "2 m"
         const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
 
         if (qtyMatch) {
@@ -363,22 +374,20 @@ function LancheTrackerPage() {
             let priceToUse = isPredefined;
             const nextPartIndex = i + 1;
             
-            // A number is a custom price ONLY if it's not a quantity for a following bomboniere item
             if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
                  let isPriceForCurrent = true;
-                 // Look ahead to see if the number is actually a quantity for a bomboniere item
                  if (nextPartIndex + 1 < parts.length) {
                     for (let j = parts.length; j > nextPartIndex + 1; j--) {
                         const potentialBomboniereName = parts.slice(nextPartIndex + 1, j).join(' ').toLowerCase();
                         if (bomboniereItemsByName[potentialBomboniereName]) {
-                            isPriceForCurrent = false; // The number is a quantity for the next item
+                            isPriceForCurrent = false;
                             break;
                         }
                     }
                  }
                  if(isPriceForCurrent) {
                     priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
-                    i++; // Consume the price
+                    i++; 
                  }
             }
 
@@ -391,7 +400,6 @@ function LancheTrackerPage() {
             continue;
         }
         
-        // If no match, treat as part of a customer name
         if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado') || !customerName)) {
             potentialCustomerNameParts.push(part);
         }
