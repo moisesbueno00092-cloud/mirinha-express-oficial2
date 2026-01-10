@@ -305,14 +305,17 @@ function LancheTrackerPage() {
             startIdx++; // Start looking for item name from the next part
         }
 
-        const quantityMatch = parts[startIdx]?.match(/^(\d+)([\w\d-]+)$/i);
+        const currentItemNameOnly = parts[startIdx] || '';
+        
+        // This logic was removed as it was causing issues with prices like '2M' being read as 2.00
+        // const quantityMatch = parts[startIdx]?.match(/^(\d+)([\w\d-]+)$/i);
+        // let baseQuantity = qty;
+        // let currentItemNameOnly = parts[startIdx] || '';
+        // if (quantityMatch) {
+        //     baseQuantity = qty * parseInt(quantityMatch[1], 10);
+        //     currentItemNameOnly = quantityMatch[2];
+        // }
         let baseQuantity = qty;
-        let currentItemNameOnly = parts[startIdx] || '';
-
-        if (quantityMatch) {
-            baseQuantity = qty * parseInt(quantityMatch[1], 10);
-            currentItemNameOnly = quantityMatch[2];
-        }
 
         const isPredefined = PREDEFINED_PRICES[currentItemNameOnly.toUpperCase()];
         if (isPredefined) {
