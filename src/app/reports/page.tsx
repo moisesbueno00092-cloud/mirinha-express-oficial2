@@ -359,24 +359,19 @@ function ReportsPageContent() {
   const savedReports = useMemo(() => {
     if (!allReports) return [];
     
-    const selectedMonth = currentDate.getMonth();
     const selectedYear = currentDate.getFullYear();
+    const selectedMonth = currentDate.getMonth() + 1; // getMonth is 0-indexed
+    const yearMonthPrefix = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
 
-    return allReports
-      .filter(report => {
-          if (!report.reportDate) {
-              console.error(`Invalid report data: missing reportDate`, report);
-              return false;
-          }
-          try {
-              // By adding a fixed time, we prevent timezone shifts from moving the date.
-              const reportDate = new Date(report.reportDate + 'T12:00:00Z');
-              return reportDate.getUTCMonth() === selectedMonth && reportDate.getUTCFullYear() === selectedYear;
-          } catch (e) {
-              console.error(`Invalid report date format: ${report.reportDate}`, report);
-              return false;
-          }
-      });
+    return allReports.filter(report => {
+        if (!report.reportDate) {
+            console.warn("Report with invalid date skipped", report);
+            return false;
+        }
+        // Direct string comparison, robust against timezone issues
+        return report.reportDate.startsWith(yearMonthPrefix);
+    });
+
   }, [allReports, currentDate]);
 
   const bomboniereQuery = useMemo(
