@@ -359,6 +359,7 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
+        // Interpret the date string as UTC noon to avoid timezone issues.
         const utcDate = new Date(`${report.reportDate}T12:00:00Z`);
         if (isNaN(utcDate.getTime())) return null;
         return utcDate;
@@ -373,7 +374,7 @@ function ReportsPageContent() {
     const selectedMonthPrefix = format(currentDate, "yyyy-MM");
 
     return allReports
-      .filter(report => report.reportDate.startsWith(selectedMonthPrefix))
+      .filter(report => report.reportDate && report.reportDate.startsWith(selectedMonthPrefix))
       .sort((a, b) => b.reportDate.localeCompare(a.reportDate));
       
   }, [allReports, currentDate]);
