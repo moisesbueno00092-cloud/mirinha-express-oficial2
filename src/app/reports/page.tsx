@@ -601,7 +601,7 @@ function ReportsPageContent() {
                                                     <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee-feira", { locale: ptBR })}</p>
+                                                    <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee", { locale: ptBR })}</p>
                                                     <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
                                                 </div>
                                             </div>
@@ -659,3 +659,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
