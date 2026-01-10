@@ -360,9 +360,7 @@ function ReportsPageContent() {
     if (!allReports) return [];
     
     const selectedYear = currentDate.getFullYear();
-    const selectedMonth = currentDate.getMonth(); // getMonth is 0-indexed
-    
-    // Create a prefix for string comparison, like "2024-07"
+    const selectedMonth = currentDate.getMonth();
     const yearMonthPrefix = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
 
     return allReports.filter(report => {
@@ -370,7 +368,6 @@ function ReportsPageContent() {
             console.warn("Report with invalid date skipped", report);
             return false;
         }
-        // Direct string comparison, robust against timezone issues
         return report.reportDate.startsWith(yearMonthPrefix);
     });
 
@@ -496,10 +493,9 @@ function ReportsPageContent() {
     
   const getReportDate = (report: DailyReport) => {
     try {
-        // Forces the date to be parsed as UTC by adding a fixed time and Z
         return new Date(report.reportDate + 'T12:00:00Z');
     } catch {
-        return new Date(0); // Return an invalid date
+        return new Date(0); 
     }
   }
 
