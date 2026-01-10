@@ -359,6 +359,7 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
+        // Treat date string as UTC noon to avoid timezone issues.
         const utcDate = parseISO(`${report.reportDate}T12:00:00Z`);
         if (isNaN(utcDate.getTime())) return null;
         return utcDate;
@@ -674,6 +675,8 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
 
     
 
