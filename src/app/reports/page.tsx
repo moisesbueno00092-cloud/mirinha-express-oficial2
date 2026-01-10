@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -357,10 +358,9 @@ function ReportsPageContent() {
   
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
-        // Correctly handle the date string by treating it as UTC.
-        // The 'Z' at the end is crucial for this.
         if (!report || !report.reportDate) return null;
-        const date = new Date(`${report.reportDate}T12:00:00Z`);
+        // Use parseISO for robust parsing of YYYY-MM-DD
+        const date = parseISO(report.reportDate);
         if (isNaN(date.getTime())) return null;
         return date;
     } catch {
