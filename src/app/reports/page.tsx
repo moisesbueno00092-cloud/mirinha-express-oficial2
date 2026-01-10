@@ -440,7 +440,7 @@ function ReportsPageContent() {
                 }
                 const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
                 if (isSameDay(itemTimestamp, reportDateToDelete)) {
-                    const liveItemsCollectionRef = collection(firestore, 'live_items');
+                    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
                     const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
                     batch.set(liveItemRef, { ...item, reportado: false });
                     batch.delete(orderDoc.ref);
@@ -700,3 +700,4 @@ export default function ReportsPage() {
 }
 
     
+
