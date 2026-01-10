@@ -397,32 +397,30 @@ function ReportsPageContent() {
     
     try {
         const batch = writeBatch(firestore);
+        const reportDateToDelete = parseISO(reportToDelete.reportDate);
         
-        const reportDate = parseISO(reportToDelete.reportDate);
-
+        // This query is now simplified to avoid complex indexes.
         const orderItemsCollectionRef = collection(firestore, 'order_items');
-        const q = query(
-            orderItemsCollectionRef,
-            where('reportado', '==', true)
-        );
+        const q = query(orderItemsCollectionRef, where('reportado', '==', true));
 
         const orderItemsSnapshot = await getDocs(q);
         
         if (orderItemsSnapshot.empty) {
           console.warn("No archived items found to revert.");
-        }
-        
-        orderItemsSnapshot.forEach(orderDoc => {
-            const item = orderDoc.data();
-            const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
+        } else {
+            orderItemsSnapshot.forEach(orderDoc => {
+                const item = orderDoc.data();
+                // We perform the date check on the client-side.
+                const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
 
-            if (isSameDay(itemTimestamp, reportDate)) {
-                const liveItemsCollectionRef = collection(firestore, 'live_items');
-                const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
-                batch.set(liveItemRef, { ...item, reportado: false });
-                batch.delete(orderDoc.ref);
-            }
-        });
+                if (isSameDay(itemTimestamp, reportDateToDelete)) {
+                    const liveItemsCollectionRef = collection(firestore, 'live_items');
+                    const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
+                    batch.set(liveItemRef, { ...item, reportado: false });
+                    batch.delete(orderDoc.ref);
+                }
+            });
+        }
 
         const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
         batch.delete(reportDocRef);
