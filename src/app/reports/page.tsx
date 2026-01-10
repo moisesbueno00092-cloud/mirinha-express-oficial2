@@ -388,6 +388,8 @@ function ReportsPageContent() {
               return false;
           }
           try {
+              // By adding T12:00:00Z, we treat the date as noon UTC, avoiding timezone shifts
+              // that could push a date to the previous day.
               const dateString = report.reportDate.split('T')[0];
               const reportDate = parseISO(`${dateString}T12:00:00Z`);
 
@@ -423,30 +425,30 @@ function ReportsPageContent() {
         const reportDateString = reportToDelete.reportDate.split('T')[0];
         const reportDateToDelete = parseISO(`${reportDateString}T12:00:00Z`);
         
-        const collectionsToSearch = [
-            collection(firestore, 'order_items'), // Old global collection
-            collection(firestore, 'users', user.uid, 'order_items') // New user-specific collection
-        ];
+        // This query now only needs to filter by the 'reportado' flag,
+        // which has a simple index and will work correctly.
+        const orderItemsQuery = query(
+          collection(firestore, 'users', user.uid, 'order_items'), 
+          where('reportado', '==', true)
+        );
+        const orderItemsSnapshot = await getDocs(orderItemsQuery);
 
-        for (const collRef of collectionsToSearch) {
-            const q = query(collRef, where('reportado', '==', true));
-            const orderItemsSnapshot = await getDocs(q);
+        orderItemsSnapshot.forEach(orderDoc => {
+            const item = orderDoc.data();
+            if (!item.timestamp) {
+                console.warn("Skipping item without timestamp:", item);
+                return;
+            }
+            // We perform the date check on the client-side.
+            const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
 
-            orderItemsSnapshot.forEach(orderDoc => {
-                const item = orderDoc.data();
-                if (!item.timestamp) {
-                    console.warn("Skipping item without timestamp:", item);
-                    return;
-                }
-                const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
-                if (isSameDay(itemTimestamp, reportDateToDelete)) {
-                    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
-                    const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
-                    batch.set(liveItemRef, { ...item, reportado: false });
-                    batch.delete(orderDoc.ref);
-                }
-            });
-        }
+            if (isSameDay(itemTimestamp, reportDateToDelete)) {
+                const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+                const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
+                batch.set(liveItemRef, { ...item, reportado: false });
+                batch.delete(orderDoc.ref);
+            }
+        });
         
         // Decide which report document to delete
         let reportDocRef;
@@ -700,4 +702,3 @@ export default function ReportsPage() {
 }
 
     
-
