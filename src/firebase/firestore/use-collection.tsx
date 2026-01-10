@@ -10,6 +10,8 @@ import {
   QuerySnapshot,
   CollectionReference,
 } from 'firebase/firestore';
+import { FirestorePermissionError } from '../errors';
+import { errorEmitter } from '../error-emitter';
 
 export type WithId<T> = T & { id: string };
 
@@ -51,12 +53,17 @@ export function useCollection<T = DocumentData>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        // Just log the error and set the state.
-        // Don't use the custom error emitter which was causing issues.
+        const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: (memoizedTargetRefOrQuery as any)._query?.path?.segments.join('/') || 'unknown path'
+        });
+        
         console.error("useCollection error:", err);
-        setError(err);
+        setError(contextualError);
         setData(null);
         setIsLoading(false);
+        
+        errorEmitter.emit('permission-error', contextualError);
       }
     );
 
@@ -64,15 +71,8 @@ export function useCollection<T = DocumentData>(
   }, [memoizedTargetRefOrQuery]);
 
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    // This was causing issues by throwing an error too aggressively.
-    // Let's console.warn instead.
     console.warn('Query was not properly memoized using useMemoFirebase. This can cause infinite loops.');
   }
   
   return { data, isLoading, error };
 }
-
-    
-
-
-    
