@@ -363,7 +363,6 @@ function ReportsPageContent() {
     return allReports
       .filter(report => {
           if (!report.reportDate) {
-              console.warn("Report with missing date found and skipped:", report.id);
               return false;
           }
           try {
@@ -658,3 +657,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
