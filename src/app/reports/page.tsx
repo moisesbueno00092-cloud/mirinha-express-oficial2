@@ -429,12 +429,7 @@ function ReportsPageContent() {
             }
         });
         
-        let reportDocRef;
-        if (reportToDelete.userId) { // Backwards compatibility for old reports
-            reportDocRef = doc(firestore, 'users', reportToDelete.userId, "daily_reports", reportToDelete.id);
-        } else {
-            reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
-        }
+        const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
         batch.delete(reportDocRef);
 
         await batch.commit();
@@ -671,7 +666,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    
 
     
