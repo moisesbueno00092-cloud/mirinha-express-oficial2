@@ -348,9 +348,9 @@ function ReportsPageContent() {
   
   const reportsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    // Load all reports, sorting is done client-side later
     return query(
-        collection(firestore, 'daily_reports')
+        collection(firestore, 'daily_reports'),
+        orderBy('reportDate', 'desc')
     );
   }, [firestore, user]);
 
@@ -373,14 +373,6 @@ function ReportsPageContent() {
               console.error(`Invalid report date found: ${report.reportDate}`, report);
               return false;
           }
-      })
-      .sort((a, b) => {
-        if (!a.reportDate || !b.reportDate) return 0;
-        try {
-          return parseISO(b.reportDate).getTime() - parseISO(a.reportDate).getTime();
-        } catch {
-          return 0;
-        }
       });
   }, [allReports, currentDate]);
 
