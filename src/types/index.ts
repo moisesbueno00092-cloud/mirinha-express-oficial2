@@ -28,7 +28,6 @@ export interface SelectedBomboniereItem {
 
 export interface Item {
   id: string;
-  userId?: string; // This can now be optional
   name: string; // e.g., 'M P', 'KG', 'Lançamento Misto'
   quantity: number; // total count of individual items
   price: number; // For single items, this is the price. For grouped KG items, this is the SUM of individualPrices.
@@ -54,7 +53,6 @@ export type ItemCount = { [itemName: string]: number };
 
 export interface DailyReport {
   id?: string;
-  userId?: string; // This can now be optional
   reportDate: string; // YYYY-MM-DD
   createdAt: string; // ISO String
 

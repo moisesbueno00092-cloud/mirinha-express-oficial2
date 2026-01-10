@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
@@ -442,7 +441,7 @@ function LancheTrackerPageContent() {
       consolidatedName = nameParts.join(' + ') || 'Lançamento';
       if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
 
-      const finalItem: Omit<Item, 'id' | 'userId'> = {
+      const finalItem: Omit<Item, 'id'> = {
         name: consolidatedName,
         quantity: totalQuantity,
         price: totalPrice,
@@ -596,7 +595,7 @@ function LancheTrackerPageContent() {
       
       const reportDateString = reportDate.toISOString().split('T')[0];
 
-      const report: Omit<DailyReport, 'id' | 'userId'> = {
+      const report: Omit<DailyReport, 'id'> = {
         reportDate: reportDateString,
         createdAt: reportDate.toISOString(),
         totalGeral: totals.totalGeral,
