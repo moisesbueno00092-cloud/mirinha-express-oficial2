@@ -359,8 +359,6 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        // The 'Z' at the end is crucial to interpret the date as UTC.
-        // Appending T12:00:00 places it safely in the middle of the day, avoiding timezone issues at boundaries.
         const utcDate = new Date(`${report.reportDate}T12:00:00Z`);
         if (isNaN(utcDate.getTime())) return null;
         return utcDate;
@@ -372,20 +370,12 @@ function ReportsPageContent() {
   const savedReports = useMemo(() => {
     if (!allReports) return [];
     
-    const startDate = startOfMonth(currentDate);
-    const endDate = endOfMonth(currentDate);
+    const selectedMonthPrefix = format(currentDate, "yyyy-MM");
 
     return allReports.filter(report => {
-        const reportDate = getReportDate(report);
-        if (!reportDate) return false;
-        return isWithinInterval(reportDate, { start: startDate, end: endDate });
-    }).sort((a, b) => {
-        const dateA = getReportDate(a);
-        const dateB = getReportDate(b);
-        if (!dateA || !dateB) return 0;
-        return dateB.getTime() - dateA.getTime();
-    });
-  }, [allReports, currentDate, getReportDate]);
+        return report.reportDate.startsWith(selectedMonthPrefix);
+    }).sort((a, b) => b.reportDate.localeCompare(a.reportDate));
+  }, [allReports, currentDate]);
 
 
   const bomboniereQuery = useMemo(
@@ -688,5 +678,3 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
-
-    
