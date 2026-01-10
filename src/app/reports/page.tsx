@@ -596,9 +596,7 @@ function ReportsPageContent() {
                     {savedReports && savedReports.length > 0 ? (
                         savedReports.map(report => {
                             const reportDate = getReportDate(report);
-                            if (!reportDate) {
-                                return null;
-                            }
+                            if (!report || !report.id || !reportDate) return null;
 
                             return (
                                 <AccordionItem value={report.id} key={report.id} className="border-b-0">
