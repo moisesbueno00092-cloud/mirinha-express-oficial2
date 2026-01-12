@@ -664,6 +664,14 @@ function LancheTrackerPageContent() {
       }
     });
   };
+
+  const handleSelectAll = (isChecked: boolean) => {
+    if (isChecked) {
+      setSelectedItems(items.map(item => item.id));
+    } else {
+      setSelectedItems([]);
+    }
+  };
   
   const handleDeleteSelected = async () => {
     if (!firestore || selectedItems.length === 0 || !items) {
@@ -958,6 +966,7 @@ function LancheTrackerPageContent() {
               isSelectionMode={isSelectionModeActive}
               selectedItems={selectedItems}
               onItemSelect={handleItemSelect}
+              onSelectAll={handleSelectAll}
             />
           </div>
         </main>

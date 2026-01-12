@@ -28,6 +28,7 @@ interface ItemListProps {
   isSelectionMode?: boolean;
   selectedItems?: string[];
   onItemSelect?: (itemId: string, isSelected: boolean) => void;
+  onSelectAll?: (checked: boolean) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -182,6 +183,7 @@ export default function ItemList({
   isSelectionMode = false,
   selectedItems = [],
   onItemSelect = () => {},
+  onSelectAll = () => {},
 }: ItemListProps) {
   if (isLoading) {
     return (
@@ -204,12 +206,22 @@ export default function ItemList({
     return savedFavorites.some(fav => fav.command === item.originalCommand);
   };
 
+  const areAllSelected = items.length > 0 && selectedItems.length === items.length;
+
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
-            {isSelectionMode && <TableHead className="w-10 px-2 sm:px-4" />}
+            {isSelectionMode && (
+              <TableHead className="w-10 px-2 sm:px-4">
+                <Checkbox
+                  checked={areAllSelected}
+                  onCheckedChange={(checked) => onSelectAll(!!checked)}
+                  aria-label="Selecionar todos os itens"
+                />
+              </TableHead>
+            )}
             <TableHead className="px-2 sm:px-4">Item</TableHead>
             <TableHead className="px-2 sm:px-4">Grupo</TableHead>
             <TableHead className="text-right px-2 sm:px-4">Total</TableHead>
