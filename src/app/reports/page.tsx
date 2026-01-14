@@ -357,6 +357,8 @@ function ReportsPageContent() {
         where('reportDate', '<=', format(end, 'yyyy-MM-dd')),
         orderBy('reportDate', 'desc')
     );
+    // This __memo property is a signal to our custom useCollection hook
+    // that this query object has been properly memoized and is safe to use as a dependency.
     (q as any).__memo = true; 
     return q;
   }, [firestore, currentDate]);
@@ -667,5 +669,3 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
-
-    
