@@ -40,6 +40,7 @@ import type { DailyReport, ItemCount, BomboniereItem, SavedFavorite } from '@/ty
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 
 const formatCurrency = (value: number | undefined | null) => {
@@ -376,7 +377,6 @@ function ReportsPageContent() {
   const isLoading = isLoadingReports || isLoadingBomboniere || isUserLoading;
 
   const handleEditDateRequest = (report: DailyReport) => {
-    // Directly parse the reportDate string to avoid timezone issues.
     setNewReportDate(parseISO(report.reportDate));
     setReportToEdit(report);
   };
@@ -386,7 +386,6 @@ function ReportsPageContent() {
 
     try {
         const reportDocRef = doc(firestore, 'daily_reports', reportToEdit.id!);
-        // Format the date correctly to 'yyyy-MM-dd' to avoid timezone issues on save.
         const newDateString = format(newReportDate, 'yyyy-MM-dd');
 
         await updateDoc(reportDocRef, {
@@ -543,7 +542,7 @@ function ReportsPageContent() {
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="py-4 flex justify-center">
-                 <Calendar
+                <Calendar
                     mode="single"
                     selected={newReportDate}
                     onSelect={setNewReportDate}
@@ -720,5 +719,3 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
-
-    
