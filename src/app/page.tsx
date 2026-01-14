@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
@@ -594,13 +595,17 @@ function LancheTrackerPageContent() {
 
     try {
       const batch = writeBatch(firestore);
-      const reportDate = new Date();
+      const now = new Date();
       
-      const reportDateString = reportDate.toISOString().split('T')[0];
+      // Get YYYY-MM-DD from local timezone
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const reportDateString = `${year}-${month}-${day}`;
 
       const report: Omit<DailyReport, 'id'> = {
         reportDate: reportDateString,
-        createdAt: reportDate.toISOString(),
+        createdAt: now.toISOString(),
         totalGeral: totals.totalGeral,
         totalAVista: totals.totalAVista,
         totalFiado: totals.totalFiado,
@@ -1033,6 +1038,7 @@ export default function Home() {
 
     
 
-
+    
 
     
+
