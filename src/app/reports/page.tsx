@@ -312,8 +312,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
                               {chartData.map((entry) => (
                                   <Cell key={`cell-${entry.name}`} fill={entry.fill} />
                               ))}
-                              </Pie>
-                          </PieChart>
+                              </PieChart>
                       </ResponsiveContainer>
                   </ChartContainer>
               </div>
@@ -374,11 +373,10 @@ function ReportsPageContent() {
         // but it will be parsed as UTC midnight. 
         // new Date('2024-01-15') -> 2024-01-15T00:00:00.000Z
         // In a timezone like GMT-3, this becomes 2024-01-14T21:00:00.000-03:00
-        // To avoid this, we can split the string and construct the date manually.
-        const [year, month, day] = report.reportDate.split('-').map(Number);
+        const [year, month, day] = report.reportDate.split('-').map(part => parseInt(part, 10));
         if (!year || !month || !day) return null;
 
-        // new Date(year, monthIndex, day) creates a date in the local timezone.
+        // new Date(year, monthIndex, day) creates a date in the local timezone, avoiding timezone issues.
         const date = new Date(year, month - 1, day);
         
         if (isNaN(date.getTime())) return null;
@@ -525,10 +523,10 @@ function ReportsPageContent() {
             acc.totalItensRua += report.totalItensRua || 0;
 
             for (const key in report.contagemTotal) {
-                acc.contagemTotal[key] = (acc.contagemTotal[key] || 0) + report.contagemTotal[key];
+                acc.contagemTotal[key] = (acc.contagemTotal[key] || 0) + (report.contagemTotal[key] || 0);
             }
             for (const key in report.contagemRua) {
-                acc.contagemRua[key] = (acc.contagemRua[key] || 0) + report.contagemRua[key];
+                acc.contagemRua[key] = (acc.contagemRua[key] || 0) + (report.contagemRua[key] || 0);
             }
             
             return acc;
