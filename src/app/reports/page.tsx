@@ -365,9 +365,17 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        const utcDate = parseISO(`${report.reportDate}T12:00:00Z`);
-        if (isNaN(utcDate.getTime())) return null;
-        return utcDate;
+        // The reportDate is a string like "2026-01-14".
+        // The Date constructor can parse this format directly.
+        // By using `new Date(report.reportDate)` it correctly handles it
+        // as a local date instead of forcing UTC, which caused the issue.
+        const date = new Date(report.reportDate);
+        
+        // Add 12 hours to avoid timezone-related "day before" issues.
+        date.setHours(12, 0, 0, 0);
+
+        if (isNaN(date.getTime())) return null;
+        return date;
     } catch {
         return null; 
     }
@@ -666,3 +674,4 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
