@@ -342,8 +342,8 @@ function ReportsPageContent() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
   const [reportToEdit, setReportToEdit] = useState<DailyReport | null>(null);
+  const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
   const [newReportDate, setNewReportDate] = useState<Date | undefined>(undefined);
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -369,14 +369,8 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        
         const [year, month, day] = report.reportDate.split('-').map(part => parseInt(part, 10));
-        if (!year || !month || !day) return null;
-
-        const date = new Date(year, month - 1, day);
-        
-        if (isNaN(date.getTime())) return null;
-        return date;
+        return new Date(year, month - 1, day);
     } catch {
         return null; 
     }
@@ -553,8 +547,8 @@ function ReportsPageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <AlertDialog open={!!reportToEdit} onOpenChange={(open) => setReportToEdit(null)}>
+      
+      <AlertDialog open={!!reportToEdit} onOpenChange={(open) => setReportToEdit(open ? reportToEdit : null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Alterar Data do Relatório</AlertDialogTitle>
@@ -564,10 +558,10 @@ function ReportsPageContent() {
           </AlertDialogHeader>
           <div className="py-4 flex justify-center">
             <Calendar
-                mode="single"
-                selected={newReportDate}
-                onSelect={setNewReportDate}
-                initialFocus
+              mode="single"
+              selected={newReportDate}
+              onSelect={setNewReportDate}
+              initialFocus
             />
           </div>
           <AlertDialogFooter>
@@ -739,6 +733,8 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
 
     
 
