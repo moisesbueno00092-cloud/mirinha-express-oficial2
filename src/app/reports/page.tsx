@@ -343,9 +343,7 @@ function ReportsPageContent() {
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   
-  const [reportToEdit, setReportToEdit] = useState<DailyReport | null>(null);
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
-  const [newReportDate, setNewReportDate] = useState<Date | undefined>(undefined);
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
@@ -376,39 +374,6 @@ function ReportsPageContent() {
 
   const isLoading = isLoadingReports || isLoadingBomboniere || isUserLoading;
 
-  const handleEditDateRequest = (report: DailyReport) => {
-    setNewReportDate(parseISO(report.reportDate));
-    setReportToEdit(report);
-  };
-
-  const confirmEditDate = async () => {
-    if (!firestore || !reportToEdit || !newReportDate) return;
-
-    try {
-        const reportDocRef = doc(firestore, 'daily_reports', reportToEdit.id!);
-        const newDateString = format(newReportDate, 'yyyy-MM-dd');
-
-        await updateDoc(reportDocRef, {
-            reportDate: newDateString
-        });
-        
-        toast({
-            title: "Sucesso",
-            description: "A data do relatório foi atualizada.",
-        });
-
-    } catch (error: any) {
-        console.error("Error updating report date:", error);
-        toast({
-            variant: "destructive",
-            title: "Erro",
-            description: error.message || "Não foi possível atualizar a data do relatório.",
-        });
-    } finally {
-        setReportToEdit(null);
-        setNewReportDate(undefined);
-    }
-  };
 
   const handleDeleteReportRequest = (reportId: string) => {
     const report = savedReports?.find(r => r.id === reportId);
@@ -533,30 +498,6 @@ function ReportsPageContent() {
         </AlertDialogContent>
       </AlertDialog>
       
-      <AlertDialog open={!!reportToEdit} onOpenChange={(open) => setReportToEdit(open ? reportToEdit : null)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Alterar Data do Relatório</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Selecione a nova data para o relatório de <span className='font-bold'>{reportToEdit?.reportDate && format(parseISO(reportToEdit.reportDate), "PPP", { locale: ptBR })}</span>.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="py-4 flex justify-center">
-                <Calendar
-                    mode="single"
-                    selected={newReportDate}
-                    onSelect={setNewReportDate}
-                    initialFocus
-                />
-            </div>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmEditDate} disabled={!newReportDate}>Confirmar</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-
-
       <main className="space-y-6">
         <div className="flex items-center justify-between">
             <div className="grid grid-cols-2 gap-4">
@@ -650,17 +591,6 @@ function ReportsPageContent() {
                                                     <p className="text-sm text-muted-foreground">Total do Dia</p>
                                                     <p className="text-xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                                 </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 text-muted-foreground hover:text-blue-500"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleEditDateRequest(report);
-                                                    }}
-                                                >
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
