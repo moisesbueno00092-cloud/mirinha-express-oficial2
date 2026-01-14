@@ -275,125 +275,130 @@ function LancheTrackerPageContent() {
       
       let i = 0;
       while (i < parts.length) {
-        let bomboniereMatch = null;
-        let bomboniereQty = 1;
-        let bestMatchEndIndex = -1;
-
-        // Greedy search for the longest matching bomboniere item name
-        for (let j = parts.length; j > i; j--) {
-            const potentialName = parts.slice(i, j).join(' ').toLowerCase();
-            if (bomboniereItemsByName[potentialName]) {
-                bomboniereMatch = bomboniereItemsByName[potentialName];
-                bestMatchEndIndex = j;
-                break;
-            }
-        }
-        
-        if (bomboniereMatch) {
-            // Check if the part *before* the bomboniere item name is a quantity
-            if (i > 0 && isNumeric(parts[i - 1])) {
-                bomboniereQty = parseInt(parts[i - 1], 10);
-            }
-
-            let priceToUse = bomboniereMatch.price;
-            let partsToAdvance = bestMatchEndIndex - i;
-
-            // Check if there is a custom price immediately after the bomboniere item name
-            if (bestMatchEndIndex < parts.length && isNumeric(parts[bestMatchEndIndex])) {
-                priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.'));
-                partsToAdvance++;
-            }
-            
-            processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
-            totalPrice += priceToUse * bomboniereQty;
-            totalQuantity += bomboniereQty;
-            
-            i += partsToAdvance;
-            continue;
-        }
-
-        const part = parts[i];
-        if (!part) {
-          i++;
-          continue;
-        }
-        
-        if (part.toUpperCase() === 'KG') {
-            i++; 
-            while (i < parts.length && isNumeric(parts[i])) {
-                const price = parseFloat(parts[i].replace(',', '.'));
-                individualPrices.push(price);
-                totalPrice += price;
-                i++;
-            }
-            totalQuantity += individualPrices.length;
-            continue; 
-        }
-
-        if (part.toUpperCase() === 'TX') {
-            if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
-                customDeliveryFee = parseFloat(parts[i + 1].replace(',', '.'));
-                i += 2; 
-            } else {
-                i++;
-            }
-            continue;
-        }
-
-        let qty = 1;
-        let itemNamePart = part;
-        const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
-
-        if (qtyMatch) {
-            qty = parseInt(qtyMatch[1], 10);
-            itemNamePart = qtyMatch[2];
-        } else if (isNumeric(part) && i + 1 < parts.length && !isNumeric(parts[i+1])) {
-            const nextPartIsPredefined = predefinedPrices[(parts[i+1] || '').toUpperCase()];
-            if(nextPartIsPredefined) {
-              qty = parseInt(part, 10);
-              itemNamePart = parts[i+1];
+          const part = parts[i];
+          if (!part) {
               i++;
-            }
-        }
-        
-        const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
-
-        if(isPredefined) {
-            let priceToUse = isPredefined;
-            const nextPartIndex = i + 1;
-            
-            if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
-                 let isPriceForCurrent = true;
-                 
-                 // Lookahead: if the number is followed by another predefined item, it's probably a quantity, not a price
-                 if (nextPartIndex + 1 < parts.length) {
-                    const followingPart = parts[nextPartIndex + 1].toUpperCase();
-                    if(predefinedPrices[followingPart]) {
-                        isPriceForCurrent = false;
-                    }
-                 }
-
-                 if(isPriceForCurrent) {
-                    priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
-                    i++; 
-                 }
-            }
-
-            for (let j = 0; j < qty; j++) {
-                predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse });
-                totalPrice += priceToUse;
-            }
-            totalQuantity += qty;
-            i++;
-            continue;
-        }
-        
-        // If part is not predefined, not bomboniere, and not numeric, it could be a customer name
-        if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado') || !customerName)) {
-            potentialCustomerNameParts.push(part);
-        }
-        
-        i++;
+              continue;
+          }
+  
+          // Try to match longest bomboniere name first
+          let bomboniereMatch = null;
+          let bestMatchEndIndex = -1;
+  
+          for (let j = parts.length; j > i; j--) {
+              const potentialName = parts.slice(i, j).join(' ').toLowerCase();
+              if (bomboniereItemsByName[potentialName]) {
+                  bomboniereMatch = bomboniereItemsByName[potentialName];
+                  bestMatchEndIndex = j;
+                  break;
+              }
+          }
+  
+          if (bomboniereMatch) {
+              let bomboniereQty = 1;
+              // Check if the part *before* this match was a quantity for it
+              if (i > 0 && isNumeric(parts[i - 1])) {
+                  const prevPartIsLikelyQty = i-2 < 0 || !predefinedPrices[parts[i-2].toUpperCase()];
+                  if (prevPartIsLikelyQty) {
+                      // This is tricky. Let's assume for now it's not a quantity for bomboniere.
+                  }
+              }
+  
+              let priceToUse = bomboniereMatch.price;
+              let partsToAdvance = bestMatchEndIndex - i;
+  
+              // Check for custom price immediately after the name
+              if (bestMatchEndIndex < parts.length && isNumeric(parts[bestMatchEndIndex])) {
+                  priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.'));
+                  partsToAdvance++;
+              }
+  
+              processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
+              totalPrice += priceToUse * bomboniereQty;
+              totalQuantity += bomboniereQty;
+              i += partsToAdvance;
+              continue;
+          }
+  
+          // KG processing
+          if (part.toUpperCase() === 'KG') {
+              let kgPrices: number[] = [];
+              let partsToAdvance = 1;
+              while (i + partsToAdvance < parts.length && isNumeric(parts[i + partsToAdvance])) {
+                  const price = parseFloat(parts[i + partsToAdvance].replace(',', '.'));
+                  individualPrices.push(price);
+                  totalPrice += price;
+                  partsToAdvance++;
+              }
+              totalQuantity += individualPrices.length;
+              i += partsToAdvance;
+              continue;
+          }
+  
+          // TX processing
+          if (part.toUpperCase() === 'TX') {
+              if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
+                  customDeliveryFee = parseFloat(parts[i + 1].replace(',', '.'));
+                  i += 2;
+              } else {
+                  i++;
+              }
+              continue;
+          }
+  
+          // Predefined items processing
+          let qty = 1;
+          let itemNamePart = part;
+          const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
+  
+          if (qtyMatch) {
+              qty = parseInt(qtyMatch[1], 10);
+              itemNamePart = qtyMatch[2];
+          } else if (isNumeric(part) && (i + 1 < parts.length) && !isNumeric(parts[i+1])) {
+              const nextPartIsPredefined = predefinedPrices[(parts[i+1] || '').toUpperCase()];
+              if(nextPartIsPredefined) {
+                qty = parseInt(part, 10);
+                itemNamePart = parts[i+1];
+                i++; // Consume the name part now
+              }
+          }
+  
+          const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
+          
+          if (isPredefined) {
+              let priceToUse = isPredefined;
+              const nextPartIndex = i + 1;
+  
+              if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
+                  let isPriceForCurrent = true;
+                  if (nextPartIndex + 1 < parts.length) {
+                      const followingPart = parts[nextPartIndex + 1].toUpperCase();
+                      if(predefinedPrices[followingPart]) {
+                          isPriceForCurrent = false;
+                      }
+                  }
+                  if (isPriceForCurrent) {
+                      priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
+                      i++; // Consume the price part
+                  }
+              }
+  
+              for (let j = 0; j < qty; j++) {
+                  predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse });
+                  totalPrice += priceToUse;
+              }
+              totalQuantity += qty;
+              i++;
+              continue;
+          }
+  
+          // If it's none of the above, it might be part of a customer name
+          if (!isNumeric(part) && (group.startsWith('Fiado') || !customerName)) {
+              potentialCustomerNameParts.push(part);
+          }
+          
+          // IMPORTANT: Always advance the loop
+          i++;
       }
 
       if (!customerName && potentialCustomerNameParts.length > 0) {
@@ -1031,4 +1036,3 @@ export default function Home() {
   return <LancheTrackerPageContent />;
 }
 
-    
