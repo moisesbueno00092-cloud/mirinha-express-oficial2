@@ -105,7 +105,6 @@ function LancheTrackerPageContent() {
   const liveItemsQuery = useMemo(() => {
     if (!firestore) return null;
     const q = query(collection(firestore, 'live_items'), orderBy('timestamp', 'desc'));
-    (q as any).__memo = true;
     return q;
   }, [firestore]);
   
@@ -264,7 +263,7 @@ function LancheTrackerPageContent() {
       }
 
       let parts = mainInput.split(' ').filter((part) => part.trim() !== '');
-
+      
       let totalQuantity = 0;
       let totalPrice = 0;
       let individualPrices: number[] = [];
@@ -296,16 +295,20 @@ function LancheTrackerPageContent() {
   
           if (bomboniereMatch) {
               let bomboniereQty = 1;
+              let partsToAdvance = bestMatchEndIndex - i;
+              
               // Check if the part *before* this match was a quantity for it
               if (i > 0 && isNumeric(parts[i - 1])) {
-                  const prevPartIsLikelyQty = i-2 < 0 || !predefinedPrices[parts[i-2].toUpperCase()];
+                  const prevPartIsLikelyQty = i - 2 < 0 || !predefinedPrices[parts[i-2].toUpperCase()];
                   if (prevPartIsLikelyQty) {
-                      // This is tricky. Let's assume for now it's not a quantity for bomboniere.
+                      bomboniereQty = parseInt(parts[i-1], 10);
+                      // This part was a quantity, so we need to remove it from being processed again.
+                      // We can do this by setting it to an empty string.
+                      parts[i-1] = ''; 
                   }
               }
   
               let priceToUse = bomboniereMatch.price;
-              let partsToAdvance = bestMatchEndIndex - i;
   
               // Check for custom price immediately after the name
               if (bestMatchEndIndex < parts.length && isNumeric(parts[bestMatchEndIndex])) {
@@ -330,7 +333,9 @@ function LancheTrackerPageContent() {
                   totalPrice += price;
                   partsToAdvance++;
               }
-              totalQuantity += individualPrices.length;
+              if(individualPrices.length > 0) { // Only count as an item if prices were found
+                totalQuantity += individualPrices.length;
+              }
               i += partsToAdvance;
               continue;
           }
@@ -401,8 +406,10 @@ function LancheTrackerPageContent() {
           i++;
       }
 
-      if (!customerName && potentialCustomerNameParts.length > 0) {
-        customerName = potentialCustomerNameParts.join(' ');
+      // Filter out empty parts that were used as quantities for bomboniere items
+      const finalPotentialCustomerNameParts = potentialCustomerNameParts.filter(p => p !== '');
+      if (!customerName && finalPotentialCustomerNameParts.length > 0) {
+        customerName = finalPotentialCustomerNameParts.join(' ');
       }
 
       if (predefinedItems.length === 0 && individualPrices.length === 0 && processedBomboniereItems.length === 0) {
