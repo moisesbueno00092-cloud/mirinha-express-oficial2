@@ -371,7 +371,13 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        return parseISO(`${report.reportDate}T00:00:00`);
+        // The reportDate is a string like "YYYY-MM-DD".
+        // To avoid timezone issues where it might become the previous day,
+        // we parse it as UTC by adding 'T00:00:00Z'.
+        // However, JS Date can still be tricky. A robust way is to split and construct.
+        const parts = report.reportDate.split('-').map(Number);
+        // new Date(year, monthIndex, day)
+        return new Date(parts[0], parts[1] - 1, parts[2]);
     } catch {
         return null; 
     }
