@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Query,
   onSnapshot,
@@ -31,9 +31,6 @@ export function useCollection<T = DocumentData>(
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
   
-  // Use a string representation of the query path for a stable dependency
-  const queryPath = useMemo(() => (memoizedTargetRefOrQuery as any)?.path, [memoizedTargetRefOrQuery]);
-
   useEffect(() => {
     if (!memoizedTargetRefOrQuery) {
       setIsLoading(false);
@@ -71,7 +68,7 @@ export function useCollection<T = DocumentData>(
     );
 
     return () => unsubscribe();
-  }, [queryPath]); // Use the stable queryPath as the dependency
+  }, [memoizedTargetRefOrQuery]);
 
   return { data, isLoading, error };
 }
