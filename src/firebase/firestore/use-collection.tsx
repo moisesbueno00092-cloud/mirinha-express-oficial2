@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Query,
   onSnapshot,
@@ -72,3 +72,4 @@ export function useCollection<T = DocumentData>(
 
   return { data, isLoading, error };
 }
+
