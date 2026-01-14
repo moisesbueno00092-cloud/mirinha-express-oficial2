@@ -297,20 +297,20 @@ function LancheTrackerPageContent() {
               let bomboniereQty = 1;
               let partsToAdvance = bestMatchEndIndex - i;
               
-              // Check if the part *before* this match was a quantity for it
               if (i > 0 && isNumeric(parts[i - 1])) {
-                  const prevPartIsLikelyQty = i - 2 < 0 || !predefinedPrices[parts[i-2].toUpperCase()];
+                   // Check if the part before the potential quantity is not a predefined item name.
+                   // This prevents "p 1 coca" from wrongly interpreting '1' as quantity for 'p'.
+                   const partBeforeQty = i - 2 >= 0 ? parts[i - 2].toUpperCase() : null;
+                   const prevPartIsLikelyQty = !partBeforeQty || !predefinedPrices[partBeforeQty];
+
                   if (prevPartIsLikelyQty) {
                       bomboniereQty = parseInt(parts[i-1], 10);
-                      // This part was a quantity, so we need to remove it from being processed again.
-                      // We can do this by setting it to an empty string.
-                      parts[i-1] = ''; 
+                      parts[i-1] = '';
                   }
               }
   
               let priceToUse = bomboniereMatch.price;
   
-              // Check for custom price immediately after the name
               if (bestMatchEndIndex < parts.length && isNumeric(parts[bestMatchEndIndex])) {
                   priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.'));
                   partsToAdvance++;
@@ -376,12 +376,21 @@ function LancheTrackerPageContent() {
   
               if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
                   let isPriceForCurrent = true;
+                  // Look ahead to see if the numeric value is followed by a bomboniere item
                   if (nextPartIndex + 1 < parts.length) {
-                      const followingPart = parts[nextPartIndex + 1].toUpperCase();
-                      if(predefinedPrices[followingPart]) {
-                          isPriceForCurrent = false;
-                      }
+                       let isFollowedByBomboniere = false;
+                       for (let k = parts.length; k > nextPartIndex + 1; k--) {
+                           const potentialBomboniereName = parts.slice(nextPartIndex + 1, k).join(' ').toLowerCase();
+                           if (bomboniereItemsByName[potentialBomboniereName]) {
+                               isFollowedByBomboniere = true;
+                               break;
+                           }
+                       }
+                       if (isFollowedByBomboniere) {
+                           isPriceForCurrent = false;
+                       }
                   }
+
                   if (isPriceForCurrent) {
                       priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
                       i++; // Consume the price part
@@ -1043,3 +1052,6 @@ export default function Home() {
   return <LancheTrackerPageContent />;
 }
 
+
+
+    
