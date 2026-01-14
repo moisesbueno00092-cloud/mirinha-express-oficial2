@@ -361,7 +361,6 @@ function ReportsPageContent() {
         where('reportDate', '<=', format(end, 'yyyy-MM-dd')),
         orderBy('reportDate', 'desc')
     );
-    (q as any).__memo = true;
     return q;
   }, [firestore, currentDate]);
 
@@ -370,8 +369,13 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        const date = new Date(report.reportDate);
-        date.setHours(12, 0, 0, 0);
+        
+        // Fix for timezone issues. '2024-01-15' was being parsed as UTC, becoming 2024-01-14 in some timezones.
+        // By splitting and creating a new date, we ensure it's treated as local time.
+        const [year, month, day] = report.reportDate.split('-').map(Number);
+        if (!year || !month || !day) return null;
+
+        const date = new Date(year, month - 1, day);
         if (isNaN(date.getTime())) return null;
         return date;
     } catch {
