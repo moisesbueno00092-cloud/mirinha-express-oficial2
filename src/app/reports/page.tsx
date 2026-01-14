@@ -371,7 +371,6 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        // This is the robust way to parse YYYY-MM-DD without timezone shifts.
         const parts = report.reportDate.split('-').map(Number);
         return new Date(parts[0], parts[1] - 1, parts[2]);
     } catch {
@@ -389,7 +388,7 @@ function ReportsPageContent() {
 
   const handleEditDateRequest = (report: DailyReport) => {
     const safeDate = getReportDate(report);
-    setNewReportDate(safeDate || new Date());
+    setNewReportDate(safeDate || undefined);
     setReportToEdit(report);
   };
 
@@ -398,7 +397,6 @@ function ReportsPageContent() {
 
     try {
         const reportDocRef = doc(firestore, 'daily_reports', reportToEdit.id!);
-        // Format the date to 'yyyy-MM-dd' to avoid timezone issues.
         const newDateString = format(newReportDate, 'yyyy-MM-dd');
 
         await updateDoc(reportDocRef, {
