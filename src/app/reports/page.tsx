@@ -387,8 +387,8 @@ function ReportsPageContent() {
   const isLoading = isLoadingReports || isLoadingBomboniere;
 
   const handleEditDateRequest = (report: DailyReport) => {
-    setReportToEditDate(report);
     setNewReportDate(getReportDate(report) || new Date());
+    setReportToEditDate(report);
   };
 
   const confirmEditDate = async () => {
@@ -550,7 +550,7 @@ function ReportsPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!reportToEditDate} onOpenChange={(open) => !open && setReportToEditDate(null)}>
+      <AlertDialog open={!!reportToEditDate} onOpenChange={setReportToEditDate.bind(null, null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Alterar Data do Relatório</AlertDialogTitle>
@@ -731,4 +731,3 @@ export default function ReportsPage() {
     return <ReportsPageContent />;
 }
 
-    
