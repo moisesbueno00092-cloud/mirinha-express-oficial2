@@ -421,12 +421,13 @@ export default function HistoricoFinanceiroPanel() {
                                     <TableHead>Produto</TableHead>
                                     <TableHead>Fornecedor</TableHead>
                                     <TableHead className="text-right">Preço Unitário</TableHead>
+                                    <TableHead className="text-right">Valor Total</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">
+                                        <TableCell colSpan={5} className="h-24 text-center">
                                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                                         </TableCell>
                                     </TableRow>
@@ -441,12 +442,13 @@ export default function HistoricoFinanceiroPanel() {
                                                     {fornecedor?.nome || 'Desconhecido'}
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
+                                                <TableCell className="text-right font-mono font-semibold">{formatCurrency(entry.valorTotal)}</TableCell>
                                             </TableRow>
                                         )
                                     })
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                                             Nenhum resultado para sua busca.
                                         </TableCell>
                                     </TableRow>
