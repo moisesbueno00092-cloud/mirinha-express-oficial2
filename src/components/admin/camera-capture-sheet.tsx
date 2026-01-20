@@ -102,7 +102,7 @@ export default function CameraCaptureSheet({
     const context = canvas.getContext('2d');
     if(context) {
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUri = canvas.toDataURL('image/jpeg');
+        const dataUri = canvas.toDataURL('image/jpeg', 0.85);
         onCapture(dataUri);
     } else {
         toast({ variant: 'destructive', title: 'Erro de Captura', description: 'Não foi possível capturar a imagem.'})

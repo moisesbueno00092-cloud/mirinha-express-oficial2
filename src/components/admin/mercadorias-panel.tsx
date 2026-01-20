@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -68,6 +67,32 @@ const findBestBomboniereMatch = (productName: string, bomboniereItems: Bombonier
     }
 
     return bestMatch;
+};
+
+const compressImage = (dataUri: string, quality: number, maxWidth: number = 1920): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let { width, height } = img;
+
+            if (width > maxWidth) {
+                height = (height * maxWidth) / width;
+                width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                return reject(new Error('Failed to get canvas context'));
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = (err) => reject(err);
+        img.src = dataUri;
+    });
 };
 
 
@@ -444,7 +469,13 @@ export default function MercadoriasPanel() {
                 reader.onload = () => resolve(reader.result as string);
                 reader.onerror = (error) => reject(error);
             });
-            await processImage(dataUri, 'file'); // Re-use the processing logic
+            try {
+                const compressedUri = await compressImage(dataUri, 0.85);
+                await processImage(compressedUri, 'file');
+            } catch (error) {
+                console.error("Error compressing image:", error);
+                toast({ variant: 'destructive', title: 'Erro de Compressão', description: 'Não foi possível processar a imagem.' });
+            }
         }
     
         setIsParsingRomaneio(false);
