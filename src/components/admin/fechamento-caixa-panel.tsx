@@ -34,19 +34,30 @@ export default function FechamentoCaixaPanel() {
     // Data fetching
     const liveItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'live_items')) : null, [firestore]);
     const { data: liveItems, isLoading: isLoadingLiveItems } = useCollection<Item>(liveItemsQuery);
-
-    const todayStart = useMemo(() => startOfDay(new Date()), []);
-    const todayEnd = useMemo(() => endOfDay(new Date()), []);
     
-    const despesasQuery = useMemo(() => firestore 
+    const despesasPagasQuery = useMemo(() => firestore 
         ? query(collection(firestore, 'entradas_mercadorias'),
-            where('estaPaga', '==', true),
-            where('data', '>=', todayStart.toISOString()),
-            where('data', '<=', todayEnd.toISOString())
+            where('estaPaga', '==', true)
           )
-        : null, [firestore, todayStart, todayEnd]);
+        : null, [firestore]);
         
-    const { data: despesasHoje, isLoading: isLoadingDespesas } = useCollection<EntradaMercadoria>(despesasQuery);
+    const { data: todasDespesasPagas, isLoading: isLoadingDespesas } = useCollection<EntradaMercadoria>(despesasPagasQuery);
+
+    const despesasHoje = useMemo(() => {
+        if (!todasDespesasPagas) return [];
+        const todayStart = startOfDay(new Date());
+        const todayEnd = endOfDay(new Date());
+
+        return todasDespesasPagas.filter(despesa => {
+            try {
+                const despesaDate = new Date(despesa.data);
+                return despesaDate >= todayStart && despesaDate <= todayEnd;
+            } catch (e) {
+                return false;
+            }
+        })
+    }, [todasDespesasPagas]);
+
 
     // Calculations
     const { vendasAVista, totalTaxas } = useMemo(() => {
@@ -61,7 +72,6 @@ export default function FechamentoCaixaPanel() {
     }, [liveItems]);
 
     const totalDespesasHoje = useMemo(() => {
-        if (!despesasHoje) return 0;
         return despesasHoje.reduce((acc, despesa) => acc + despesa.valorTotal, 0);
     }, [despesasHoje]);
 
