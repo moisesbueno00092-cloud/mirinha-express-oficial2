@@ -16,6 +16,14 @@
         { "fieldPath": "reportado", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "entradas_mercadorias",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "estaPaga", "order": "ASCENDING" },
+        { "fieldPath": "data", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
