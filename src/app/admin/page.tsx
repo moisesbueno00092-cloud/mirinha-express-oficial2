@@ -1,10 +1,8 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Box, HandCoins, History, Users, Wrench, BookOpen, ShieldX, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,6 +12,7 @@ import PasswordDialog from '@/components/password-dialog';
 
 import MercadoriasPanel from '@/components/admin/mercadorias-panel';
 import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
+import FechamentoCaixaPanel from '@/components/admin/fechamento-caixa-panel';
 import HistoricoFinanceiroPanel from '@/components/admin/historico-financeiro-panel';
 import FuncionariosPanel from '@/components/admin/funcionarios-panel';
 import { useRouter } from 'next/navigation';
@@ -126,7 +125,8 @@ function AdminPageContent() {
                 </CardContent>
               </Card>
             </TabsContent>
-            <TabsContent value="financeiro">
+            <TabsContent value="financeiro" className="space-y-6">
+              <FechamentoCaixaPanel />
               <Card>
                 <CardHeader>
                   <CardTitle>Contas a Pagar</CardTitle>
@@ -191,5 +191,3 @@ export default function AdminPage() {
         <AdminPageContent />
     )
 }
-
-    
