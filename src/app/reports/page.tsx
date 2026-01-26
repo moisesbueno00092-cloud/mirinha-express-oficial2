@@ -343,7 +343,6 @@ function ReportsPageContent() {
   const { toast } = useToast();
   
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
-  const [isCorrectingDate, setIsCorrectingDate] = useState(false);
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
@@ -473,59 +472,6 @@ function ReportsPageContent() {
         }, initial);
     }, [savedReports, user]);
 
-    async function handleCorrectReportDate() {
-        if (!firestore) return;
-        setIsCorrectingDate(true);
-        toast({ title: 'Iniciando correção...', description: 'A procurar o relatório de 24/01/2026.' });
-
-        const sourceDate = '2026-01-24';
-        const targetDate = '2026-01-23';
-
-        try {
-            const reportsRef = collection(firestore, 'daily_reports');
-            const orderItemsRef = collection(firestore, 'order_items');
-
-            const targetReportQuery = query(reportsRef, where('reportDate', '==', targetDate));
-            const targetReportSnapshot = await getDocs(targetReportQuery);
-            if (!targetReportSnapshot.empty) {
-                toast({ variant: 'destructive', title: 'Correção Abortada', description: `Já existe um relatório para a data ${targetDate}.` });
-                setIsCorrectingDate(false);
-                return;
-            }
-
-            const sourceReportQuery = query(reportsRef, where('reportDate', '==', sourceDate));
-            const sourceReportSnapshot = await getDocs(sourceReportQuery);
-            if (sourceReportSnapshot.empty) {
-                toast({ variant: 'destructive', title: 'Erro', description: `Nenhum relatório encontrado para a data ${sourceDate}.` });
-                setIsCorrectingDate(false);
-                return;
-            }
-            const sourceReportDoc = sourceReportSnapshot.docs[0];
-
-            const sourceItemsQuery = query(orderItemsRef, where('reportDate', '==', sourceDate));
-            const sourceItemsSnapshot = await getDocs(sourceItemsQuery);
-
-            const batch = writeBatch(firestore);
-
-            batch.update(sourceReportDoc.ref, { reportDate: targetDate });
-
-            sourceItemsSnapshot.forEach(itemDoc => {
-                batch.update(itemDoc.ref, { reportDate: targetDate });
-            });
-
-            await batch.commit();
-
-            toast({ title: 'Sucesso!', description: `O relatório de ${sourceDate} foi movido para ${targetDate}. A página será recarregada.` });
-            
-            setTimeout(() => window.location.reload(), 2000);
-
-        } catch (error: any) {
-            console.error('Error correcting report date:', error);
-            toast({ variant: 'destructive', title: 'Erro na Correção', description: error.message || 'Ocorreu um problema inesperado.' });
-        } finally {
-            setIsCorrectingDate(false);
-        }
-    }
 
   if (isLoading) {
     return (
@@ -585,25 +531,6 @@ function ReportsPageContent() {
                 </div>
             </div>
         </div>
-
-        <Card className="border-destructive bg-destructive/10 mb-6">
-            <CardHeader>
-                <CardTitle className="text-destructive">Ação de Correção Manual</CardTitle>
-                <CardDescription className="text-destructive/80">
-                    Use este botão para corrigir o relatório salvo em 24/01/2026 para a data correta 23/01/2026. Use apenas uma vez.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button 
-                    variant="destructive" 
-                    onClick={handleCorrectReportDate}
-                    disabled={isCorrectingDate}
-                >
-                    {isCorrectingDate ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Pencil className="mr-2 h-4 w-4" />}
-                    Corrigir Data do Relatório (24/01 para 23/01)
-                </Button>
-            </CardContent>
-        </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
