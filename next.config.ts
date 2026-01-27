@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   serverActions: {
     bodySizeLimit: '10mb',
+    executionTimeout: 300,
   },
   typescript: {
     ignoreBuildErrors: true,
