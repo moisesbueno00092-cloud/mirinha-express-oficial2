@@ -384,8 +384,6 @@ export default function MercadoriasPanel() {
     const processImage = async (dataUri: string) => {
         if (!firestore) throw new Error('Firestore not initialized');
         
-        toast({ title: 'A analisar a imagem...', description: 'A IA está a processar a foto. Isto pode demorar alguns segundos.' });
-
         const { items } = await parseRomaneio({ romaneioPhoto: dataUri });
 
         if (items.length === 0) {
@@ -457,8 +455,8 @@ export default function MercadoriasPanel() {
 
     const handleRomaneioUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
-        if (!files || files.length === 0) return;
-
+        if (!files || files.length === 0 || isParsingRomaneio) return;
+    
         setIsParsingRomaneio(true);
         toast({ title: "Processamento em Lote...", description: `A processar ${files.length} imagem(ns).` });
         if (files.length > 1) {
@@ -469,8 +467,9 @@ export default function MercadoriasPanel() {
             });
         }
     
-        try {
-            for (const [index, file] of Array.from(files).entries()) {
+        for (const [index, file] of Array.from(files).entries()) {
+            try {
+                toast({ title: `A processar imagem ${index + 1} de ${files.length}`, description: file.name });
                 const dataUri = await new Promise<string>((resolve, reject) => {
                     const reader = new FileReader();
                     reader.readAsDataURL(file);
@@ -478,28 +477,24 @@ export default function MercadoriasPanel() {
                     reader.onerror = (error) => reject(error);
                 });
 
-                try {
-                    const compressedUri = await compressImage(dataUri, 0.85);
-                    await processImage(compressedUri);
-                    
-                    if (index < files.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 61000));
-                    }
-                } catch (error) {
-                    console.error("Error processing image:", error);
-                    toast({ variant: 'destructive', title: 'Erro de Processamento', description: 'Não foi possível processar uma das imagens.' });
-                     if (index < files.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 61000));
-                    }
+                const compressedUri = await compressImage(dataUri, 0.85);
+                await processImage(compressedUri);
+                
+            } catch (error) {
+                console.error(`Error processing image ${file.name}:`, error);
+                toast({ variant: 'destructive', title: `Erro na Imagem ${index + 1}`, description: `Não foi possível processar: ${file.name}` });
+            } finally {
+                if (index < files.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 61000));
                 }
             }
-        } finally {
-            setIsParsingRomaneio(false);
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
-            toast({ title: "Processamento em lote finalizado." });
         }
+        
+        setIsParsingRomaneio(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+        toast({ title: "Processamento em lote finalizado." });
     };
 
     const handleRegisterEntry = async () => {
