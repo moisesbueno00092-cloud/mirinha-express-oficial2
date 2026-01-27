@@ -66,10 +66,37 @@ const parseRomaneioFlow = ai.defineFlow(
     inputSchema: ParseRomaneioInputSchema,
     outputSchema: ParseRomaneioOutputSchema,
   },
-  async input => {
-    const {output} = await parseRomaneioPrompt(input);
-    return output!;
+  async (input) => {
+    const MAX_RETRIES = 5;
+    for (let i = 0; i < MAX_RETRIES; i++) {
+      try {
+        const { output } = await parseRomaneioPrompt(input);
+        return output!;
+      } catch (error: any) {
+        const isRateLimitError = error.message && (error.message.includes('429') || /rate limit/i.test(error.message));
+        
+        if (isRateLimitError) {
+          if (i < MAX_RETRIES - 1) {
+            const retryMatch = error.message.match(/retry in ([\d.]+)s/i);
+            let waitMs = 60 * 1000; // Default to 60 seconds
+
+            if (retryMatch && retryMatch[1]) {
+              const retryAfterSeconds = parseFloat(retryMatch[1]);
+              waitMs = (retryAfterSeconds + 2) * 1000; // Add 2s buffer
+            }
+
+            console.log(`Rate limit hit on parseRomaneioFlow. Retrying in ${waitMs / 1000}s. Attempt ${i + 2}/${MAX_RETRIES}`);
+            await new Promise(resolve => setTimeout(resolve, waitMs));
+            continue; // Continue to the next iteration of the loop to retry
+          }
+        }
+        // If it's not a rate limit error, or if max retries are reached, throw the error.
+        console.error(`Failed to parse romaneio after ${i + 1} attempts. Error: ${error.message}`);
+        throw error;
+      }
+    }
+     // This part should be unreachable if the loop is structured correctly, but it's here for type safety.
+    throw new Error('Flow failed to produce an output after all retries.');
   }
 );
-
     

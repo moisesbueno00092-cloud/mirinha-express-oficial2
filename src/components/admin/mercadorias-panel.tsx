@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -135,35 +136,6 @@ export default function MercadoriasPanel() {
     
     const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
     const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsQuery);
-
-    const parseRomaneioWithRetry = async (compressedPhotoUri: string): Promise<ParsedRomaneioItem[]> => {
-        try {
-            const { items } = await parseRomaneio({ romaneioPhoto: compressedPhotoUri });
-            return items;
-        } catch (error: any) {
-            if (error.message && (error.message.includes('429') || error.message.includes('Quota exceeded'))) {
-                const retryMatch = error.message.match(/Please retry in ([\d.]+)s/);
-                if (retryMatch && retryMatch[1]) {
-                    const retryAfterSeconds = parseFloat(retryMatch[1]);
-                    const waitMs = (retryAfterSeconds + 2) * 1000; // Add 2s buffer
-                    
-                    toast({
-                        variant: "destructive",
-                        title: 'Limite de IA atingido',
-                        description: `A aplicação irá tentar novamente em ${Math.ceil(retryAfterSeconds) + 2} segundos.`,
-                        duration: waitMs,
-                    });
-    
-                    await new Promise(resolve => setTimeout(resolve, waitMs));
-    
-                    // Retry the call once.
-                    const { items } = await parseRomaneio({ romaneioPhoto: compressedPhotoUri });
-                    return items;
-                }
-            }
-            throw error; // Re-throw other errors or if regex fails
-        }
-    };
 
     useEffect(() => {
         const ensureProviders = async () => {
@@ -411,67 +383,62 @@ export default function MercadoriasPanel() {
     }
     
     const handleCameraCapture = async (dataUri: string | null) => {
-        if (dataUri) {
-            setIsParsingRomaneio(true);
+        if (!dataUri) {
             setIsCameraSheetOpen(false);
-            try {
-                const compressedUri = await compressImage(dataUri, 0.85);
-                const items = await parseRomaneioWithRetry(compressedUri);
+            return;
+        }
 
-                if (items.length === 0) {
-                    toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens da imagem fornecida.' });
-                } else {
-                    const newProdutos: LancamentoProduto[] = items.map(item => {
-                        const valorTotal = item.valorTotal;
-                        const quantidade = item.quantidade > 0 ? item.quantidade : 1;
-                        const precoUnitario = valorTotal / quantidade;
+        setIsParsingRomaneio(true);
+        setIsCameraSheetOpen(false);
+        toast({ title: 'A processar imagem...', description: 'A extrair itens da foto. Isto pode demorar um momento.' });
 
-                        return {
-                            id: Date.now() + Math.random(),
-                            produtoNome: item.produtoNome,
-                            quantidade,
-                            precoUnitario,
-                            preco: valorTotal,
-                        };
-                    });
+        try {
+            const compressedUri = await compressImage(dataUri, 0.85);
+            const { items } = await parseRomaneio({ romaneioPhoto: compressedUri });
 
-                    setProdutosLancados(prev => [...prev, ...newProdutos]);
-                    toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados à lista.` });
-                    
-                    if (firestore && bomboniereItems && bomboniereItems.length > 0) {
-                        const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
-                        const batch = writeBatch(firestore);
-                        let stockUpdatesCount = 0;
-                        
-                        for (const item of newProdutos) {
-                            const matchedItem = findBestBomboniereMatch(item.produtoNome, bomboniereItems);
+            if (items.length === 0) {
+                toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens da imagem fornecida.' });
+            } else {
+                const newProdutos: LancamentoProduto[] = items.map(item => {
+                    const valorTotal = item.valorTotal;
+                    const quantidade = item.quantidade > 0 ? item.quantidade : 1;
+                    const precoUnitario = valorTotal / quantidade;
+                    return {
+                        id: Date.now() + Math.random(),
+                        produtoNome: item.produtoNome,
+                        quantidade, precoUnitario, preco: valorTotal,
+                    };
+                });
 
-                            if (matchedItem) {
-                                const docRef = doc(bomboniereCollectionRef, matchedItem.id);
-                                const currentStock = bomboniereItems.find(bi => bi.id === matchedItem.id)?.estoque ?? 0;
-                                const newStock = currentStock + item.quantidade;
-                                batch.update(docRef, { estoque: newStock });
-                                stockUpdatesCount++;
-                            }
-                        }
+                setProdutosLancados(prev => [...prev, ...newProdutos]);
+                toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados.` });
 
-                        if (stockUpdatesCount > 0) {
-                            await batch.commit();
-                            toast({
-                                title: 'Estoque Atualizado Automaticamente',
-                                description: `${stockUpdatesCount} iten(s) da bomboniere tiveram seu estoque atualizado.`
-                            });
+                if (firestore && bomboniereItems?.length) {
+                    const batch = writeBatch(firestore);
+                    let stockUpdates = 0;
+                    for (const produto of newProdutos) {
+                        const matched = findBestBomboniereMatch(produto.produtoNome, bomboniereItems);
+                        if (matched) {
+                            const itemRef = doc(firestore, 'bomboniere_items', matched.id);
+                            const newStock = (matched.estoque || 0) + produto.quantidade;
+                            batch.update(itemRef, { estoque: newStock });
+                            stockUpdates++;
                         }
                     }
+                    if (stockUpdates > 0) {
+                        await batch.commit();
+                        toast({ title: 'Estoque Atualizado', description: `${stockUpdates} item(ns) da bomboniere tiveram o estoque atualizado.` });
+                    }
                 }
-            } catch (error: any) {
-                console.error("Erro ao analisar a imagem da câmera:", error);
-                toast({ variant: 'destructive', title: 'Erro de Análise', description: error.message || 'Não foi possível extrair os itens da imagem.' });
-            } finally {
-                setIsParsingRomaneio(false);
             }
-        } else {
-             setIsCameraSheetOpen(false);
+        } catch (error: any) {
+            console.error("Erro ao analisar a imagem da câmera:", error);
+            const errorMessage = error.message.includes('429')
+                ? "Limite de IA atingido e tentativas esgotadas."
+                : (error.message || 'Não foi possível extrair os itens da imagem.');
+            toast({ variant: 'destructive', title: 'Erro de Análise', description: errorMessage });
+        } finally {
+            setIsParsingRomaneio(false);
         }
     };
 
@@ -480,14 +447,14 @@ export default function MercadoriasPanel() {
         if (!files || files.length === 0 || isParsingRomaneio) return;
     
         setIsParsingRomaneio(true);
-        toast({ title: "Processamento em Lote...", description: `A processar ${files.length} imagem(ns).` });
+        toast({ title: "Processamento em Lote...", description: `A processar ${files.length} imagem(ns). Este processo pode demorar vários minutos.`, duration: (files.length + 1) * 60000 });
     
         let totalItemsAdded = 0;
+        let hasAnySuccess = false;
 
         for (const [index, file] of Array.from(files).entries()) {
+            toast({ title: `A processar imagem ${index + 1} de ${files.length}...`, description: file.name, duration: 120000 });
             try {
-                toast({ title: `A processar imagem ${index + 1} de ${files.length}`, description: file.name });
-                
                 const dataUri = await new Promise<string>((resolve, reject) => {
                     const reader = new FileReader();
                     reader.readAsDataURL(file);
@@ -496,11 +463,10 @@ export default function MercadoriasPanel() {
                 });
     
                 const compressedUri = await compressImage(dataUri, 0.85);
-                const items = await parseRomaneioWithRetry(compressedUri);
+                const { items } = await parseRomaneio({ romaneioPhoto: compressedUri });
     
-                if (items.length === 0) {
-                    toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: `A IA não conseguiu extrair itens da imagem: ${file.name}` });
-                } else {
+                if (items.length > 0) {
+                    hasAnySuccess = true;
                     const newProdutos: LancamentoProduto[] = items.map(item => {
                         const valorTotal = item.valorTotal;
                         const quantidade = item.quantidade > 0 ? item.quantidade : 1;
@@ -508,26 +474,22 @@ export default function MercadoriasPanel() {
                         return {
                             id: Date.now() + Math.random(),
                             produtoNome: item.produtoNome,
-                            quantidade,
-                            precoUnitario,
-                            preco: valorTotal,
+                            quantidade, precoUnitario, preco: valorTotal
                         };
                     });
     
                     totalItemsAdded += newProdutos.length;
                     setProdutosLancados(prev => [...prev, ...newProdutos]);
-                    toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos de ${file.name}.` });
-                    
-                    if (firestore && bomboniereItems && bomboniereItems.length > 0) {
-                        const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
+    
+                    if (firestore && bomboniereItems?.length) {
                         const batch = writeBatch(firestore);
                         let stockUpdatesCount = 0;
-                        for (const item of newProdutos) {
-                            const matchedItem = findBestBomboniereMatch(item.produtoNome, bomboniereItems);
+                        for (const produto of newProdutos) {
+                            const matchedItem = findBestBomboniereMatch(produto.produtoNome, bomboniereItems);
                             if (matchedItem) {
-                                const docRef = doc(bomboniereCollectionRef, matchedItem.id);
+                                const docRef = doc(firestore, 'bomboniere_items', matchedItem.id);
                                 const currentStock = bomboniereItems.find(bi => bi.id === matchedItem.id)?.estoque ?? 0;
-                                const newStock = currentStock + item.quantidade;
+                                const newStock = currentStock + produto.quantidade;
                                 batch.update(docRef, { estoque: newStock });
                                 stockUpdatesCount++;
                             }
@@ -535,16 +497,18 @@ export default function MercadoriasPanel() {
                         if (stockUpdatesCount > 0) {
                             await batch.commit();
                             toast({
-                                title: 'Estoque Atualizado',
-                                description: `${stockUpdatesCount} iten(s) da bomboniere tiveram seu estoque atualizado.`
+                                title: `Estoque Atualizado (${file.name})`,
+                                description: `${stockUpdatesCount} item(ns) da bomboniere tiveram o estoque atualizado.`
                             });
                         }
                     }
                 }
             } catch (error: any) {
                 console.error(`Error processing image ${file.name}:`, error);
-                const errorMessage = error.message || `Não foi possível processar: ${file.name}`;
-                toast({ variant: 'destructive', title: `Erro na Imagem ${index + 1}`, description: errorMessage });
+                const errorMessage = error.message.includes('429')
+                    ? "Limite de IA atingido e tentativas esgotadas."
+                    : (error.message || `Não foi possível processar: ${file.name}`);
+                toast({ variant: 'destructive', title: `Erro na Imagem ${index + 1}`, description: errorMessage, duration: 10000 });
             }
         }
         
@@ -553,10 +517,10 @@ export default function MercadoriasPanel() {
             fileInputRef.current.value = '';
         }
         
-        if (totalItemsAdded > 0) {
-            toast({ title: "Processamento em lote finalizado.", description: `${totalItemsAdded} ite${totalItemsAdded > 1 ? 'ns' : 'm'} adicionado${totalItemsAdded > 1 ? 's' : ''} no total.` });
+        if (hasAnySuccess) {
+            toast({ title: "Processamento finalizado.", description: `${totalItemsAdded} item(ns) adicionado(s).` });
         } else {
-             toast({ variant: "destructive", title: "Processamento finalizado sem sucesso.", description: "Nenhum item foi adicionado. Verifique os erros e tente novamente." });
+             toast({ variant: "destructive", title: "Processamento finalizado sem sucesso.", description: "Nenhum item foi extraído. Verifique os erros e tente novamente." });
         }
     };
 
