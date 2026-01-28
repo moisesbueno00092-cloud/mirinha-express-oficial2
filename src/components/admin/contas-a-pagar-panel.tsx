@@ -34,6 +34,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -78,65 +84,74 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest, t
     }
 
     return (
-        <div className="rounded-md border mt-4">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Fornecedor/Descrição</TableHead>
-                        <TableHead>Vencimento</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {contas.map((conta) => {
-                        const status = getStatus(conta);
-                        const fornecedor = fornecedorMap.get(conta.fornecedorId || '');
-                        return (
-                            <TableRow key={conta.id} className={cn(status.isUrgent && 'bg-destructive/10')}>
-                                <TableCell>
-                                    <div className="font-medium" style={{ color: fornecedor?.color || 'inherit' }}>
-                                        {fornecedor?.nome || 'N/A'}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground">{conta.descricao}</div>
-                                </TableCell>
-                                <TableCell className={cn(status.isUrgent && 'font-semibold text-foreground')}>{formatDate(conta.dataVencimento)}</TableCell>
-                                <TableCell>
-                                    <Badge variant={conta.estaPaga ? 'default' : 'secondary'} className={cn('pointer-events-none', status.className)}>
-                                        {status.text}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-right font-mono font-semibold">{formatCurrency(conta.valor)}</TableCell>
-                                <TableCell className="text-right">
-                                     <div className="flex items-center justify-end gap-1">
-                                        {conta.romaneioId && (
-                                            <Button variant="ghost" size="icon" onClick={() => onViewRomaneio(conta)}>
-                                                <FileText className="h-4 w-4 text-muted-foreground hover:text-primary" />
+        <TooltipProvider>
+            <div className="rounded-md border mt-4">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Fornecedor/Descrição</TableHead>
+                            <TableHead>Vencimento</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Valor</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {contas.map((conta) => {
+                            const status = getStatus(conta);
+                            const fornecedor = fornecedorMap.get(conta.fornecedorId || '');
+                            return (
+                                <TableRow key={conta.id} className={cn(status.isUrgent && 'bg-destructive/10')}>
+                                    <TableCell>
+                                        <div className="font-medium" style={{ color: fornecedor?.color || 'inherit' }}>
+                                            {fornecedor?.nome || 'N/A'}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">{conta.descricao}</div>
+                                    </TableCell>
+                                    <TableCell className={cn(status.isUrgent && 'font-semibold text-foreground')}>{formatDate(conta.dataVencimento)}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={conta.estaPaga ? 'default' : 'secondary'} className={cn('pointer-events-none', status.className)}>
+                                            {status.text}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono font-semibold">{formatCurrency(conta.valor)}</TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                            {conta.romaneioId && (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button variant="ghost" size="icon" onClick={() => onViewRomaneio(conta)}>
+                                                            <FileText className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Ver itens do romaneio</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            )}
+                                            <Switch
+                                                checked={conta.estaPaga}
+                                                onCheckedChange={(isPaga) => onStatusChange(conta, isPaga)}
+                                                aria-label="Marcar como paga"
+                                            />
+                                            <Button variant="ghost" size="icon" onClick={() => onDeleteRequest(conta)}>
+                                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                                             </Button>
-                                        )}
-                                        <Switch
-                                            checked={conta.estaPaga}
-                                            onCheckedChange={(isPaga) => onStatusChange(conta, isPaga)}
-                                            aria-label="Marcar como paga"
-                                        />
-                                        <Button variant="ghost" size="icon" onClick={() => onDeleteRequest(conta)}>
-                                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        );
-                    })}
-                </TableBody>
-                <TableFooter>
-                    <TableRow>
-                        <TableCell colSpan={3} className="font-semibold">Total em Aberto no Período</TableCell>
-                        <TableCell className="text-right font-bold text-lg text-destructive" colSpan={2}>{formatCurrency(totalPeriodo)}</TableCell>
-                    </TableRow>
-                </TableFooter>
-            </Table>
-        </div>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                    <TableFooter>
+                        <TableRow>
+                            <TableCell colSpan={3} className="font-semibold">Total em Aberto no Período</TableCell>
+                            <TableCell className="text-right font-bold text-lg text-destructive" colSpan={2}>{formatCurrency(totalPeriodo)}</TableCell>
+                        </TableRow>
+                    </TableFooter>
+                </Table>
+            </div>
+        </TooltipProvider>
     );
 }
 
