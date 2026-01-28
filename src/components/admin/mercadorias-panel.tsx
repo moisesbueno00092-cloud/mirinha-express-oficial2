@@ -443,28 +443,44 @@ export default function MercadoriasPanel() {
     };
 
     const handleRomaneioUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (!isParsingRomaneio) {
+            setIsParsingRomaneio(true);
+        } else {
+            return;
+        }
+
         const files = event.target.files;
-        if (!files || files.length === 0 || isParsingRomaneio) return;
-    
-        setIsParsingRomaneio(true);
-        toast({ title: "Processamento em Lote...", description: `A processar ${files.length} imagem(ns). Este processo pode demorar vários minutos.`, duration: (files.length + 1) * 60000 });
-    
+        if (!files || files.length === 0) {
+            setIsParsingRomaneio(false);
+            return;
+        }
+
+        toast({
+            title: "Processamento em Lote...",
+            description: `A processar ${files.length} imagem(ns). Isto pode demorar vários minutos.`,
+            duration: (files.length + 1) * 60000
+        });
+
         let totalItemsAdded = 0;
         let hasAnySuccess = false;
 
         for (const [index, file] of Array.from(files).entries()) {
-            toast({ title: `A processar imagem ${index + 1} de ${files.length}...`, description: file.name, duration: 120000 });
+            toast({
+                title: `A processar imagem ${index + 1} de ${files.length}...`,
+                description: file.name,
+                duration: 120000
+            });
             try {
                 const dataUri = await new Promise<string>((resolve, reject) => {
                     const reader = new FileReader();
                     reader.readAsDataURL(file);
                     reader.onload = () => resolve(reader.result as string);
-                    reader.onerror = (error) => reject(error);
+                    reader.onerror = error => reject(error);
                 });
-    
+
                 const compressedUri = await compressImage(dataUri, 0.85);
                 const { items } = await parseRomaneio({ romaneioPhoto: compressedUri });
-    
+
                 if (items.length > 0) {
                     hasAnySuccess = true;
                     const newProdutos: LancamentoProduto[] = items.map(item => {
@@ -474,15 +490,17 @@ export default function MercadoriasPanel() {
                         return {
                             id: Date.now() + Math.random(),
                             produtoNome: item.produtoNome,
-                            quantidade, precoUnitario, preco: valorTotal
+                            quantidade,
+                            precoUnitario,
+                            preco: valorTotal
                         };
                     });
-    
+
                     totalItemsAdded += newProdutos.length;
                     setProdutosLancados(prev => [...prev, ...newProdutos]);
-    
+
                     if (firestore && bomboniereItems?.length) {
-                        const batch = writeBatch(firestore);
+                        const stockBatch = writeBatch(firestore);
                         let stockUpdatesCount = 0;
                         for (const produto of newProdutos) {
                             const matchedItem = findBestBomboniereMatch(produto.produtoNome, bomboniereItems);
@@ -490,12 +508,12 @@ export default function MercadoriasPanel() {
                                 const docRef = doc(firestore, 'bomboniere_items', matchedItem.id);
                                 const currentStock = bomboniereItems.find(bi => bi.id === matchedItem.id)?.estoque ?? 0;
                                 const newStock = currentStock + produto.quantidade;
-                                batch.update(docRef, { estoque: newStock });
+                                stockBatch.update(docRef, { estoque: newStock });
                                 stockUpdatesCount++;
                             }
                         }
                         if (stockUpdatesCount > 0) {
-                            await batch.commit();
+                            await stockBatch.commit();
                             toast({
                                 title: `Estoque Atualizado (${file.name})`,
                                 description: `${stockUpdatesCount} item(ns) da bomboniere tiveram o estoque atualizado.`
@@ -504,24 +522,40 @@ export default function MercadoriasPanel() {
                     }
                 }
             } catch (error: any) {
-                console.error(`Error processing image ${file.name}:`, error);
                 const errorMessage = error.message.includes('429')
                     ? "Limite de IA atingido e tentativas esgotadas."
                     : (error.message || `Não foi possível processar: ${file.name}`);
-                toast({ variant: 'destructive', title: `Erro na Imagem ${index + 1}`, description: errorMessage, duration: 10000 });
+                toast({
+                    variant: 'destructive',
+                    title: `Erro na Imagem ${index + 1}`,
+                    description: errorMessage,
+                    duration: 10000
+                });
+            } finally {
+                // This ensures a delay even after errors
+                if (index < files.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 61000));
+                }
             }
         }
-        
-        setIsParsingRomaneio(false);
+
         if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+            fileInputRef.current.value = "";
         }
         
         if (hasAnySuccess) {
-            toast({ title: "Processamento finalizado.", description: `${totalItemsAdded} item(ns) adicionado(s).` });
+            toast({
+                title: "Processamento Finalizado",
+                description: `${totalItemsAdded} item(ns) adicionado(s) no total.`,
+            });
         } else {
-             toast({ variant: "destructive", title: "Processamento finalizado sem sucesso.", description: "Nenhum item foi extraído. Verifique os erros e tente novamente." });
+             toast({
+                variant: "destructive",
+                title: "Processamento Finalizado Sem Sucesso",
+                description: "Nenhum item foi extraído. Verifique os erros e tente novamente.",
+            });
         }
+        setIsParsingRomaneio(false);
     };
 
     const handleRegisterEntry = async () => {
@@ -531,6 +565,7 @@ export default function MercadoriasPanel() {
         }
         setIsSubmitting(true);
         
+        const romaneioId = doc(collection(firestore, '_')).id;
         const finalFornecedorId = fornecedorId || 'extra_expenses_provider';
 
         try {
@@ -552,6 +587,7 @@ export default function MercadoriasPanel() {
                     valor: valorParcela,
                     dataVencimento: formatDateFn(vencimentoParcela, 'yyyy-MM-dd'),
                     estaPaga: estaPaga,
+                    romaneioId: romaneioId,
                 };
                 const contaDocRef = doc(collection(firestore, 'contas_a_pagar'));
                 batch.set(contaDocRef, novaConta);
@@ -566,6 +602,7 @@ export default function MercadoriasPanel() {
                     precoUnitario: produto.precoUnitario,
                     valorTotal: produto.preco,
                     estaPaga: estaPaga,
+                    romaneioId: romaneioId,
                 };
                 const entradaDocRef = doc(collection(firestore, 'entradas_mercadorias'));
                 batch.set(entradaDocRef, novaEntrada);

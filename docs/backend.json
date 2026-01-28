@@ -114,7 +114,8 @@
             "descricao": { "type": "string" },
             "valor": { "type": "number" },
             "dataVencimento": { "type": "string", "format": "date" },
-            "estaPaga": { "type": "boolean" }
+            "estaPaga": { "type": "boolean" },
+            "romaneioId": { "type": "string", "description": "ID to link with associated 'EntradaMercadoria' records." }
         },
         "required": ["fornecedorId", "descricao", "valor", "dataVencimento", "estaPaga"]
     },
@@ -129,7 +130,8 @@
             "quantidade": { "type": "number" },
             "precoUnitario": { "type": "number" },
             "valorTotal": { "type": "number" },
-            "estaPaga": { "type": "boolean" }
+            "estaPaga": { "type": "boolean" },
+            "romaneioId": { "type": "string", "description": "ID to group entries from the same delivery note." }
         },
         "required": ["produtoNome", "fornecedorId", "data", "quantidade", "precoUnitario", "valorTotal"]
     },

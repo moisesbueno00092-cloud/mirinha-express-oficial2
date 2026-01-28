@@ -3,12 +3,12 @@
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, deleteDoc, where, getDocs } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, isPast, isToday, isWithinInterval, parseISO, startOfWeek, endOfWeek, endOfMonth, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { ContaAPagar, Fornecedor } from '@/types';
+import type { ContaAPagar, Fornecedor, EntradaMercadoria } from '@/types';
 
 import {
   Table,
@@ -22,7 +22,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, FileText } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -64,12 +65,13 @@ const getStatus = (conta: ContaAPagar): { text: string; className: string; isUrg
 };
 
 
-const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest, totalPeriodo }: {
+const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest, totalPeriodo, onViewRomaneio }: {
     contas: ContaAPagar[],
     fornecedorMap: Map<string, Fornecedor>,
     onStatusChange: (conta: ContaAPagar, isPaga: boolean) => void,
     onDeleteRequest: (conta: ContaAPagar) => void,
-    totalPeriodo: number
+    totalPeriodo: number,
+    onViewRomaneio: (conta: ContaAPagar) => void,
 }) => {
     if (contas.length === 0) {
         return <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma conta encontrada para os filtros selecionados.</p>;
@@ -108,6 +110,11 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest, t
                                 <TableCell className="text-right font-mono font-semibold">{formatCurrency(conta.valor)}</TableCell>
                                 <TableCell className="text-right">
                                      <div className="flex items-center justify-end gap-1">
+                                        {conta.romaneioId && (
+                                            <Button variant="ghost" size="icon" onClick={() => onViewRomaneio(conta)}>
+                                                <FileText className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                            </Button>
+                                        )}
                                         <Switch
                                             checked={conta.estaPaga}
                                             onCheckedChange={(isPaga) => onStatusChange(conta, isPaga)}
@@ -141,6 +148,9 @@ export default function ContasAPagarPanel() {
     
     const [contaToDelete, setContaToDelete] = useState<ContaAPagar | null>(null);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+    const [isRomaneioModalOpen, setIsRomaneioModalOpen] = useState(false);
+    const [selectedRomaneio, setSelectedRomaneio] = useState<{ conta: ContaAPagar, items: EntradaMercadoria[] } | null>(null);
+    const [isLoadingRomaneio, setIsLoadingRomaneio] = useState(false);
 
     const contasQuery = useMemo(
         () => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null,
@@ -222,6 +232,26 @@ export default function ContasAPagarPanel() {
         return filteredContasAPagar.reduce((acc, conta) => acc + conta.valor, 0);
     }, [filteredContasAPagar]);
 
+    const handleViewRomaneio = async (conta: ContaAPagar) => {
+        if (!firestore || !conta.romaneioId) return;
+
+        setIsLoadingRomaneio(true);
+        setIsRomaneioModalOpen(true);
+        setSelectedRomaneio(null);
+
+        try {
+            const q = query(collection(firestore, 'entradas_mercadorias'), where('romaneioId', '==', conta.romaneioId));
+            const querySnapshot = await getDocs(q);
+            const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as EntradaMercadoria));
+            setSelectedRomaneio({ conta, items });
+        } catch (error) {
+            console.error("Error fetching romaneio items: ", error);
+            toast({ variant: 'destructive', title: "Erro", description: "Não foi possível carregar os itens do romaneio." });
+            setIsRomaneioModalOpen(false);
+        } finally {
+            setIsLoadingRomaneio(false);
+        }
+    };
 
     const handleStatusChange = async (conta: ContaAPagar, isPaga: boolean) => {
         if (!firestore) return;
@@ -276,6 +306,51 @@ export default function ContasAPagarPanel() {
                 </AlertDialogContent>
             </AlertDialog>
             
+            <Dialog open={isRomaneioModalOpen} onOpenChange={setIsRomaneioModalOpen}>
+                <DialogContent className="max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>Itens do Romaneio</DialogTitle>
+                        <DialogDescription>
+                            {selectedRomaneio?.conta.descricao}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {isLoadingRomaneio ? (
+                        <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                    ) : selectedRomaneio && selectedRomaneio.items.length > 0 ? (
+                        <div className="rounded-md border my-4">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Produto</TableHead>
+                                        <TableHead>Qtd.</TableHead>
+                                        <TableHead className="text-right">Preço Unit.</TableHead>
+                                        <TableHead className="text-right">Total</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {selectedRomaneio.items.map(item => (
+                                        <TableRow key={item.id}>
+                                            <TableCell className="font-medium">{item.produtoNome}</TableCell>
+                                            <TableCell>{item.quantidade}</TableCell>
+                                            <TableCell className="text-right font-mono">{formatCurrency(item.precoUnitario)}</TableCell>
+                                            <TableCell className="text-right font-mono font-semibold">{formatCurrency(item.valorTotal)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                                <TableFooter>
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="font-semibold">Valor Total da Nota</TableCell>
+                                        <TableCell className="text-right font-bold text-lg text-primary">{formatCurrency(selectedRomaneio.items.reduce((acc, i) => acc + i.valorTotal, 0))}</TableCell>
+                                    </TableRow>
+                                </TableFooter>
+                            </Table>
+                        </div>
+                    ) : (
+                        <p className="p-8 text-center text-sm text-muted-foreground">Nenhum item encontrado para este romaneio.</p>
+                    )}
+                </DialogContent>
+            </Dialog>
+
             <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
                     <FilterButton filter="all" label="Todas em Aberto" count={0} />
@@ -293,6 +368,7 @@ export default function ContasAPagarPanel() {
                         onStatusChange={handleStatusChange} 
                         onDeleteRequest={handleDeleteRequest}
                         totalPeriodo={totalPeriodo}
+                        onViewRomaneio={handleViewRomaneio}
                     />
                 )}
             </div>

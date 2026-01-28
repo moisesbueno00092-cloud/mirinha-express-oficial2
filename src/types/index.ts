@@ -102,6 +102,7 @@ export interface ContaAPagar {
   valor: number;
   dataVencimento: string; // YYYY-MM-DD
   estaPaga: boolean;
+  romaneioId?: string;
 }
 
 export interface EntradaMercadoria {
@@ -113,6 +114,7 @@ export interface EntradaMercadoria {
   precoUnitario: number;
   valorTotal: number;
   estaPaga?: boolean;
+  romaneioId?: string;
 }
 
 export interface Funcionario {
