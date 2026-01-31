@@ -573,7 +573,7 @@ function ReportsPageContent() {
                             return (
                                 <AccordionItem value={report.id} key={report.id} className="border-b-0">
                                     <div className="flex items-center rounded-lg border bg-card data-[state=open]:rounded-b-none data-[state=open]:border-b-0 hover:bg-accent/50 transition-colors">
-                                        <AccordionTrigger className="p-4 flex-grow hover:no-underline text-left">
+                                        <AccordionTrigger className="p-4 grow hover:no-underline text-left">
                                             <div className="flex items-center justify-between w-full">
                                                 <div className="flex items-center gap-4">
                                                     <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
