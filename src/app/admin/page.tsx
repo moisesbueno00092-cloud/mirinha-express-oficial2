@@ -92,7 +92,7 @@ function AdminPageContent() {
 
         <main>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 h-auto">
+            <TabsList className="grid w-full grid-cols-3 h-auto">
               <TabsTrigger value="mercadorias" className="flex flex-col sm:flex-row gap-2 py-2">
                 <Box className="h-5 w-5" />
                 <span>Mercadorias</span>
@@ -100,10 +100,6 @@ function AdminPageContent() {
               <TabsTrigger value="financeiro" className="flex flex-col sm:flex-row gap-2 py-2">
                 <HandCoins className="h-5 w-5" />
                 <span>Financeiro</span>
-              </TabsTrigger>
-              <TabsTrigger value="historico" className="flex flex-col sm:flex-row gap-2 py-2">
-                <History className="h-5 w-5" />
-                <span>Histórico</span>
               </TabsTrigger>
                <TabsTrigger 
                   value="rh" 
@@ -130,18 +126,16 @@ function AdminPageContent() {
               <Card>
                 <CardHeader>
                   <CardTitle>Contas a Pagar</CardTitle>
-                  <CardDescription>Controle as suas contas pendentes e pagamentos.</CardDescription>
+                  <CardDescription>Controle as suas contas pendentes e pagamentos. Clique no ícone de documento para ver o romaneio.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ContasAPagarPanel />
                 </CardContent>
               </Card>
-            </TabsContent>
-            <TabsContent value="historico">
               <Card>
                 <CardHeader>
-                  <CardTitle>Histórico Financeiro</CardTitle>
-                  <CardDescription>Consulte relatórios de despesas, compras e histórico de preços.</CardDescription>
+                  <CardTitle>Histórico e Edição de Compras</CardTitle>
+                  <CardDescription>Consulte o histórico detalhado, edite ou apague entradas de mercadorias já pagas.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <HistoricoFinanceiroPanel />

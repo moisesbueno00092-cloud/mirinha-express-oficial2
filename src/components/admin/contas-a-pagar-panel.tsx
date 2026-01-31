@@ -40,6 +40,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -326,7 +327,7 @@ export default function ContasAPagarPanel() {
                     {isLoadingRomaneio ? (
                         <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
                     ) : selectedRomaneio && selectedRomaneio.items.length > 0 ? (
-                        <div className="rounded-md border my-4">
+                        <ScrollArea className="rounded-md border my-4 max-h-96">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -353,7 +354,7 @@ export default function ContasAPagarPanel() {
                                     </TableRow>
                                 </TableFooter>
                             </Table>
-                        </div>
+                        </ScrollArea>
                     ) : (
                         <p className="p-8 text-center text-sm text-muted-foreground">Nenhum item encontrado para este romaneio.</p>
                     )}
