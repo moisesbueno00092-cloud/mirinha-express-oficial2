@@ -124,7 +124,7 @@ function AdminPageContent() {
               </Card>
             </TabsContent>
             <TabsContent value="financeiro" className="space-y-4 pt-4">
-              <Accordion type="multiple" collapsible className="w-full space-y-4">
+              <Accordion type="multiple" className="w-full space-y-4">
                  <AccordionItem value="fechamento-caixa">
                     <Card>
                       <AccordionTrigger className="flex w-full items-center justify-between p-6 text-lg font-semibold hover:no-underline">
