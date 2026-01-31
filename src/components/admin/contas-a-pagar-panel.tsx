@@ -3,12 +3,12 @@
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, deleteDoc, where, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, deleteDoc, where, getDocs, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, isPast, isToday, isWithinInterval, parseISO, startOfWeek, endOfWeek, endOfMonth, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { ContaAPagar, Fornecedor, EntradaMercadoria } from '@/types';
+import type { ContaAPagar, Fornecedor, EntradaMercadoria, BomboniereItem } from '@/types';
 
 import {
   Table,
@@ -22,7 +22,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Loader2, Trash2, FileText } from 'lucide-react';
+import { Loader2, Trash2, FileText, Save } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import {
     Tooltip,
     TooltipContent,
@@ -41,6 +41,8 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -70,6 +72,30 @@ const getStatus = (conta: ContaAPagar): { text: string; className: string; isUrg
     }
     return { text: 'Em Aberto', className: 'bg-muted-foreground/50' };
 };
+
+const findBestBomboniereMatch = (productName: string, bomboniereItems: BomboniereItem[]): BomboniereItem | undefined => {
+    if (!productName || !bomboniereItems) return undefined;
+
+    const lowerProductName = productName.toLowerCase();
+    let bestMatch: BomboniereItem | undefined = undefined;
+    let longestMatchLength = 0;
+
+    for (const bomboniereItem of bomboniereItems) {
+        const baseBomboniereName = bomboniereItem.name.toLowerCase().replace(/\s*\(.*\)\s*/, '').trim();
+
+        if (!baseBomboniereName) continue;
+        
+        if (lowerProductName.startsWith(baseBomboniereName)) {
+            if (baseBomboniereName.length > longestMatchLength) {
+                bestMatch = bomboniereItem;
+                longestMatchLength = baseBomboniereName.length;
+            }
+        }
+    }
+
+    return bestMatch;
+};
+
 
 type FilterType = 'all' | 'vencidas' | 'hoje' | 'semana' | 'mes' | 'pagas';
 
@@ -129,7 +155,7 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest, t
                                                         </Button>
                                                     </TooltipTrigger>
                                                     <TooltipContent>
-                                                        <p>Ver itens do romaneio</p>
+                                                        <p>Ver/editar itens do romaneio</p>
                                                     </TooltipContent>
                                                 </Tooltip>
                                             )}
@@ -165,23 +191,24 @@ export default function ContasAPagarPanel() {
     
     const [contaToDelete, setContaToDelete] = useState<ContaAPagar | null>(null);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+
     const [isRomaneioModalOpen, setIsRomaneioModalOpen] = useState(false);
     const [selectedRomaneio, setSelectedRomaneio] = useState<{ conta: ContaAPagar, items: EntradaMercadoria[] } | null>(null);
     const [isLoadingRomaneio, setIsLoadingRomaneio] = useState(false);
 
-    const contasQuery = useMemo(
-        () => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null,
-        [firestore]
-    );
-    const fornecedoresQuery = useMemo(
-        () => firestore ? query(collection(firestore, 'fornecedores')) : null,
-        [firestore]
-    );
+    const [editedRomaneioItems, setEditedRomaneioItems] = useState<EntradaMercadoria[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isEditConfirmOpen, setIsEditConfirmOpen] = useState(false);
+
+    const contasQuery = useMemo(() => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null, [firestore]);
+    const fornecedoresQuery = useMemo(() => firestore ? query(collection(firestore, 'fornecedores')) : null, [firestore]);
+    const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
 
     const { data: allContas, isLoading: isLoadingContas } = useCollection<ContaAPagar>(contasQuery);
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
+    const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
-    const isLoading = isLoadingContas || isLoadingFornecedores;
+    const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingBomboniere;
 
     const fornecedorMap = useMemo(() => {
         if (!fornecedores) return new Map<string, Fornecedor>();
@@ -248,18 +275,96 @@ export default function ContasAPagarPanel() {
         setIsLoadingRomaneio(true);
         setIsRomaneioModalOpen(true);
         setSelectedRomaneio(null);
+        setEditedRomaneioItems([]);
 
         try {
             const q = query(collection(firestore, 'entradas_mercadorias'), where('romaneioId', '==', conta.romaneioId));
             const querySnapshot = await getDocs(q);
             const items = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as EntradaMercadoria));
             setSelectedRomaneio({ conta, items });
+            setEditedRomaneioItems(JSON.parse(JSON.stringify(items))); // Deep copy for editing
         } catch (error) {
             console.error("Error fetching romaneio items: ", error);
             toast({ variant: 'destructive', title: "Erro", description: "Não foi possível carregar os itens do romaneio." });
             setIsRomaneioModalOpen(false);
         } finally {
             setIsLoadingRomaneio(false);
+        }
+    };
+    
+    const handleItemChange = (itemId: string, field: keyof EntradaMercadoria, value: string) => {
+        setEditedRomaneioItems(prev => {
+            return prev.map(item => {
+                if (item.id === itemId) {
+                    const newItem = { ...item, [field]: value };
+                    if (field === 'quantidade' || field === 'precoUnitario') {
+                        const qty = parseFloat(String(newItem.quantidade || '0').replace(',', '.'));
+                        const price = parseFloat(String(newItem.precoUnitario || '0').replace(',', '.'));
+                        if (!isNaN(qty) && !isNaN(price)) {
+                            newItem.valorTotal = qty * price;
+                        }
+                    }
+                    return newItem;
+                }
+                return item;
+            });
+        });
+    };
+    
+    const confirmSaveRomaneio = async () => {
+        if (!firestore || !editedRomaneioItems || !selectedRomaneio || !bomboniereItems) return;
+
+        setIsSaving(true);
+        setIsEditConfirmOpen(false);
+        
+        try {
+            const batch = writeBatch(firestore);
+
+            for (const editedItem of editedRomaneioItems) {
+                const originalItem = selectedRomaneio.items.find(i => i.id === editedItem.id);
+                if (!originalItem) continue;
+
+                const hasChanged = originalItem.produtoNome !== editedItem.produtoNome ||
+                                 Number(originalItem.quantidade) !== Number(editedItem.quantidade) ||
+                                 Number(originalItem.precoUnitario) !== Number(editedItem.precoUnitario);
+
+                if (hasChanged) {
+                    const entradaDocRef = doc(firestore, 'entradas_mercadorias', editedItem.id);
+
+                    const newEntrada: Partial<EntradaMercadoria> = {
+                        produtoNome: editedItem.produtoNome,
+                        quantidade: Number(String(editedItem.quantidade).replace(',', '.')) || 0,
+                        precoUnitario: Number(String(editedItem.precoUnitario).replace(',', '.')) || 0,
+                    };
+                    newEntrada.valorTotal = newEntrada.quantidade! * newEntrada.precoUnitario!;
+                    
+                    const oldMatched = findBestBomboniereMatch(originalItem.produtoNome, bomboniereItems);
+                    const newMatched = findBestBomboniereMatch(newEntrada.produtoNome!, bomboniereItems);
+
+                    if (oldMatched && oldMatched.id !== newMatched?.id) {
+                        const bomboniereDocRef = doc(firestore, 'bomboniere_items', oldMatched.id);
+                        const currentStock = bomboniereItems.find(bi => bi.id === oldMatched.id)?.estoque ?? 0;
+                        batch.update(bomboniereDocRef, { estoque: currentStock - originalItem.quantidade });
+                    }
+                    if (newMatched) {
+                        const bomboniereDocRef = doc(firestore, 'bomboniere_items', newMatched.id);
+                        const currentStock = bomboniereItems.find(bi => bi.id === newMatched.id)?.estoque ?? 0;
+                        const quantityDiff = oldMatched?.id === newMatched.id ? (newEntrada.quantidade! - originalItem.quantidade) : newEntrada.quantidade!;
+                        batch.update(bomboniereDocRef, { estoque: currentStock + quantityDiff });
+                    }
+
+                    batch.update(entradaDocRef, newEntrada);
+                }
+            }
+
+            await batch.commit();
+            toast({ title: 'Sucesso', description: 'Romaneio atualizado com sucesso.' });
+        } catch (error: any) {
+            console.error("Error saving romaneio", error);
+            toast({ variant: 'destructive', title: 'Erro', description: error.message });
+        } finally {
+            setIsSaving(false);
+            setIsRomaneioModalOpen(false);
         }
     };
 
@@ -286,6 +391,11 @@ export default function ContasAPagarPanel() {
         });
         setContaToDelete(null);
     };
+
+    const totalRomaneioEditado = useMemo(() => {
+        if (!editedRomaneioItems) return 0;
+        return editedRomaneioItems.reduce((acc, i) => acc + i.valorTotal, 0);
+    }, [editedRomaneioItems]);
     
     const FilterButton = ({ filter, label, count }: { filter: FilterType, label: string, count: number }) => (
         <Button
@@ -316,33 +426,55 @@ export default function ContasAPagarPanel() {
                 </AlertDialogContent>
             </AlertDialog>
             
+            <AlertDialog open={isEditConfirmOpen} onOpenChange={setIsEditConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmar Alterações?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                           A alteração deste romaneio <span className="font-bold">NÃO</span> irá atualizar o valor da Conta a Pagar associada.
+                           Esta ação serve apenas para correção de dados. Deseja continuar?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmSaveRomaneio}>Sim, Continuar</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
             <Dialog open={isRomaneioModalOpen} onOpenChange={setIsRomaneioModalOpen}>
-                <DialogContent className="max-w-xl">
+                <DialogContent className="max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Itens do Romaneio</DialogTitle>
                         <DialogDescription>
-                            {selectedRomaneio?.conta.descricao}
+                            {selectedRomaneio?.conta.descricao}. Faça as edições necessárias abaixo.
                         </DialogDescription>
                     </DialogHeader>
                     {isLoadingRomaneio ? (
                         <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-                    ) : selectedRomaneio && selectedRomaneio.items.length > 0 ? (
+                    ) : editedRomaneioItems && editedRomaneioItems.length > 0 ? (
                         <ScrollArea className="rounded-md border my-4 max-h-96">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Produto</TableHead>
+                                        <TableHead className="w-2/5">Produto</TableHead>
                                         <TableHead>Qtd.</TableHead>
                                         <TableHead className="text-right">Preço Unit.</TableHead>
                                         <TableHead className="text-right">Total</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {selectedRomaneio.items.map(item => (
+                                    {editedRomaneioItems.map(item => (
                                         <TableRow key={item.id}>
-                                            <TableCell className="font-medium">{item.produtoNome}</TableCell>
-                                            <TableCell>{item.quantidade}</TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(item.precoUnitario)}</TableCell>
+                                            <TableCell className="font-medium">
+                                                <Input value={item.produtoNome} onChange={(e) => handleItemChange(item.id, 'produtoNome', e.target.value)} className="h-8"/>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input value={String(item.quantidade).replace('.', ',')} onChange={(e) => handleItemChange(item.id, 'quantidade', e.target.value)} className="h-8"/>
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                <Input value={String(item.precoUnitario).replace('.', ',')} onChange={(e) => handleItemChange(item.id, 'precoUnitario', e.target.value)} className="h-8 text-right"/>
+                                            </TableCell>
                                             <TableCell className="text-right font-mono font-semibold">{formatCurrency(item.valorTotal)}</TableCell>
                                         </TableRow>
                                     ))}
@@ -350,7 +482,7 @@ export default function ContasAPagarPanel() {
                                 <TableFooter>
                                     <TableRow>
                                         <TableCell colSpan={3} className="font-semibold">Valor Total da Nota</TableCell>
-                                        <TableCell className="text-right font-bold text-lg text-primary">{formatCurrency(selectedRomaneio.items.reduce((acc, i) => acc + i.valorTotal, 0))}</TableCell>
+                                        <TableCell className="text-right font-bold text-lg text-primary">{formatCurrency(totalRomaneioEditado)}</TableCell>
                                     </TableRow>
                                 </TableFooter>
                             </Table>
@@ -358,6 +490,15 @@ export default function ContasAPagarPanel() {
                     ) : (
                         <p className="p-8 text-center text-sm text-muted-foreground">Nenhum item encontrado para este romaneio.</p>
                     )}
+                    <DialogFooter>
+                      <DialogClose asChild>
+                          <Button variant="outline">Cancelar</Button>
+                      </DialogClose>
+                      <Button onClick={() => setIsEditConfirmOpen(true)} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                        Salvar Alterações
+                      </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
@@ -387,6 +528,5 @@ export default function ContasAPagarPanel() {
         </div>
     );
 }
-
 
     
