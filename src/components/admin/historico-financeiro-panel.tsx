@@ -349,7 +349,8 @@ export default function HistoricoFinanceiroPanel() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [entradaToDelete, setEntradaToDelete] = useState<EntradaMercadoria | null>(null);
     const [entradaToEdit, setEntradaToEdit] = useState<EntradaMercadoria | null>(null);
-    const [editedProductName, setEditedProductName] = useState('');
+    const [editedEntradaData, setEditedEntradaData] = useState<Partial<EntradaMercadoria>>({});
+    const [isEditConfirmOpen, setIsEditConfirmOpen] = useState(false);
 
     const contasQuery = useMemo(() => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null, [firestore]);
     const fornecedoresQuery = useMemo(() => firestore ? query(collection(firestore, 'fornecedores')) : null, [firestore]);
@@ -365,7 +366,7 @@ export default function HistoricoFinanceiroPanel() {
 
     useEffect(() => {
         if (entradaToEdit) {
-            setEditedProductName(entradaToEdit.produtoNome);
+            setEditedEntradaData(entradaToEdit);
         }
     }, [entradaToEdit]);
 
@@ -487,21 +488,80 @@ export default function HistoricoFinanceiroPanel() {
             setIsProcessing(false);
         }
     };
+
+    const handleEditDataChange = (field: keyof EntradaMercadoria, value: string) => {
+        const newEditedData = { ...editedEntradaData, [field]: value };
     
-    const handleSaveEdit = async () => {
-        if (!firestore || !entradaToEdit || !editedProductName.trim()) return;
+        if (field === 'quantidade' || field === 'precoUnitario') {
+            const qty = parseFloat(String(newEditedData.quantidade || '0').replace(',', '.'));
+            const price = parseFloat(String(newEditedData.precoUnitario || '0').replace(',', '.'));
+            if (!isNaN(qty) && !isNaN(price)) {
+                newEditedData.valorTotal = qty * price;
+            }
+        }
+        setEditedEntradaData(newEditedData);
+    }
+    
+    const handleSaveEditRequest = () => {
+        if (!editedEntradaData.produtoNome?.trim() || !(Number(editedEntradaData.valorTotal) >= 0)) {
+            toast({
+                variant: 'destructive',
+                title: 'Dados Inválidos',
+                description: 'O nome do produto não pode ser vazio e os valores numéricos devem ser válidos.',
+            });
+            return;
+        }
+        setEntradaToEdit(null); 
+        setIsEditConfirmOpen(true);
+    }
+
+    const confirmSaveEdit = async () => {
+        if (!firestore || !entradaToEdit || !editedEntradaData || !bomboniereItems) return;
     
         setIsProcessing(true);
-        const docRef = doc(firestore, 'entradas_mercadorias', entradaToEdit.id);
+        setIsEditConfirmOpen(false);
     
         try {
-            await updateDoc(docRef, { produtoNome: editedProductName.trim() });
-            toast({ title: 'Sucesso', description: 'Nome do produto atualizado.' });
-            setEntradaToEdit(null);
+            const batch = writeBatch(firestore);
+            const entradaDocRef = doc(firestore, 'entradas_mercadorias', entradaToEdit.id);
+    
+            const oldEntrada = entradaToEdit;
+            const newEntrada: EntradaMercadoria = { ...oldEntrada, ...editedEntradaData as EntradaMercadoria };
+            
+            newEntrada.quantidade = Number(String(newEntrada.quantidade).replace(',', '.')) || 0;
+            newEntrada.precoUnitario = Number(String(newEntrada.precoUnitario).replace(',', '.')) || 0;
+            newEntrada.valorTotal = newEntrada.quantidade * newEntrada.precoUnitario;
+    
+            const oldMatched = findBestBomboniereMatch(oldEntrada.produtoNome, bomboniereItems);
+            const newMatched = findBestBomboniereMatch(newEntrada.produtoNome, bomboniereItems);
+    
+            if (oldMatched && oldMatched.id !== newMatched?.id) {
+                const bomboniereDocRef = doc(firestore, 'bomboniere_items', oldMatched.id);
+                const currentStock = bomboniereItems.find(bi => bi.id === oldMatched.id)?.estoque ?? 0;
+                batch.update(bomboniereDocRef, { estoque: currentStock - oldEntrada.quantidade });
+            }
+            if (newMatched) {
+                const bomboniereDocRef = doc(firestore, 'bomboniere_items', newMatched.id);
+                const currentStock = bomboniereItems.find(bi => bi.id === newMatched.id)?.estoque ?? 0;
+                const quantityDiff = oldMatched?.id === newMatched.id ? (newEntrada.quantidade - oldEntrada.quantidade) : newEntrada.quantidade;
+                batch.update(bomboniereDocRef, { estoque: currentStock + quantityDiff });
+            }
+    
+            batch.update(entradaDocRef, {
+                produtoNome: newEntrada.produtoNome,
+                quantidade: newEntrada.quantidade,
+                precoUnitario: newEntrada.precoUnitario,
+                valorTotal: newEntrada.valorTotal,
+            });
+    
+            await batch.commit();
+            toast({ title: 'Sucesso', description: 'Entrada de mercadoria atualizada.' });
         } catch (error: any) {
+            console.error("Error saving entrada", error);
             toast({ variant: 'destructive', title: 'Erro', description: error.message });
         } finally {
             setIsProcessing(false);
+            setEditedEntradaData({});
         }
     }
 
@@ -526,25 +586,65 @@ export default function HistoricoFinanceiroPanel() {
                 </AlertDialogContent>
             </AlertDialog>
             
-             <Dialog open={!!entradaToEdit} onOpenChange={(open) => !open && setEntradaToEdit(null)}>
+            <AlertDialog open={isEditConfirmOpen} onOpenChange={setIsEditConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmar Alteração?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                           A alteração desta entrada <span className="font-bold">NÃO</span> irá atualizar os registos financeiros (Contas a Pagar) associados.
+                           Esta ação serve apenas para correção de dados. A diferença de valores deverá ser gerida manualmente. Deseja continuar?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setEditedEntradaData({})}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmSaveEdit}>Sim, Continuar</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <Dialog open={!!entradaToEdit} onOpenChange={(open) => !open && setEntradaToEdit(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Editar Nome do Produto</DialogTitle>
+                        <DialogTitle>Editar Entrada de Mercadoria</DialogTitle>
                         <DialogDescription>
-                            Altere o nome do produto registado. Apenas o nome será modificado.
+                            Altere os detalhes do item registado. Lembre-se que isto não afeta as contas a pagar.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="py-4">
-                        <Label htmlFor="edit-product-name">Nome do Produto</Label>
-                        <Input 
-                            id="edit-product-name"
-                            value={editedProductName}
-                            onChange={(e) => setEditedProductName(e.target.value)}
-                        />
+                    <div className="py-4 space-y-4">
+                        <div className="space-y-1">
+                            <Label htmlFor="edit-product-name">Nome do Produto</Label>
+                            <Input
+                                id="edit-product-name"
+                                value={editedEntradaData.produtoNome || ''}
+                                onChange={(e) => handleEditDataChange('produtoNome', e.target.value)}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <Label htmlFor="edit-quantity">Quantidade</Label>
+                                <Input
+                                    id="edit-quantity"
+                                    value={String(editedEntradaData.quantidade || '').replace('.', ',')}
+                                    onChange={(e) => handleEditDataChange('quantidade', e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="edit-unit-price">Preço Unitário (R$)</Label>
+                                <Input
+                                    id="edit-unit-price"
+                                    value={String(editedEntradaData.precoUnitario || '').replace('.', ',')}
+                                    onChange={(e) => handleEditDataChange('precoUnitario', e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Valor Total Calculado</p>
+                            <p className="font-bold text-lg">{formatCurrency(editedEntradaData.valorTotal || 0)}</p>
+                        </div>
                     </div>
                     <DialogFooter>
                         <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-                        <Button onClick={handleSaveEdit} disabled={isProcessing}>
+                        <Button onClick={handleSaveEditRequest} disabled={isProcessing}>
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
                             Salvar
                         </Button>
