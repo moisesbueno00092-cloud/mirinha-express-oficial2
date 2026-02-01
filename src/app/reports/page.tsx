@@ -648,8 +648,16 @@ const GeneralReportSection = ({ reports, bomboniereItems }: { reports: DailyRepo
             {generalReport ? (
                  <Card>
                     <CardHeader>
-                        <CardTitle>Relatório Geral Acumulado</CardTitle>
-                        <CardDescription>Resumo de todas as vendas registadas na aplicação.</CardDescription>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <CardTitle>Relatório Geral Acumulado</CardTitle>
+                                <CardDescription>Resumo de todas as vendas registadas na aplicação.</CardDescription>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-sm text-muted-foreground">Total Acumulado</p>
+                                <p className="text-2xl font-bold text-primary">{formatCurrency(generalReport?.totalGeral)}</p>
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <ReportDetail report={generalReport} bomboniereItems={bomboniereItems} />
@@ -863,3 +871,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
