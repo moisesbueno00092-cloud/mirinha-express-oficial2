@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -41,6 +40,7 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
           selected={date}
           onSelect={setDate}
           initialFocus
+          locale={ptBR}
         />
       </PopoverContent>
     </Popover>
