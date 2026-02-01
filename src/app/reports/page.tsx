@@ -1,15 +1,29 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useFirestore, useCollection, useUser } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, setMonth, setYear, parseISO, isSameDay } from 'date-fns';
+import { 
+    format, 
+    parseISO, 
+    startOfWeek, 
+    endOfWeek, 
+    startOfMonth, 
+    endOfMonth, 
+    startOfYear, 
+    endOfYear, 
+    getWeek,
+    getYear,
+    getMonth,
+    setYear,
+    setMonth
+} from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Trash2, TrendingUp, Info, BarChart, Pencil } from 'lucide-react';
+import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -36,9 +50,7 @@ import {
 import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -69,7 +81,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null,
       );
     };
     
-    const separateItemsByCategory = useCallback((itemCount: ItemCount) => {
+    const separateItemsByCategory = (itemCount: ItemCount) => {
         const lanches: ItemCount = {};
         const bomboniere: ItemCount = {};
         if (!itemCount) return { lanches, bomboniere };
@@ -83,7 +95,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null,
             }
         }
         return { lanches, bomboniere };
-    }, [isBomboniere, bomboniereNameMap]);
+    };
     
     if (!report) {
          return null;
@@ -298,12 +310,12 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null,
       </div>
     </div>
   )
-}
+};
 
 const generateYearOptions = () => {
     const currentYear = new Date().getFullYear();
     const years = [];
-    for (let i = currentYear + 5; i >= currentYear - 5; i--) {
+    for (let i = currentYear; i >= currentYear - 5; i--) {
         years.push(i);
     }
     return years;
@@ -314,30 +326,360 @@ const monthOptions = Array.from({ length: 12 }, (_, i) => ({
     label: format(new Date(2000, i), 'MMMM', { locale: ptBR })
 }));
 
+const aggregateReports = (reports: DailyReport[]): DailyReport | null => {
+    if (!reports || reports.length === 0) return null;
+
+    const initial: DailyReport = {
+        id: String(reports.length),
+        reportDate: '', createdAt: '', userId: '',
+        totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
+        totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
+        totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
+        contagemTotal: {}, contagemRua: {},
+    };
+    
+    return reports.reduce((acc, report) => {
+        acc.totalGeral += report.totalGeral || 0;
+        acc.totalAVista += report.totalAVista || 0;
+        acc.totalFiado += report.totalFiado || 0;
+        acc.totalVendasSalao += report.totalVendasSalao || 0;
+        acc.totalVendasRua += report.totalVendasRua || 0;
+        acc.totalFiadoSalao += report.totalFiadoSalao || 0;
+        acc.totalFiadoRua += report.totalFiadoRua || 0;
+        acc.totalKg += report.totalKg || 0;
+        acc.totalTaxas += report.totalTaxas || 0;
+        acc.totalBomboniereSalao += report.totalBomboniereSalao || 0;
+        acc.totalBomboniereRua += report.totalBomboniereRua || 0;
+        acc.totalItens += report.totalItens || 0;
+        acc.totalPedidos += report.totalPedidos || 0;
+        acc.totalEntregas += report.totalEntregas || 0;
+        acc.totalItensRua += report.totalItensRua || 0;
+
+        for (const key in report.contagemTotal) {
+            acc.contagemTotal[key] = (acc.contagemTotal[key] || 0) + (report.contagemTotal[key] || 0);
+        }
+        for (const key in report.contagemRua) {
+            acc.contagemRua[key] = (acc.contagemRua[key] || 0) + (report.contagemRua[key] || 0);
+        }
+        
+        return acc;
+    }, initial);
+};
+
+const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest }: { reports: DailyReport[], bomboniereItems: BomboniereItem[], onDeleteRequest: (id: string) => void }) => {
+    const [currentDate, setCurrentDate] = useState<Date>(new Date());
+    
+    const monthlyReports = useMemo(() => {
+        if(!reports) return [];
+        return reports.filter(r => {
+            const reportDate = parseISO(r.reportDate);
+            return reportDate.getFullYear() === currentDate.getFullYear() && reportDate.getMonth() === currentDate.getMonth();
+        }).sort((a, b) => parseISO(b.reportDate).getTime() - parseISO(a.reportDate).getTime());
+    }, [reports, currentDate]);
+
+    return (
+        <div className="space-y-4">
+             <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label htmlFor="month-select-daily" className="text-sm font-medium text-muted-foreground">Mês</label>
+                    <Select
+                        value={String(currentDate.getMonth())}
+                        onValueChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
+                    >
+                        <SelectTrigger id="month-select-daily" className="w-[180px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {monthOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <div>
+                    <label htmlFor="year-select-daily" className="text-sm font-medium text-muted-foreground">Ano</label>
+                    <Select
+                        value={String(currentDate.getFullYear())}
+                        onValueChange={(value) => setCurrentDate(setYear(new Date(currentDate), parseInt(value)))}
+                    >
+                        <SelectTrigger id="year-select-daily" className="w-[120px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {generateYearOptions().map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            {monthlyReports.length > 0 ? (
+                <Accordion type="single" collapsible className="w-full space-y-4">
+                    {monthlyReports.map((report) => (
+                        <AccordionItem key={report.id} value={report.id}>
+                            <Card>
+                                 <AccordionTrigger className="p-4 w-full text-left hover:no-underline">
+                                      <div className="flex justify-between items-center w-full">
+                                          <div className="flex items-center gap-4">
+                                              <div className="text-center">
+                                                  <p className="text-2xl font-bold">{format(parseISO(report.reportDate), 'dd')}</p>
+                                                  <p className="text-xs uppercase text-muted-foreground">{format(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p>
+                                              </div>
+                                              <div>
+                                                  <p className="font-semibold text-base">{format(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p>
+                                                  <p className="text-sm text-muted-foreground">{report.totalPedidos} pedidos</p>
+                                              </div>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                              <div className="text-right">
+                                                  <p className="text-sm text-muted-foreground">Total do Dia</p>
+                                                  <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                                              </div>
+                                              <div
+                                                  role="button"
+                                                  aria-label="Excluir Relatório"
+                                                  className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), "h-9 w-9 text-muted-foreground hover:text-destructive z-10")}
+                                                  onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      if(report.id) onDeleteRequest(report.id);
+                                                  }}
+                                              >
+                                                  <Trash2 className="h-4 w-4" />
+                                              </div>
+                                          </div>
+                                      </div>
+                                  </AccordionTrigger>
+                                <AccordionContent className="p-4 pt-0">
+                                    <ReportDetail report={report} bomboniereItems={bomboniereItems} />
+                                </AccordionContent>
+                            </Card>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            ) : (
+                <Card>
+                    <CardContent className="text-center text-muted-foreground py-20">
+                        <Info className="mx-auto h-8 w-8 mb-2"/>
+                        <p>Nenhum relatório encontrado para o mês de {format(currentDate, 'MMMM', { locale: ptBR })}.</p>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+    )
+}
+
+const WeeklyReportsSection = ({ reports, bomboniereItems }: { reports: DailyReport[], bomboniereItems: BomboniereItem[] }) => {
+    const [year, setYear] = useState(new Date().getFullYear());
+
+    const weeklyData = useMemo(() => {
+        const yearReports = reports.filter(r => getYear(parseISO(r.reportDate)) === year);
+        const weeks: Record<number, DailyReport[]> = {};
+        for(const report of yearReports) {
+            const weekNumber = getWeek(parseISO(report.reportDate), { weekStartsOn: 1 });
+            if(!weeks[weekNumber]) weeks[weekNumber] = [];
+            weeks[weekNumber].push(report);
+        }
+        return Object.entries(weeks).map(([week, weekReports]) => {
+            const firstDay = startOfWeek(parseISO(weekReports[0].reportDate), { weekStartsOn: 1 });
+            const lastDay = endOfWeek(parseISO(weekReports[0].reportDate), { weekStartsOn: 1 });
+            return {
+                weekNumber: Number(week),
+                dateRange: `${format(firstDay, 'dd/MM')} - ${format(lastDay, 'dd/MM')}`,
+                aggregated: aggregateReports(weekReports)
+            }
+        }).sort((a, b) => b.weekNumber - a.weekNumber);
+
+    }, [reports, year]);
+
+    return (
+        <div className="space-y-4">
+             <div className="w-full max-w-xs">
+                <label htmlFor="year-select-weekly" className="text-sm font-medium text-muted-foreground">Ano</label>
+                <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+                    <SelectTrigger id="year-select-weekly"><SelectValue /></SelectTrigger>
+                    <SelectContent>{generateYearOptions().map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+                </Select>
+            </div>
+            {weeklyData.length > 0 ? (
+                <Accordion type="single" collapsible className="w-full space-y-4">
+                    {weeklyData.map(({ weekNumber, dateRange, aggregated }) => (
+                        <AccordionItem key={weekNumber} value={String(weekNumber)}>
+                             <Card>
+                                <AccordionTrigger className="p-4 text-left hover:no-underline">
+                                    <div className="flex justify-between items-center w-full">
+                                        <div>
+                                            <p className="font-semibold text-base">Semana {weekNumber}</p>
+                                            <p className="text-sm text-muted-foreground">{dateRange}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm text-muted-foreground">Total da Semana</p>
+                                            <p className="text-lg font-bold text-primary">{formatCurrency(aggregated?.totalGeral)}</p>
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="p-4 pt-0">
+                                    <ReportDetail report={aggregated} bomboniereItems={bomboniereItems} />
+                                </AccordionContent>
+                             </Card>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            ) : (
+                <Card>
+                    <CardContent className="text-center text-muted-foreground py-20">
+                        <Info className="mx-auto h-8 w-8 mb-2"/>
+                        <p>Nenhum relatório encontrado para {year}.</p>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+    )
+}
+
+const MonthlyReportsSection = ({ reports, bomboniereItems }: { reports: DailyReport[], bomboniereItems: BomboniereItem[] }) => {
+    const [year, setYear] = useState(new Date().getFullYear());
+
+    const monthlyData = useMemo(() => {
+        const yearReports = reports.filter(r => getYear(parseISO(r.reportDate)) === year);
+        const months: Record<number, DailyReport[]> = {};
+        for(const report of yearReports) {
+            const monthNumber = getMonth(parseISO(report.reportDate));
+            if(!months[monthNumber]) months[monthNumber] = [];
+            months[monthNumber].push(report);
+        }
+        return Object.entries(months).map(([month, monthReports]) => ({
+            monthNumber: Number(month),
+            monthName: format(new Date(year, Number(month)), 'MMMM', { locale: ptBR }),
+            aggregated: aggregateReports(monthReports)
+        })).sort((a,b) => b.monthNumber - a.monthNumber);
+    }, [reports, year]);
+
+     return (
+        <div className="space-y-4">
+            <div className="w-full max-w-xs">
+                <label htmlFor="year-select-monthly" className="text-sm font-medium text-muted-foreground">Ano</label>
+                <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+                    <SelectTrigger id="year-select-monthly"><SelectValue /></SelectTrigger>
+                    <SelectContent>{generateYearOptions().map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+                </Select>
+            </div>
+            {monthlyData.length > 0 ? (
+                <Accordion type="single" collapsible className="w-full space-y-4">
+                    {monthlyData.map(({ monthNumber, monthName, aggregated }) => (
+                        <AccordionItem key={monthNumber} value={String(monthNumber)}>
+                             <Card>
+                                <AccordionTrigger className="p-4 text-left hover:no-underline">
+                                    <div className="flex justify-between items-center w-full">
+                                        <p className="font-semibold text-base capitalize">{monthName}</p>
+                                        <div className="text-right">
+                                            <p className="text-sm text-muted-foreground">Total do Mês</p>
+                                            <p className="text-lg font-bold text-primary">{formatCurrency(aggregated?.totalGeral)}</p>
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="p-4 pt-0">
+                                    <ReportDetail report={aggregated} bomboniereItems={bomboniereItems} />
+                                </AccordionContent>
+                             </Card>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            ) : (
+                <Card>
+                    <CardContent className="text-center text-muted-foreground py-20">
+                        <Info className="mx-auto h-8 w-8 mb-2"/>
+                        <p>Nenhum relatório encontrado para {year}.</p>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+    )
+}
+
+const YearlyReportsSection = ({ reports, bomboniereItems }: { reports: DailyReport[], bomboniereItems: BomboniereItem[] }) => {
+    const yearlyData = useMemo(() => {
+        const years: Record<number, DailyReport[]> = {};
+        for(const report of reports) {
+            const yearNumber = getYear(parseISO(report.reportDate));
+            if(!years[yearNumber]) years[yearNumber] = [];
+            years[yearNumber].push(report);
+        }
+        return Object.entries(years).map(([year, yearReports]) => ({
+            yearNumber: Number(year),
+            aggregated: aggregateReports(yearReports)
+        })).sort((a,b) => b.yearNumber - a.yearNumber);
+    }, [reports]);
+
+    return (
+        <div className="space-y-4">
+            {yearlyData.length > 0 ? (
+                <Accordion type="single" collapsible className="w-full space-y-4">
+                    {yearlyData.map(({ yearNumber, aggregated }) => (
+                        <AccordionItem key={yearNumber} value={String(yearNumber)}>
+                             <Card>
+                                <AccordionTrigger className="p-4 text-left hover:no-underline">
+                                    <div className="flex justify-between items-center w-full">
+                                        <p className="font-semibold text-base">{yearNumber}</p>
+                                        <div className="text-right">
+                                            <p className="text-sm text-muted-foreground">Total do Ano</p>
+                                            <p className="text-lg font-bold text-primary">{formatCurrency(aggregated?.totalGeral)}</p>
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="p-4 pt-0">
+                                    <ReportDetail report={aggregated} bomboniereItems={bomboniereItems} />
+                                </AccordionContent>
+                             </Card>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            ) : (
+                <Card>
+                    <CardContent className="text-center text-muted-foreground py-20">
+                        <Info className="mx-auto h-8 w-8 mb-2"/>
+                        <p>Nenhum relatório encontrado.</p>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+    )
+}
+
+const GeneralReportSection = ({ reports, bomboniereItems }: { reports: DailyReport[], bomboniereItems: BomboniereItem[] }) => {
+    const generalReport = useMemo(() => aggregateReports(reports), [reports]);
+    return (
+        <div className="space-y-4">
+            {generalReport ? (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Relatório Geral Acumulado</CardTitle>
+                        <CardDescription>Resumo de todas as vendas registadas na aplicação.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ReportDetail report={generalReport} bomboniereItems={bomboniereItems} />
+                    </CardContent>
+                </Card>
+            ) : (
+                <Card>
+                    <CardContent className="text-center text-muted-foreground py-20">
+                        <Info className="mx-auto h-8 w-8 mb-2"/>
+                        <p>Nenhum relatório encontrado.</p>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+    )
+};
+
+
 function ReportsPageContent() {
   const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
-  const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [activeTab, setActiveTab] = useState('daily');
   
-  const reportsQuery = useMemo(() => {
+  const allReportsQuery = useMemo(() => {
     if (!firestore) return null;
-    const start = startOfMonth(currentDate);
-    const end = endOfMonth(currentDate);
+    return query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'desc'));
+  }, [firestore]);
 
-    const q = query(
-        collection(firestore, 'daily_reports'),
-        where('reportDate', '>=', format(start, 'yyyy-MM-dd')),
-        where('reportDate', '<=', format(end, 'yyyy-MM-dd')),
-        orderBy('reportDate', 'desc')
-    );
-    return q;
-  }, [firestore, currentDate]);
-
-  const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
+  const { data: allReports, isLoading: isLoadingReports } = useCollection<DailyReport>(allReportsQuery);
 
   const bomboniereQuery = useMemo(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
@@ -345,10 +687,12 @@ function ReportsPageContent() {
   );
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereQuery);
 
+  const { isUserLoading } = useUser();
+
   const isLoading = isLoadingReports || isLoadingBomboniere || isUserLoading;
 
   const handleDeleteReportRequest = (reportId: string) => {
-    const report = savedReports?.find(r => r.id === reportId);
+    const report = allReports?.find(r => r.id === reportId);
     if(report) {
         setReportToDelete(report);
     }
@@ -401,51 +745,9 @@ function ReportsPageContent() {
     }
   };
   
-  const aggregateReport = useMemo((): DailyReport | null => {
-        if (!savedReports || savedReports.length === 0) return null;
-
-        const initial: DailyReport = {
-            id: String(savedReports.length),
-            reportDate: '',
-            createdAt: '',
-            userId: user?.uid || '',
-            totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
-            totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
-            totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
-            contagemTotal: {}, contagemRua: {},
-        };
-        
-        return savedReports.reduce((acc, report) => {
-            acc.totalGeral += report.totalGeral || 0;
-            acc.totalAVista += report.totalAVista || 0;
-            acc.totalFiado += report.totalFiado || 0;
-            acc.totalVendasSalao += report.totalVendasSalao || 0;
-            acc.totalVendasRua += report.totalVendasRua || 0;
-            acc.totalFiadoSalao += report.totalFiadoSalao || 0;
-            acc.totalFiadoRua += report.totalFiadoRua || 0;
-            acc.totalKg += report.totalKg || 0;
-            acc.totalTaxas += report.totalTaxas || 0;
-            acc.totalBomboniereSalao += report.totalBomboniereSalao || 0;
-            acc.totalBomboniereRua += report.totalBomboniereRua || 0;
-            acc.totalItens += report.totalItens || 0;
-            acc.totalPedidos += report.totalPedidos || 0;
-            acc.totalEntregas += report.totalEntregas || 0;
-            acc.totalItensRua += report.totalItensRua || 0;
-
-            for (const key in report.contagemTotal) {
-                acc.contagemTotal[key] = (acc.contagemTotal[key] || 0) + (report.contagemTotal[key] || 0);
-            }
-            for (const key in report.contagemRua) {
-                acc.contagemRua[key] = (acc.contagemRua[key] || 0) + (report.contagemRua[key] || 0);
-            }
-            
-            return acc;
-        }, initial);
-    }, [savedReports, user]);
-
-  if (isLoading && !savedReports) {
+  if (isLoading && !allReports) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -469,128 +771,79 @@ function ReportsPageContent() {
       </AlertDialog>
       
       <main className="space-y-6">
-        <div className="flex items-center justify-between">
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label htmlFor="month-select" className="text-sm font-medium text-muted-foreground">Mês</label>
-                    <Select
-                        value={String(currentDate.getMonth())}
-                        onValueChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
-                    >
-                        <SelectTrigger id="month-select" className="w-[180px]">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {monthOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                 <div>
-                    <label htmlFor="year-select" className="text-sm font-medium text-muted-foreground">Ano</label>
-                    <Select
-                        value={String(currentDate.getFullYear())}
-                        onValueChange={(value) => setCurrentDate(setYear(new Date(currentDate), parseInt(value)))}
-                    >
-                        <SelectTrigger id="year-select" className="w-[120px]">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {generateYearOptions().map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-        </div>
+        <Accordion type="single" collapsible defaultValue="diario" className="w-full space-y-4">
+            
+            <AccordionItem value="diario">
+                <Card>
+                    <AccordionTrigger className="text-lg p-6 hover:no-underline">
+                        <div className="flex items-center gap-3">
+                            <CalendarDays className="h-6 w-6 text-primary"/>
+                            <span>Relatórios Diários</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                       <DailyReportsSection reports={allReports || []} bomboniereItems={bomboniereItems || []} onDeleteRequest={handleDeleteReportRequest} />
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="aggregate">
-                    <BarChart className="mr-2 h-4 w-4" />
-                    Relatório Agregado do Mês
-                </TabsTrigger>
-                <TabsTrigger value="daily">
-                    <BarChart className="mr-2 h-4 w-4" />
-                    Histórico Diário do Mês
-                </TabsTrigger>
-            </TabsList>
-            <TabsContent value="aggregate" className="mt-4">
-                {isLoadingReports ? (
-                    <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-                ) : savedReports && savedReports.length > 0 && aggregateReport ? (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Relatório Agregado</CardTitle>
-                            <CardDescription>Resumo de {format(currentDate, 'MMMM \'de\' yyyy', { locale: ptBR })} - {aggregateReport.totalPedidos} pedidos em {aggregateReport.id} dias</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                           <ReportDetail report={aggregateReport} bomboniereItems={bomboniereItems || []} />
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <Card>
-                        <CardContent className="text-center text-muted-foreground py-20">
-                            <Info className="mx-auto h-8 w-8 mb-2"/>
-                            <p>Nenhum relatório encontrado para o mês de {format(currentDate, 'MMMM', { locale: ptBR })}.</p>
-                        </CardContent>
-                    </Card>
-                )}
-            </TabsContent>
-            <TabsContent value="daily" className="mt-4">
-                {isLoadingReports ? (
-                    <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-                ) : savedReports && savedReports.length > 0 ? (
-                    <Accordion type="single" collapsible className="w-full space-y-4">
-                        {savedReports.map((report) => (
-                            <AccordionItem key={report.id} value={report.id}>
-                                <Card>
-                                     <AccordionTrigger className="p-4 w-full text-left hover:no-underline">
-                                          <div className="flex justify-between items-center w-full">
-                                              <div className="flex items-center gap-4">
-                                                  <div className="text-center">
-                                                      <p className="text-2xl font-bold">{format(parseISO(report.reportDate), 'dd')}</p>
-                                                      <p className="text-xs uppercase text-muted-foreground">{format(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p>
-                                                  </div>
-                                                  <div>
-                                                      <p className="font-semibold text-base">{format(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p>
-                                                      <p className="text-sm text-muted-foreground">{report.totalPedidos} pedidos</p>
-                                                  </div>
-                                              </div>
-                                              <div className="flex items-center gap-2">
-                                                  <div className="text-right">
-                                                      <p className="text-sm text-muted-foreground">Total do Dia</p>
-                                                      <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                                                  </div>
-                                                  <div
-                                                      role="button"
-                                                      aria-label="Excluir Relatório"
-                                                      className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), "h-9 w-9 text-muted-foreground hover:text-destructive z-10")}
-                                                      onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          if(report.id) handleDeleteReportRequest(report.id);
-                                                      }}
-                                                  >
-                                                      <Trash2 className="h-4 w-4" />
-                                                  </div>
-                                              </div>
-                                          </div>
-                                      </AccordionTrigger>
-                                    <AccordionContent className="p-4 pt-0">
-                                        <ReportDetail report={report} bomboniereItems={bomboniereItems || []} />
-                                    </AccordionContent>
-                                </Card>
-                            </AccordionItem>
-                        ))}
-                    </Accordion>
-                ) : (
-                     <Card>
-                        <CardContent className="text-center text-muted-foreground py-20">
-                            <Info className="mx-auto h-8 w-8 mb-2"/>
-                            <p>Nenhum relatório encontrado para o mês de {format(currentDate, 'MMMM', { locale: ptBR })}.</p>
-                        </CardContent>
-                    </Card>
-                )}
-            </TabsContent>
-        </Tabs>
+            <AccordionItem value="semanal">
+                <Card>
+                    <AccordionTrigger className="text-lg p-6 hover:no-underline">
+                         <div className="flex items-center gap-3">
+                            <BarChart4 className="h-6 w-6 text-primary"/>
+                            <span>Relatórios Semanais</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <WeeklyReportsSection reports={allReports || []} bomboniereItems={bomboniereItems || []} />
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+
+            <AccordionItem value="mensal">
+                <Card>
+                    <AccordionTrigger className="text-lg p-6 hover:no-underline">
+                         <div className="flex items-center gap-3">
+                            <AreaChart className="h-6 w-6 text-primary"/>
+                            <span>Relatórios Mensais</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <MonthlyReportsSection reports={allReports || []} bomboniereItems={bomboniereItems || []} />
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+
+             <AccordionItem value="anual">
+                <Card>
+                    <AccordionTrigger className="text-lg p-6 hover:no-underline">
+                         <div className="flex items-center gap-3">
+                            <LineChart className="h-6 w-6 text-primary"/>
+                            <span>Relatórios Anuais</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <YearlyReportsSection reports={allReports || []} bomboniereItems={bomboniereItems || []} />
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+
+            <AccordionItem value="geral">
+                <Card>
+                    <AccordionTrigger className="text-lg p-6 hover:no-underline">
+                         <div className="flex items-center gap-3">
+                            <GanttChart className="h-6 w-6 text-primary"/>
+                            <span>Relatório Geral</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <GeneralReportSection reports={allReports || []} bomboniereItems={bomboniereItems || []} />
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+
+        </Accordion>
       </main>
     </>
   );
