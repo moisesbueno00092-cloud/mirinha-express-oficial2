@@ -77,6 +77,7 @@ export default function LaunchGuideSheet() {
                                 <li><strong>Fiados no Salão (F):</strong> Inicie com <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">F</code>. O nome do cliente é obrigatório no final. Ex: <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">F 2PP João</code></li>
                                 <li><strong>Isenção de Taxa (E):</strong> Adicione <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">E</code> em qualquer parte do comando de rua para não cobrar a taxa. Ex: <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">R P E</code></li>
                                 <li><strong>Taxa Manual (TX):</strong> Use <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">TX</code> seguido do valor para definir uma taxa de entrega diferente. Ex: <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">R M TX 5,00</code></li>
+                                <li><strong>Taxa com Desconto (TX d):</strong> Use <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">TX d</code> seguido do valor para registar uma taxa sem a somar ao total. Ex: <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">R M TX d5,00</code></li>
                             </ul>
                           </AccordionContent>
                       </AccordionItem>
@@ -101,6 +102,7 @@ export default function LaunchGuideSheet() {
                                 <p><strong>F:</strong> <strong>F</strong>iado no Salão.</p>
                                 <p><strong>E:</strong> Isenção de taxa d<strong>e</strong> entrega.</p>
                                 <p><strong>TX:</strong> <strong>T</strong>a<strong>x</strong>a de entrega manual.</p>
+                                <p><strong>TX d:</strong> <strong>T</strong>a<strong>x</strong>a com <strong>d</strong>esconto (não soma ao total).</p>
                                 
                                 <h4 className="font-semibold text-foreground pt-3">Itens Pré-definidos:</h4>
                                 <ul className="list-disc pl-5 grid grid-cols-2 gap-x-4 gap-y-1">
