@@ -36,6 +36,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -366,7 +375,12 @@ const aggregateReports = (reports: DailyReport[]): DailyReport | null => {
     }, initial);
 };
 
-const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest }: { reports: DailyReport[], bomboniereItems: BomboniereItem[], onDeleteRequest: (id: string) => void }) => {
+const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEditDateRequest }: { 
+    reports: DailyReport[], 
+    bomboniereItems: BomboniereItem[], 
+    onDeleteRequest: (id: string) => void,
+    onEditDateRequest: (report: DailyReport) => void 
+}) => {
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
     
     const monthlyReports = useMemo(() => {
@@ -430,6 +444,17 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest }: { re
                                               <div className="text-right">
                                                   <p className="text-sm text-muted-foreground">Total do Dia</p>
                                                   <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                                              </div>
+                                              <div
+                                                  role="button"
+                                                  aria-label="Alterar Data"
+                                                  className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), "h-9 w-9 text-muted-foreground hover:text-primary z-10")}
+                                                  onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      if(report.id) onEditDateRequest(report);
+                                                  }}
+                                              >
+                                                  <CalendarDays className="h-4 w-4" />
                                               </div>
                                               <div
                                                   role="button"
@@ -681,6 +706,9 @@ function ReportsPageContent() {
   const { toast } = useToast();
   
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
+  const [reportToEditDate, setReportToEditDate] = useState<DailyReport | null>(null);
+  const [newReportDate, setNewReportDate] = useState<Date | undefined>();
+  const [isUpdatingDate, setIsUpdatingDate] = useState(false);
   
   const allReportsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -704,6 +732,11 @@ function ReportsPageContent() {
     if(report) {
         setReportToDelete(report);
     }
+  };
+  
+  const handleEditDateRequest = (report: DailyReport) => {
+    setReportToEditDate(report);
+    setNewReportDate(parseISO(report.reportDate));
   };
   
   const confirmDeleteReport = async () => {
@@ -753,6 +786,61 @@ function ReportsPageContent() {
     }
   };
   
+  const confirmEditDate = async () => {
+    if (!firestore || !reportToEditDate || !newReportDate) return;
+
+    setIsUpdatingDate(true);
+    const oldDateStr = reportToEditDate.reportDate;
+    const newDateStr = format(newReportDate, 'yyyy-MM-dd');
+
+    if (oldDateStr === newDateStr) {
+        toast({ title: "Nenhuma alteração", description: "A data selecionada é a mesma que a data atual." });
+        setIsUpdatingDate(false);
+        setReportToEditDate(null);
+        return;
+    }
+
+    try {
+        const batch = writeBatch(firestore);
+
+        const reportDocRef = doc(firestore, "daily_reports", reportToEditDate.id!);
+        batch.update(reportDocRef, { reportDate: newDateStr });
+
+        const orderItemsQuery = query(
+          collection(firestore, 'order_items'), 
+          where('reportDate', '==', oldDateStr)
+        );
+        const orderItemsSnapshot = await getDocs(orderItemsQuery);
+
+        if (orderItemsSnapshot.empty) {
+            console.warn(`No archived items found for the old report date ${oldDateStr}. Only updating the report document.`);
+        }
+
+        orderItemsSnapshot.forEach(orderDoc => {
+            batch.update(orderDoc.ref, { reportDate: newDateStr });
+        });
+
+        await batch.commit();
+        
+        toast({
+            title: "Sucesso!",
+            description: `A data do relatório foi alterada para ${format(newReportDate, 'dd/MM/yyyy', { locale: ptBR })}.`,
+        });
+
+    } catch (error: any) {
+        console.error("Error updating report date:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro",
+            description: error.message || "Não foi possível alterar a data do relatório.",
+        });
+    } finally {
+        setIsUpdatingDate(false);
+        setReportToEditDate(null);
+        setNewReportDate(undefined);
+    }
+  };
+  
   if (isLoading && !allReports) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -778,6 +866,32 @@ function ReportsPageContent() {
         </AlertDialogContent>
       </AlertDialog>
       
+      <Dialog open={!!reportToEditDate} onOpenChange={(open) => { if (!open) setReportToEditDate(null)}}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Alterar Data do Relatório</DialogTitle>
+                <DialogDescription>
+                    Selecione a nova data para o relatório de <span className="font-bold">{reportToEditDate ? format(parseISO(reportToEditDate.reportDate), 'dd/MM/yyyy', { locale: ptBR }) : ''}</span>. 
+                    Isto também atualizará a data de todos os itens de pedido arquivados neste relatório.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 flex justify-center">
+                <Calendar
+                  mode="single"
+                  selected={newReportDate}
+                  onSelect={setNewReportDate}
+                  initialFocus
+                />
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setReportToEditDate(null)}>Cancelar</Button>
+                <Button onClick={confirmEditDate} disabled={isUpdatingDate || !newReportDate}>
+                    {isUpdatingDate ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Confirmar Alteração'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       <main className="space-y-6">
         <Accordion type="single" collapsible defaultValue="diario" className="w-full space-y-4">
             
@@ -790,7 +904,7 @@ function ReportsPageContent() {
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
-                       <DailyReportsSection reports={allReports || []} bomboniereItems={bomboniereItems || []} onDeleteRequest={handleDeleteReportRequest} />
+                       <DailyReportsSection reports={allReports || []} bomboniereItems={bomboniereItems || []} onDeleteRequest={handleDeleteReportRequest} onEditDateRequest={handleEditDateRequest} />
                     </AccordionContent>
                 </Card>
             </AccordionItem>
