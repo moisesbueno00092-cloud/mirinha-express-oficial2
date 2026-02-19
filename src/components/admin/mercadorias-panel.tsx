@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -12,7 +11,7 @@ import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings, Camera, Video } from 'lucide-react';
+import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings, Camera, Video, ChevronUp, ChevronDown } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format as formatDateFn, addDays } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
@@ -242,6 +241,16 @@ export default function MercadoriasPanel() {
         }
     }, [produtosLancados]);
     
+    const handleScroll = (direction: 'up' | 'down') => {
+        if (scrollViewportRef.current) {
+            const scrollAmount = 100; // a reasonable amount to scroll
+            scrollViewportRef.current.scrollBy({
+                top: direction === 'up' ? -scrollAmount : scrollAmount,
+                behavior: 'smooth',
+            });
+        }
+    };
+
     const handleAddFornecedor = async () => {
         if (!firestore || !newFornecedorName.trim()) return;
 
@@ -828,27 +837,37 @@ export default function MercadoriasPanel() {
                 {produtosLancados.length > 0 && (
                      <div className="space-y-2">
                         <h3 className="text-sm font-medium text-muted-foreground">Produtos nesta Entrada</h3>
-                        <ScrollArea className="rounded-md border h-48" viewportRef={scrollViewportRef}>
-                            <div className="p-1">
-                                {produtosLancados.map(p => (
-                                    <div key={p.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
-                                        <div className='flex flex-col'>
-                                            <span>{p.produtoNome}</span>
-                                            <span className="text-xs text-muted-foreground">{p.quantidade} x {formatCurrency(p.precoUnitario)}</span>
+                        <div className="flex items-stretch gap-2">
+                            <ScrollArea className="rounded-md border h-48 flex-grow" viewportRef={scrollViewportRef}>
+                                <div className="p-1">
+                                    {produtosLancados.map(p => (
+                                        <div key={p.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
+                                            <div className='flex flex-col'>
+                                                <span>{p.produtoNome}</span>
+                                                <span className="text-xs text-muted-foreground">{p.quantidade} x {formatCurrency(p.precoUnitario)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono">{formatCurrency(p.preco || 0)}</span>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditProduto(p)}>
+                                                    <Pencil className="h-4 w-4 text-blue-500" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveProduto(p.id)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-mono">{formatCurrency(p.preco || 0)}</span>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditProduto(p)}>
-                                                <Pencil className="h-4 w-4 text-blue-500" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveProduto(p.id)}>
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                            <div className="flex flex-col justify-center gap-1">
+                                <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleScroll('up')}>
+                                    <ChevronUp className="h-5 w-5" />
+                                </Button>
+                                <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleScroll('down')}>
+                                    <ChevronDown className="h-5 w-5" />
+                                </Button>
                             </div>
-                        </ScrollArea>
+                        </div>
                          <div className="flex justify-end items-center gap-4 pt-2 font-semibold">
                             <span>Total da Compra:</span>
                             <span className="text-xl text-primary">{formatCurrency(totalCompra)}</span>
