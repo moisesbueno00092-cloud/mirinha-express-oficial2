@@ -5,8 +5,8 @@
       "collectionGroup": "order_items",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "reportado", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
+        { "fieldPath": "reportDate", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
       ]
     },
     {
@@ -14,12 +14,12 @@
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         { "fieldPath": "reportado", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "ASCENDING" }
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     },
     {
-      "collectionGroup": "order_items",
-      "queryScope": "COLLECTION_GROUP",
+      "collectionId": "order_items",
+      "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "reportDate", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "ASCENDING" }
@@ -30,7 +30,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "reportDate", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "ASCENDING" }
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     },
     {

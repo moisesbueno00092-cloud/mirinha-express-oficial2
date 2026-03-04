@@ -50,6 +50,13 @@
         "customerName": {
             "type": "string",
             "description": "The name of the customer for fiado or favorite orders."
+        },
+        "reportado": {
+            "type": "boolean"
+        },
+        "reportDate": {
+            "type": "string",
+            "format": "date"
         }
       },
       "required": ["userId", "name", "price", "group", "quantity", "timestamp", "total"]
@@ -114,7 +121,8 @@
             "descricao": { "type": "string" },
             "valor": { "type": "number" },
             "dataVencimento": { "type": "string", "format": "date" },
-            "estaPaga": { "type": "boolean" }
+            "estaPaga": { "type": "boolean" },
+            "romaneioId": { "type": "string" }
         },
         "required": ["fornecedorId", "descricao", "valor", "dataVencimento", "estaPaga"]
     },
@@ -128,7 +136,9 @@
             "data": { "type": "string", "format": "date-time" },
             "quantidade": { "type": "number" },
             "precoUnitario": { "type": "number" },
-            "valorTotal": { "type": "number" }
+            "valorTotal": { "type": "number" },
+            "estaPaga": { "type": "boolean" },
+            "romaneioId": { "type": "string" }
         },
         "required": ["produtoNome", "fornecedorId", "data", "quantidade", "precoUnitario", "valorTotal"]
     },
@@ -197,45 +207,33 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}",
+        "path": "/live_items/{itemId}",
         "definition": {
-          "entityName": "UserProfile",
+          "entityName": "OrderItem",
           "schema": {
-            "$ref": "#/entities/UserProfile"
+            "$ref": "#/entities/OrderItem"
           },
-          "description": "Stores user profile data.",
-          "collections": [
-            {
-              "path": "live_items",
-              "definition": {
-                "entityName": "OrderItem",
-                "schema": {
-                  "$ref": "#/entities/OrderItem"
-                },
-                "description": "Collection of real-time order items for a specific user for the current day."
-              }
-            },
-            {
-              "path": "order_items",
-              "definition": {
-                "entityName": "OrderItem",
-                "schema": {
-                  "$ref": "#/entities/OrderItem"
-                },
-                "description": "Collection of historical order items for a specific user."
-              }
-            },
-            {
-              "path": "daily_reports",
-              "definition": {
-                "entityName": "DailyReport",
-                "schema": {
-                  "$ref": "#/entities/DailyReport"
-                },
-                "description": "Stores consolidated daily sales reports for a specific user."
-              }
-            }
-          ]
+          "description": "Collection of real-time order items for the current day."
+        }
+      },
+      {
+        "path": "/order_items/{itemId}",
+        "definition": {
+          "entityName": "OrderItem",
+          "schema": {
+            "$ref": "#/entities/OrderItem"
+          },
+          "description": "Collection of historical order items."
+        }
+      },
+      {
+        "path": "/daily_reports/{reportId}",
+        "definition": {
+          "entityName": "DailyReport",
+          "schema": {
+            "$ref": "#/entities/DailyReport"
+          },
+          "description": "Stores consolidated daily sales reports."
         }
       },
       {

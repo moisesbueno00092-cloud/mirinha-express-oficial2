@@ -50,6 +50,13 @@
         "customerName": {
             "type": "string",
             "description": "The name of the customer for fiado or favorite orders."
+        },
+        "reportado": {
+            "type": "boolean"
+        },
+        "reportDate": {
+            "type": "string",
+            "format": "date"
         }
       },
       "required": ["userId", "name", "price", "group", "quantity", "timestamp", "total"]
@@ -115,7 +122,7 @@
             "valor": { "type": "number" },
             "dataVencimento": { "type": "string", "format": "date" },
             "estaPaga": { "type": "boolean" },
-            "romaneioId": { "type": "string", "description": "ID to link with associated 'EntradaMercadoria' records." }
+            "romaneioId": { "type": "string" }
         },
         "required": ["fornecedorId", "descricao", "valor", "dataVencimento", "estaPaga"]
     },
@@ -131,7 +138,7 @@
             "precoUnitario": { "type": "number" },
             "valorTotal": { "type": "number" },
             "estaPaga": { "type": "boolean" },
-            "romaneioId": { "type": "string", "description": "ID to group entries from the same delivery note." }
+            "romaneioId": { "type": "string" }
         },
         "required": ["produtoNome", "fornecedorId", "data", "quantidade", "precoUnitario", "valorTotal"]
     },
@@ -296,5 +303,3 @@
     ]
   }
 }
-
-    
