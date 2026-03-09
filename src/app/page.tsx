@@ -454,7 +454,7 @@ function LancheTrackerPageContent() {
         quantity: totalQuantity,
         price: totalPrice,
         group,
-        // Preserve original timestamp if editing
+        // PRESERVAÇÃO DE HORÁRIO: Se estiver a editar, mantém o timestamp original
         timestamp: currentItem ? currentItem.timestamp : (serverTimestamp() as Timestamp),
         deliveryFee: finalDeliveryFee,
         total,

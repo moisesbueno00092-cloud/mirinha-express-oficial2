@@ -747,6 +747,7 @@ const DailyReportsSection = ({
 }) => {
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
     
+    // ORDENAÇÃO CRONOLÓGICA CRESCENTE: Dia 1 para frente
     const monthlyReports = useMemo(() => {
         if(!reports) return [];
         return reports.filter(r => {
