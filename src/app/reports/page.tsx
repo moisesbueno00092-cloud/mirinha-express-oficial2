@@ -658,7 +658,7 @@ const ReportDetail = ({
         reportDate={report.reportDate} 
         onEdit={onEditItem} 
         onDelete={onDeleteItem}
-        onAdd={() => onAddItem(reportDate)}
+        onAdd={() => onAddItem(report.reportDate)}
       />
     </div>
   )
@@ -1480,6 +1480,16 @@ function ReportsPageContent() {
     } finally {
         setIsUpdatingDate(false); setReportToEditDate(null); setNewReportDate(undefined);
     }
+  };
+
+  const handleDeleteReportRequest = (id: string) => {
+    const report = allReports?.find(r => r.id === id);
+    if (report) setReportToDelete(report);
+  };
+
+  const handleEditDateRequest = (report: DailyReport) => {
+    setReportToEditDate(report);
+    setNewReportDate(parseISO(report.reportDate));
   };
   
   if (isLoading && !allReports) {
