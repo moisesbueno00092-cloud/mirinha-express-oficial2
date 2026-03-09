@@ -188,28 +188,25 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
         fetchCustomerStats();
     }, [firestore, currentDate]);
 
-    const handleCopyToWhatsApp = () => {
-        if (customerData.length === 0) return;
-
+    const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
         const monthName = format(currentDate, 'MMMM/yyyy', { locale: ptBR });
-        let message = `*📊 RELATÓRIO DE CONSUMO - ${monthName.toUpperCase()}*\n`;
+        let message = `*📊 EXTRATO DE CONSUMO - ${monthName.toUpperCase()}*\n`;
+        message += `*Cliente:* ${customer.name}\n`;
         message += `------------------------------------------\n\n`;
 
-        customerData.forEach((cust, index) => {
-            message += `${index + 1}. *${cust.name}*\n`;
-            message += `   📦 Pedidos: ${cust.count}\n`;
-            message += `   💰 Total: ${formatCurrency(cust.total)}\n`;
-            message += `\n`;
+        customer.orders.forEach((order) => {
+            const date = format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd/MM (EEE)', { locale: ptBR });
+            message += `• ${date}: *${formatCurrency(order.total)}*\n   _${order.name}_\n\n`;
         });
 
-        const totalGeral = customerData.reduce((acc, c) => acc + c.total, 0);
+        const total = customer.orders.reduce((acc, o) => acc + o.total, 0);
         message += `------------------------------------------\n`;
-        message += `*TOTAL GERAL DOS CLIENTES: ${formatCurrency(totalGeral)}*`;
+        message += `*TOTAL ACUMULADO: ${formatCurrency(total)}*`;
 
         navigator.clipboard.writeText(message).then(() => {
             toast({
-                title: "Relatório Copiado!",
-                description: "O resumo foi copiado para a área de transferência. Agora pode colá-lo no WhatsApp.",
+                title: "Extrato Copiado!",
+                description: `O extrato de ${customer.name} foi copiado para a área de transferência.`,
             });
         });
     };
@@ -233,10 +230,21 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
             <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomer(null)}>
                 <DialogContent className="max-w-md sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <User className="h-5 w-5 text-primary" />
-                            Histórico de {selectedCustomer?.name}
-                        </DialogTitle>
+                        <div className="flex items-center justify-between pr-6">
+                            <div className="flex items-center gap-2">
+                                <User className="h-5 w-5 text-primary" />
+                                <DialogTitle>Histórico de {selectedCustomer?.name}</DialogTitle>
+                            </div>
+                            <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="flex items-center gap-2 border-green-500/50 text-green-500 hover:bg-green-500/10"
+                                onClick={() => selectedCustomer && handleCopyIndividualToWhatsApp(selectedCustomer)}
+                            >
+                                <WhatsAppIcon className="h-4 w-4" />
+                                Copiar Extrato
+                            </Button>
+                        </div>
                         <DialogDescription>
                             Listagem de todos os pedidos realizados em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}.
                         </DialogDescription>
@@ -316,15 +324,6 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
                         </Select>
                     </div>
                 </div>
-                <Button 
-                    variant="outline" 
-                    className="shrink-0 flex items-center gap-2 border-green-500/50 text-green-500 hover:bg-green-500/10"
-                    onClick={handleCopyToWhatsApp}
-                    disabled={loading || customerData.length === 0}
-                >
-                    <WhatsAppIcon className="h-4 w-4" />
-                    Copiar para WhatsApp
-                </Button>
             </div>
 
             {loading ? (
