@@ -24,7 +24,7 @@ import { ptBR } from 'date-fns/locale';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered } from 'lucide-react';
+import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -324,20 +324,6 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null,
   )
 };
 
-const generateYearOptions = () => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = currentYear; i >= currentYear - 5; i--) {
-        years.push(i);
-    }
-    return years;
-}
-
-const monthOptions = Array.from({ length: 12 }, (_, i) => ({
-    value: String(i),
-    label: format(new Date(2000, i), 'MMMM', { locale: ptBR })
-}));
-
 const aggregateReports = (reports: DailyReport[]): DailyReport | null => {
     if (!reports || reports.length === 0) return null;
 
@@ -414,6 +400,7 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
             }
 
             try {
+                // Fetch archived items for this report date
                 const itemsQuery = query(
                     collection(firestore, 'order_items'),
                     where('reportDate', '==', report.reportDate),
@@ -432,6 +419,20 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
 
         fetchItems();
     }, [openReportId, firestore, reports]);
+
+    const generateYearOptions = () => {
+        const currentYear = new Date().getFullYear();
+        const years = [];
+        for (let i = currentYear; i >= currentYear - 5; i--) {
+            years.push(i);
+        }
+        return years;
+    }
+
+    const monthOptions = Array.from({ length: 12 }, (_, i) => ({
+        value: String(i),
+        label: format(new Date(2000, i), 'MMMM', { locale: ptBR })
+    }));
 
     return (
         <div className="space-y-4">
@@ -563,6 +564,15 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
 const WeeklyReportsSection = ({ reports, bomboniereItems }: { reports: DailyReport[], bomboniereItems: BomboniereItem[] }) => {
     const [year, setYear] = useState(new Date().getFullYear());
 
+    const generateYearOptions = () => {
+        const currentYear = new Date().getFullYear();
+        const years = [];
+        for (let i = currentYear; i >= currentYear - 5; i--) {
+            years.push(i);
+        }
+        return years;
+    }
+
     const weeklyData = useMemo(() => {
         const yearReports = reports.filter(r => getYear(parseISO(r.reportDate)) === year);
         const weeks: Record<number, DailyReport[]> = {};
@@ -630,6 +640,15 @@ const WeeklyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRepo
 
 const MonthlyReportsSection = ({ reports, bomboniereItems }: { reports: DailyReport[], bomboniereItems: BomboniereItem[] }) => {
     const [year, setYear] = useState(new Date().getFullYear());
+
+    const generateYearOptions = () => {
+        const currentYear = new Date().getFullYear();
+        const years = [];
+        for (let i = currentYear; i >= currentYear - 5; i--) {
+            years.push(i);
+        }
+        return years;
+    }
 
     const monthlyData = useMemo(() => {
         const yearReports = reports.filter(r => getYear(parseISO(r.reportDate)) === year);
