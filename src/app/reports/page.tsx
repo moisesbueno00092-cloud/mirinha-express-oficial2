@@ -23,6 +23,7 @@ import { ptBR } from 'date-fns/locale';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -260,7 +261,7 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
                     <label className="text-sm font-medium text-muted-foreground">Mês</label>
                     <Select
                         value={String(currentDate.getMonth())}
-                        onChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
+                        onValueChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
                     >
                         <SelectTrigger className="w-full">
                             <SelectValue />
