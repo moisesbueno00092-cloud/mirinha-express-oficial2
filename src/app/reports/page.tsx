@@ -26,7 +26,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon, Copy, Share2, Pencil, Plus, Star, Clock } from 'lucide-react';
+import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon, Clock, Pencil, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -62,7 +62,7 @@ import {
 import type { DailyReport, ItemCount, BomboniereItem, Item, Group, PredefinedItem, SelectedBomboniereItem, SavedFavorite } from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell } from 'recharts';
 import ItemList from '@/components/item-list';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
@@ -242,7 +242,7 @@ const CustomerReportsSection = ({
         navigator.clipboard.writeText(message).then(() => {
             toast({
                 title: "Extrato Copiado!",
-                description: `O extrato compacto de ${customer.name} foi copiado.`,
+                description: `O extrato de ${customer.name} foi copiado para o WhatsApp.`,
             });
         });
     };
@@ -278,12 +278,11 @@ const CustomerReportsSection = ({
                                 onClick={() => selectedCustomer && handleCopyIndividualToWhatsApp(selectedCustomer)}
                             >
                                 <WhatsAppIcon className="h-4 w-4" />
-                                <span className="hidden sm:inline">Copiar Extrato WhatsApp</span>
-                                <span className="sm:hidden">Copiar WhatsApp</span>
+                                <span>Copiar Extrato</span>
                             </Button>
                         </div>
                         <DialogDescription>
-                            Listagem cronológica dos pedidos em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}.
+                            Listagem dos pedidos em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}.
                         </DialogDescription>
                     </DialogHeader>
                     
@@ -514,7 +513,7 @@ const ReportDetail = ({
         const contagemRua = report.contagemRua || {};
 
         const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
-        const { lanches: lanchesRua, bomboniere: lanchesRua_ } = separateItemsByCategory(contagemRua);
+        const { lanches: lanchesRua } = separateItemsByCategory(contagemRua);
         const { bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
         
         return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
@@ -1198,8 +1197,6 @@ function ReportsPageContent() {
         const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
 
         if (items.length === 0) {
-            // Se não houver mais itens, talvez queiramos excluir o relatório? 
-            // Para segurança, vamos apenas zerar.
             const reportSnapshot = await getDocs(query(collection(firestore, 'daily_reports'), where('reportDate', '==', reportDate)));
             if (!reportSnapshot.empty) {
                 const reportRef = reportSnapshot.docs[0].ref;
@@ -1293,7 +1290,6 @@ function ReportsPageContent() {
 
     const oldReportDate = currentItem?.reportDate;
     
-    // Calcular o novo Timestamp e a nova reportDate baseada nos inputs manuais
     const [hours, minutes] = editArchivedTime.split(':').map(Number);
     const finalDate = setMinutes(setHours(editArchivedDate, hours), minutes);
     const newReportDateStr = format(finalDate, 'yyyy-MM-dd');
@@ -1301,7 +1297,6 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
 
-        // Devolver estoque se estiver editando um item existente
         if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
             for (const oldSoldItem of currentItem.bomboniereItems) {
                 const itemDef = bomboniereItems.find((i) => i.id === oldSoldItem.id);
@@ -1406,19 +1401,18 @@ function ReportsPageContent() {
             quantity: totalQty,
             price: totalPrice,
             group,
-            timestamp: Timestamp.fromDate(finalDate), // Usar a nova data/hora
+            timestamp: Timestamp.fromDate(finalDate),
             deliveryFee: finalFee,
             total,
             originalCommand: rawInput,
             reportado: true,
-            reportDate: newReportDateStr, // Usar a nova reportDate
+            reportDate: newReportDateStr,
             ...(customerName && { customerName }),
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
             ...(procBomboniere.length > 0 ? { bomboniereItems: procBomboniere } : {}),
         };
 
-        // Reduzir estoque novamente para os novos itens
         if (bomboniereItems) {
             for (const soldItem of procBomboniere) {
                 const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
@@ -1436,13 +1430,12 @@ function ReportsPageContent() {
 
         await batch.commit();
         
-        // Recalcular os dias afetados
         await recalculateReport(newReportDateStr);
         if (oldReportDate && oldReportDate !== newReportDateStr) {
             await recalculateReport(oldReportDate);
         }
 
-        toast({ title: 'Sucesso', description: 'O lançamento foi atualizado e o(s) relatório(s) recalculado(s).' });
+        toast({ title: 'Sucesso', description: 'O lançamento foi atualizado.' });
         setArchivedItemToEdit(null);
         setActiveReportDateForAdd(null);
         setEditArchivedInput('');
@@ -1610,7 +1603,7 @@ function ReportsPageContent() {
       <Dialog open={!!archivedItemToEdit || !!activeReportDateForAdd} onOpenChange={(open) => {
           if(!open) { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); setEditArchivedInput(''); }
       }}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader>
                 <DialogTitle>{archivedItemToEdit ? 'Editar Lançamento Histórico' : 'Novo Lançamento Histórico'}</DialogTitle>
                 <DialogDescription>
