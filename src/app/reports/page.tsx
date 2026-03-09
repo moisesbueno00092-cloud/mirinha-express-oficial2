@@ -106,7 +106,6 @@ const ArchivedItemsTable = ({
                 const snapshot = await getDocs(q);
                 const fetchedItems = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
                 
-                // Ordem crescente de horário (do mais antigo para o mais recente)
                 fetchedItems.sort((a, b) => {
                     const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
                     const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
@@ -199,7 +198,6 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
 
             const sortedStats = Object.values(stats)
                 .map((data) => {
-                    // Ordem crescente de data dentro do histórico do cliente
                     data.orders.sort((a, b) => {
                         const dateA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
                         const dateB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
@@ -223,23 +221,25 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
 
     const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
         const monthName = format(currentDate, 'MMMM/yyyy', { locale: ptBR });
-        let message = `*📊 EXTRATO DE CONSUMO - ${monthName.toUpperCase()}*\n`;
+        // Compact Header
+        let message = `*📊 EXTRATO ${monthName.toUpperCase()}*\n`;
         message += `*Cliente:* ${customer.name}\n`;
-        message += `------------------------------------------\n\n`;
+        message += `----------------------------\n`;
 
         customer.orders.forEach((order) => {
-            const date = format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd/MM (EEE) HH:mm', { locale: ptBR });
-            message += `• ${date}: *${formatCurrency(order.total)}*\n   _${order.name}_\n\n`;
+            const date = format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd/MM HH:mm', { locale: ptBR });
+            // Single line per order: Bullet Date Time: Price (ItemName)
+            message += `• ${date}: *${formatCurrency(order.total)}* (${order.name})\n`;
         });
 
         const total = customer.orders.reduce((acc, o) => acc + o.total, 0);
-        message += `------------------------------------------\n`;
-        message += `*TOTAL ACUMULADO: ${formatCurrency(total)}*`;
+        message += `----------------------------\n`;
+        message += `*TOTAL: ${formatCurrency(total)}*`;
 
         navigator.clipboard.writeText(message).then(() => {
             toast({
                 title: "Extrato Copiado!",
-                description: `O extrato de ${customer.name} foi copiado para a área de transferência.`,
+                description: `O extrato compacto de ${customer.name} foi copiado.`,
             });
         });
     };
@@ -275,11 +275,12 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
                                 onClick={() => selectedCustomer && handleCopyIndividualToWhatsApp(selectedCustomer)}
                             >
                                 <WhatsAppIcon className="h-4 w-4" />
-                                Copiar Extrato
+                                <span className="hidden sm:inline">Copiar Extrato</span>
+                                <span className="sm:hidden">Copiar</span>
                             </Button>
                         </div>
                         <DialogDescription>
-                            Listagem cronológica dos pedidos realizados em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}.
+                            Listagem cronológica dos pedidos em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}.
                         </DialogDescription>
                     </DialogHeader>
                     
@@ -1114,14 +1115,12 @@ function ReportsPageContent() {
   const [newReportDate, setNewReportDate] = useState<Date | undefined>();
   const [isUpdatingDate, setIsUpdatingDate] = useState(false);
 
-  // Edit states for archived items
   const [archivedItemToDelete, setArchivedItemToDelete] = useState<Item | null>(null);
   const [archivedItemToEdit, setArchivedItemToEdit] = useState<Item | null>(null);
   const [editArchivedInput, setEditArchivedInput] = useState('');
   const [isProcessingEdit, setIsProcessingEdit] = useState(false);
   const [activeReportDateForAdd, setActiveReportDateForAdd] = useState<string | null>(null);
   
-  // Favorites and Bomboniere state for archived edits
   const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
   const [isBomboniereModalOpen, setIsBomboniereModalOpen] = useState(false);
 
@@ -1246,7 +1245,6 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
 
-        // Restore stock for old item if editing
         if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
             for (const oldSoldItem of currentItem.bomboniereItems) {
                 const itemDef = bomboniereItems.find((i) => i.id === oldSoldItem.id);
@@ -1256,7 +1254,6 @@ function ReportsPageContent() {
             }
         }
 
-        // Logic para parsing robusto (similar à Home)
         let mainInput = rawInput.trim();
         let group: Group = 'Vendas salão';
         let deliveryFeeApplicable = false;
@@ -1284,7 +1281,6 @@ function ReportsPageContent() {
         let customFee: number | null = null;
         let addFeeToTotal = true;
 
-        // Bomboniere
         for (let i = 0; i < parts.length; i++) {
             if (consumed[i]) continue;
             let bestMatch = null; let bestEnd = -1;
@@ -1304,7 +1300,6 @@ function ReportsPageContent() {
             }
         }
 
-        // KG, TX, Predefined
         for (let i = 0; i < parts.length; i++) {
             if (consumed[i]) continue;
             const part = parts[i];
@@ -1366,7 +1361,6 @@ function ReportsPageContent() {
             ...(procBomboniere.length > 0 ? { bomboniereItems: procBomboniere } : {}),
         };
 
-        // Update Stock
         if (bomboniereItems) {
             for (const soldItem of procBomboniere) {
                 const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
@@ -1419,7 +1413,6 @@ function ReportsPageContent() {
         const batch = writeBatch(firestore);
         const reportDate = archivedItemToDelete.reportDate;
 
-        // Restore stock
         if (archivedItemToDelete.bomboniereItems && archivedItemToDelete.bomboniereItems.length > 0 && bomboniereItems) {
             for (const soldItem of archivedItemToDelete.bomboniereItems) {
                 const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
@@ -1444,6 +1437,16 @@ function ReportsPageContent() {
     }
   };
 
+  const handleDeleteReportRequest = (id: string) => {
+    const report = allReports?.find(r => r.id === id);
+    if (report) setReportToDelete(report);
+  };
+
+  const handleEditDateRequest = (report: DailyReport) => {
+    setReportToEditDate(report);
+    setNewReportDate(parseISO(report.reportDate));
+  };
+
   const confirmDeleteReport = async () => {
     if (!firestore || !reportToDelete?.id || !reportToDelete.reportDate) return;
     
@@ -1463,10 +1466,10 @@ function ReportsPageContent() {
         
         batch.delete(doc(firestore, "daily_reports", reportToDelete.id));
         await batch.commit();
-        toast({ title: "Sucesso", description: "Relatório excluído e itens movidos de volta para a tela principal." });
+        toast({ title: "Sucesso", description: "Relatório excluído e itens movidos de volta." });
     } catch (error: any) {
         console.error("Error deleting report:", error);
-        toast({ variant: "destructive", title: "Erro", description: error.message || "Não foi possível excluir o relatório." });
+        toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
         setReportToDelete(null);
     }
@@ -1500,16 +1503,6 @@ function ReportsPageContent() {
     } finally {
         setIsUpdatingDate(false); setReportToEditDate(null); setNewReportDate(undefined);
     }
-  };
-
-  const handleDeleteReportRequest = (id: string) => {
-    const report = allReports?.find(r => r.id === id);
-    if (report) setReportToDelete(report);
-  };
-
-  const handleEditDateRequest = (report: DailyReport) => {
-    setReportToEditDate(report);
-    setNewReportDate(parseISO(report.reportDate));
   };
   
   if (isLoading && !allReports) {
