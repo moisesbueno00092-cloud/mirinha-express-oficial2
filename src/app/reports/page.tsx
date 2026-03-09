@@ -23,7 +23,7 @@ import { ptBR } from 'date-fns/locale';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User } from 'lucide-react';
+import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -61,6 +61,7 @@ import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import ItemList from '@/components/item-list';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -126,7 +127,8 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
     const firestore = useFirestore();
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
     const [loading, setLoading] = useState(false);
-    const [customerData, setCustomerData] = useState<{ name: string, total: number, count: number }[]>([]);
+    const [customerData, setCustomerData] = useState<{ name: string, total: number, count: number, orders: Item[] }[]>([]);
+    const [selectedCustomer, setSelectedCustomer] = useState<{ name: string, orders: Item[] } | null>(null);
 
     const fetchCustomerStats = async () => {
         if (!firestore) return;
@@ -142,23 +144,32 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
             );
             
             const snapshot = await getDocs(q);
-            const items = snapshot.docs.map(doc => doc.data() as Item);
+            const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
 
-            const stats: Record<string, { total: number, count: number }> = {};
+            const stats: Record<string, { total: number, count: number, orders: Item[] }> = {};
 
             items.forEach(item => {
                 if (item.customerName) {
                     const name = item.customerName.trim();
                     if (!stats[name]) {
-                        stats[name] = { total: 0, count: 0 };
+                        stats[name] = { total: 0, count: 0, orders: [] };
                     }
                     stats[name].total += item.total;
                     stats[name].count += 1;
+                    stats[name].orders.push(item);
                 }
             });
 
             const sortedStats = Object.entries(stats)
-                .map(([name, data]) => ({ name, ...data }))
+                .map(([name, data]) => {
+                    // Sort individual customer orders by date desc
+                    data.orders.sort((a, b) => {
+                        const dateA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
+                        const dateB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
+                        return dateB - dateA;
+                    });
+                    return { name, ...data };
+                })
                 .sort((a, b) => b.total - a.total);
 
             setCustomerData(sortedStats);
@@ -189,12 +200,67 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
 
     return (
         <div className="space-y-6">
+            <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomer(null)}>
+                <DialogContent className="max-w-md sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <User className="h-5 w-5 text-primary" />
+                            Histórico de {selectedCustomer?.name}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Listagem de todos os pedidos realizados em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <ScrollArea className="max-h-[60vh] pr-4 mt-4">
+                        <div className="space-y-3">
+                            {selectedCustomer?.orders.map((order, idx) => (
+                                <div key={order.id || idx} className="flex justify-between items-center p-3 rounded-lg border bg-muted/30">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-background p-2 rounded-md border text-center min-w-[50px]">
+                                            <p className="text-xs font-bold uppercase text-muted-foreground leading-none">
+                                                {format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'MMM', { locale: ptBR })}
+                                            </p>
+                                            <p className="text-lg font-bold leading-tight">
+                                                {format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd')}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-muted-foreground">
+                                                {format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'EEEE, HH:mm', { locale: ptBR })}
+                                            </p>
+                                            <p className="text-sm font-semibold truncate max-w-[150px] sm:max-w-[200px]">{order.name}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm font-mono font-bold text-primary">{formatCurrency(order.total)}</p>
+                                        <Badge variant="outline" className="text-[0.6rem] h-4">{order.group}</Badge>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </ScrollArea>
+
+                    <DialogFooter className="mt-4">
+                        <div className="flex justify-between items-center w-full">
+                            <div className="text-sm">
+                                <span className="text-muted-foreground">Total Acumulado:</span>
+                                <span className="ml-2 font-bold text-primary">
+                                    {formatCurrency(selectedCustomer?.orders.reduce((acc, o) => acc + o.total, 0))}
+                                </span>
+                            </div>
+                            <Button variant="outline" onClick={() => setSelectedCustomer(null)}>Fechar</Button>
+                        </div>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="text-sm font-medium text-muted-foreground">Mês</label>
                     <Select
                         value={String(currentDate.getMonth())}
-                        onValueChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
+                        onChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
                     >
                         <SelectTrigger className="w-full">
                             <SelectValue />
@@ -223,18 +289,23 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
             {loading ? (
                 <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : customerData.length > 0 ? (
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-hidden">
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50 border-b">
                             <tr>
                                 <th className="text-left p-4 font-medium">Cliente</th>
                                 <th className="text-center p-4 font-medium">Pedidos</th>
                                 <th className="text-right p-4 font-medium">Total Gasto</th>
+                                <th className="w-10"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y">
                             {customerData.map((cust, idx) => (
-                                <tr key={cust.name} className="hover:bg-muted/30 transition-colors">
+                                <tr 
+                                    key={cust.name} 
+                                    className="hover:bg-muted/30 transition-colors cursor-pointer group"
+                                    onClick={() => setSelectedCustomer({ name: cust.name, orders: cust.orders })}
+                                >
                                     <td className="p-4 flex items-center gap-2">
                                         <div className="bg-primary/10 text-primary p-1.5 rounded-full">
                                             <User className="h-4 w-4" />
@@ -243,6 +314,9 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
                                     </td>
                                     <td className="p-4 text-center text-muted-foreground">{cust.count}</td>
                                     <td className="p-4 text-right font-mono font-bold text-primary">{formatCurrency(cust.total)}</td>
+                                    <td className="pr-4 text-right">
+                                        <Eye className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
