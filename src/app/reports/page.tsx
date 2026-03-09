@@ -50,7 +50,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/accordion";
+} from "@/components/ui/accordion";
 import {
   ChartContainer,
   ChartTooltip,
@@ -142,8 +142,8 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
 
             const q = query(
                 collection(firestore, 'order_items'),
-                where('reportDate', '>=', start),
-                where('reportDate', '<=', end)
+                where('reportDate', >=, start),
+                where('reportDate', <=, end)
             );
             
             const snapshot = await getDocs(q);
