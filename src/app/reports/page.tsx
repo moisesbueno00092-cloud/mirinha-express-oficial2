@@ -91,39 +91,28 @@ const ArchivedItemsTable = ({
     onAdd: () => void
 }) => {
     const firestore = useFirestore();
-    const [items, setItems] = useState<Item[] | null>(null);
-    const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        const fetchItems = async () => {
-            if (!firestore || !reportDate) return;
-            setLoading(true);
-            try {
-                const q = query(
-                    collection(firestore, 'order_items'),
-                    where('reportDate', '==', reportDate)
-                );
-                const snapshot = await getDocs(q);
-                const fetchedItems = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
-                
-                fetchedItems.sort((a, b) => {
-                    const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
-                    const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
-                    return timeA - timeB;
-                });
-                
-                setItems(fetchedItems);
-            } catch (error) {
-                console.error("Error fetching archived items:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchItems();
+    
+    const archivedItemsQuery = useMemo(() => {
+        if (!firestore || !reportDate) return null;
+        return query(
+            collection(firestore, 'order_items'),
+            where('reportDate', '==', reportDate)
+        );
     }, [firestore, reportDate]);
 
-    if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    const { data: rawItems, isLoading } = useCollection<Item>(archivedItemsQuery);
+
+    const items = useMemo(() => {
+        if (!rawItems) return null;
+        return [...rawItems].sort((a, b) => {
+            const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
+            const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
+            return timeA - timeB;
+        });
+    }, [rawItems]);
+
+    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    
     if (!items || items.length === 0) return (
         <div className="mt-8 border-t pt-6 text-center">
              <p className="text-muted-foreground text-sm py-4">Nenhum pedido encontrado.</p>
@@ -221,14 +210,12 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
 
     const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
         const monthName = format(currentDate, 'MMMM/yyyy', { locale: ptBR });
-        // Compact Header
         let message = `*📊 EXTRATO ${monthName.toUpperCase()}*\n`;
         message += `*Cliente:* ${customer.name}\n`;
         message += `----------------------------\n`;
 
         customer.orders.forEach((order) => {
             const date = format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd/MM HH:mm', { locale: ptBR });
-            // Single line per order: Bullet Date Time: Price (ItemName)
             message += `• ${date}: *${formatCurrency(order.total)}* (${order.name})\n`;
         });
 
@@ -730,7 +717,7 @@ const DailyReportsSection = ({
         return reports.filter(r => {
             const reportDate = parseISO(r.reportDate);
             return reportDate.getFullYear() === currentDate.getFullYear() && reportDate.getMonth() === currentDate.getMonth();
-        }).sort((a, b) => parseISO(b.reportDate).getTime() - parseISO(a.reportDate).getTime());
+        }).sort((a, b) => parseISO(a.reportDate).getTime() - parseISO(b.reportDate).getTime());
     }, [reports, currentDate]);
 
     const generateYearOptions = () => {
@@ -879,7 +866,7 @@ const WeeklyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRepo
                 dateRange: `${format(firstDay, 'dd/MM')} - ${format(lastDay, 'dd/MM')}`,
                 aggregated: aggregateReports(weekReports)
             }
-        }).sort((a, b) => b.weekNumber - a.weekNumber);
+        }).sort((a, b) => a.weekNumber - b.weekNumber);
 
     }, [reports, year]);
 
@@ -958,7 +945,7 @@ const MonthlyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRep
             monthNumber: Number(month),
             monthName: format(new Date(year, Number(month)), 'MMMM', { locale: ptBR }),
             aggregated: aggregateReports(monthReports)
-        })).sort((a,b) => b.monthNumber - a.monthNumber);
+        })).sort((a,b) => a.monthNumber - b.monthNumber);
     }, [reports, year]);
 
      return (
@@ -1020,7 +1007,7 @@ const YearlyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRepo
         return Object.entries(years).map(([year, yearReports]) => ({
             yearNumber: Number(year),
             aggregated: aggregateReports(yearReports)
-        })).sort((a,b) => b.yearNumber - a.yearNumber);
+        })).sort((a,b) => a.yearNumber - b.yearNumber);
     }, [reports]);
 
     return (
@@ -1129,7 +1116,7 @@ function ReportsPageContent() {
   
   const allReportsQuery = useMemo(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'desc'));
+    return query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'asc'));
   }, [firestore]);
 
   const { data: allReports, isLoading: isLoadingReports } = useCollection<DailyReport>(allReportsQuery);
