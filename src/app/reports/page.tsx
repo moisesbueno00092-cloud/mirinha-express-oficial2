@@ -23,7 +23,7 @@ import { ptBR } from 'date-fns/locale';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered } from 'lucide-react';
+import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -79,7 +79,6 @@ const ArchivedItemsTable = ({ reportDate }: { reportDate: string }) => {
             if (!firestore || !reportDate) return;
             setLoading(true);
             try {
-                // Using a simple query on reportDate to avoid composite index requirements
                 const q = query(
                     collection(firestore, 'order_items'),
                     where('reportDate', '==', reportDate)
@@ -87,7 +86,6 @@ const ArchivedItemsTable = ({ reportDate }: { reportDate: string }) => {
                 const snapshot = await getDocs(q);
                 const fetchedItems = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
                 
-                // Sort in memory by timestamp descending (most recent first)
                 fetchedItems.sort((a, b) => {
                     const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
                     const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
@@ -120,6 +118,144 @@ const ArchivedItemsTable = ({ reportDate }: { reportDate: string }) => {
                     isLoading={false} 
                 />
             </div>
+        </div>
+    );
+};
+
+const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: BomboniereItem[] }) => {
+    const firestore = useFirestore();
+    const [currentDate, setCurrentDate] = useState<Date>(new Date());
+    const [loading, setLoading] = useState(false);
+    const [customerData, setCustomerData] = useState<{ name: string, total: number, count: number }[]>([]);
+
+    const fetchCustomerStats = async () => {
+        if (!firestore) return;
+        setLoading(true);
+        try {
+            const start = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+            const end = format(endOfMonth(currentDate), 'yyyy-MM-dd');
+
+            const q = query(
+                collection(firestore, 'order_items'),
+                where('reportDate', '>=', start),
+                where('reportDate', '<=', end)
+            );
+            
+            const snapshot = await getDocs(q);
+            const items = snapshot.docs.map(doc => doc.data() as Item);
+
+            const stats: Record<string, { total: number, count: number }> = {};
+
+            items.forEach(item => {
+                if (item.customerName) {
+                    const name = item.customerName.trim();
+                    if (!stats[name]) {
+                        stats[name] = { total: 0, count: 0 };
+                    }
+                    stats[name].total += item.total;
+                    stats[name].count += 1;
+                }
+            });
+
+            const sortedStats = Object.entries(stats)
+                .map(([name, data]) => ({ name, ...data }))
+                .sort((a, b) => b.total - a.total);
+
+            setCustomerData(sortedStats);
+        } catch (error) {
+            console.error("Error fetching customer stats:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchCustomerStats();
+    }, [firestore, currentDate]);
+
+    const generateYearOptions = () => {
+        const currentYear = new Date().getFullYear();
+        const years = [];
+        for (let i = currentYear; i >= currentYear - 5; i--) {
+            years.push(i);
+        }
+        return years;
+    }
+
+    const monthOptions = Array.from({ length: 12 }, (_, i) => ({
+        value: String(i),
+        label: format(new Date(2000, i), 'MMMM', { locale: ptBR })
+    }));
+
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="text-sm font-medium text-muted-foreground">Mês</label>
+                    <Select
+                        value={String(currentDate.getMonth())}
+                        onValueChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
+                    >
+                        <SelectTrigger className="w-full">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {monthOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div>
+                    <label className="text-sm font-medium text-muted-foreground">Ano</label>
+                    <Select
+                        value={String(currentDate.getFullYear())}
+                        onValueChange={(value) => setCurrentDate(setYear(new Date(currentDate), parseInt(value)))}
+                    >
+                        <SelectTrigger className="w-full">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {generateYearOptions().map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            {loading ? (
+                <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : customerData.length > 0 ? (
+                <div className="rounded-md border">
+                    <table className="w-full text-sm">
+                        <thead className="bg-muted/50 border-b">
+                            <tr>
+                                <th className="text-left p-4 font-medium">Cliente</th>
+                                <th className="text-center p-4 font-medium">Pedidos</th>
+                                <th className="text-right p-4 font-medium">Total Gasto</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {customerData.map((cust, idx) => (
+                                <tr key={cust.name} className="hover:bg-muted/30 transition-colors">
+                                    <td className="p-4 flex items-center gap-2">
+                                        <div className="bg-primary/10 text-primary p-1.5 rounded-full">
+                                            <User className="h-4 w-4" />
+                                        </div>
+                                        <span className="font-semibold">{cust.name}</span>
+                                    </td>
+                                    <td className="p-4 text-center text-muted-foreground">{cust.count}</td>
+                                    <td className="p-4 text-right font-mono font-bold text-primary">{formatCurrency(cust.total)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <Card>
+                    <CardContent className="text-center text-muted-foreground py-20">
+                        <User className="mx-auto h-8 w-8 mb-2 opacity-20"/>
+                        <p>Nenhum consumo identificado para clientes identificados neste mês.</p>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 };
@@ -1029,6 +1165,20 @@ function ReportsPageContent() {
                     </AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         <GeneralReportSection reports={allReports || []} bomboniereItems={bomboniereItems || []} />
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+
+            <AccordionItem value="clientes">
+                <Card>
+                    <AccordionTrigger className="text-lg p-6 hover:no-underline">
+                         <div className="flex items-center gap-3">
+                            <User className="h-6 w-6 text-primary"/>
+                            <span>Consumo por Cliente (Mensal)</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <CustomerReportsSection bomboniereItems={bomboniereItems || []} />
                     </AccordionContent>
                 </Card>
             </AccordionItem>
