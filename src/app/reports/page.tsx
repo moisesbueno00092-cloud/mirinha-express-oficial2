@@ -1,8 +1,9 @@
+
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useFirestore, useCollection, useUser } from '@/firebase';
-import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch, setDoc, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { 
     format, 
     parseISO, 
@@ -24,7 +25,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon, Copy, Share2 } from 'lucide-react';
+import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon, Copy, Share2, Pencil, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -57,13 +58,16 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import type { DailyReport, ItemCount, BomboniereItem, Item } from '@/types';
+import type { DailyReport, ItemCount, BomboniereItem, Item, Group, PredefinedItem, SelectedBomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import ItemList from '@/components/item-list';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
+import { Input } from '@/components/ui/input';
+import usePersistentState from '@/hooks/use-persistent-state';
+import { PREDEFINED_PRICES, DELIVERY_FEE } from '@/lib/constants';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -72,7 +76,19 @@ const formatCurrency = (value: number | undefined | null) => {
     }).format(value || 0);
 };
 
-const ArchivedItemsTable = ({ reportDate }: { reportDate: string }) => {
+const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
+
+const ArchivedItemsTable = ({ 
+    reportDate, 
+    onEdit, 
+    onDelete, 
+    onAdd 
+}: { 
+    reportDate: string, 
+    onEdit: (item: Item) => void, 
+    onDelete: (item: Item) => void,
+    onAdd: () => void
+}) => {
     const firestore = useFirestore();
     const [items, setItems] = useState<Item[] | null>(null);
     const [loading, setLoading] = useState(false);
@@ -89,7 +105,6 @@ const ArchivedItemsTable = ({ reportDate }: { reportDate: string }) => {
                 const snapshot = await getDocs(q);
                 const fetchedItems = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
                 
-                // Ordenação crescente (do mais antigo para o mais recente)
                 fetchedItems.sort((a, b) => {
                     const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
                     const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
@@ -108,18 +123,32 @@ const ArchivedItemsTable = ({ reportDate }: { reportDate: string }) => {
     }, [firestore, reportDate]);
 
     if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-    if (!items || items.length === 0) return <p className="text-center text-muted-foreground text-sm py-8 border-t mt-6">Nenhum detalhe de pedido encontrado para esta data.</p>;
+    if (!items || items.length === 0) return (
+        <div className="mt-8 border-t pt-6 text-center">
+             <p className="text-muted-foreground text-sm py-4">Nenhum pedido encontrado.</p>
+             <Button variant="outline" size="sm" onClick={onAdd}>
+                <Plus className="h-4 w-4 mr-2" /> Adicionar Item
+             </Button>
+        </div>
+    );
 
     return (
         <div className="mt-8 border-t pt-6">
-            <h4 className="font-semibold mb-4 flex items-center gap-2">
-                <ListOrdered className="h-5 w-5 text-primary" />
-                Listagem de Pedidos Detalhada
-            </h4>
+            <div className="flex justify-between items-center mb-4">
+                <h4 className="font-semibold flex items-center gap-2">
+                    <ListOrdered className="h-5 w-5 text-primary" />
+                    Listagem de Pedidos Detalhada
+                </h4>
+                <Button variant="outline" size="sm" onClick={onAdd}>
+                    <Plus className="h-4 w-4 mr-2" /> Novo Item
+                </Button>
+            </div>
             <div className="rounded-md border">
                 <ItemList 
                     items={items} 
                     isLoading={false} 
+                    onEdit={onEdit}
+                    onDelete={onDelete}
                 />
             </div>
         </div>
@@ -168,7 +197,6 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
 
             const sortedStats = Object.values(stats)
                 .map((data) => {
-                    // Ordenação crescente por data/hora (do mais antigo para o mais recente)
                     data.orders.sort((a, b) => {
                         const dateA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
                         const dateB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
@@ -376,7 +404,19 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
     );
 };
 
-const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null, bomboniereItems: BomboniereItem[] }) => {
+const ReportDetail = ({ 
+    report, 
+    bomboniereItems,
+    onEditItem,
+    onDeleteItem,
+    onAddItem
+}: { 
+    report: DailyReport | null, 
+    bomboniereItems: BomboniereItem[],
+    onEditItem: (item: Item) => void,
+    onDeleteItem: (item: Item) => void,
+    onAddItem: (reportDate: string) => void
+}) => {
     
     const bomboniereNameMap = useMemo(() => {
       const map = new Map<string, string>();
@@ -414,9 +454,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null,
         return { lanches, bomboniere };
     };
     
-    if (!report) {
-         return null;
-    }
+    if (!report) return null;
 
     const chartData = [
         { name: 'Vendas Salão', value: report.totalVendasSalao || 0, fill: 'hsl(var(--chart-1))' },
@@ -455,16 +493,9 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null,
     }, [report.contagemTotal, report.contagemRua, separateItemsByCategory]);
 
     const renderItemCountList = (counts: ItemCount) => {
-      if (!counts || Object.keys(counts).length === 0) {
-        return null;
-      }
+      if (!counts || Object.keys(counts).length === 0) return null;
 
-      const sortedEntries = Object.entries(counts)
-        .sort(([, aCount], [, bCount]) => bCount - aCount);
-
-      if (sortedEntries.length === 0) {
-        return null;
-      }
+      const sortedEntries = Object.entries(counts).sort(([, aCount], [, bCount]) => bCount - aCount);
 
       return (
         <div className="mt-3">
@@ -481,9 +512,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null,
     }
     
     const renderTitledItemCountList = (counts: ItemCount, title: string, titleClassName?: string) => {
-      if (!counts || Object.keys(counts).length === 0) {
-        return null;
-      }
+      if (!counts || Object.keys(counts).length === 0) return null;
       return (
         <div className="mt-3">
             <h5 className={cn("font-medium text-xs mb-2", titleClassName)}>{title}</h5>
@@ -625,7 +654,12 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null,
           </div>
         </div>
       </div>
-      <ArchivedItemsTable reportDate={report.reportDate} />
+      <ArchivedItemsTable 
+        reportDate={report.reportDate} 
+        onEdit={onEditItem} 
+        onDelete={onDeleteItem}
+        onAdd={() => onAddItem(reportDate)}
+      />
     </div>
   )
 };
@@ -670,14 +704,24 @@ const aggregateReports = (reports: DailyReport[]): DailyReport | null => {
     }, initial);
 };
 
-const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEditDateRequest }: { 
+const DailyReportsSection = ({ 
+    reports, 
+    bomboniereItems, 
+    onDeleteRequest, 
+    onEditDateRequest,
+    onEditItem,
+    onDeleteItem,
+    onAddItem
+}: { 
     reports: DailyReport[], 
     bomboniereItems: BomboniereItem[], 
     onDeleteRequest: (id: string) => void,
-    onEditDateRequest: (report: DailyReport) => void 
+    onEditDateRequest: (report: DailyReport) => void,
+    onEditItem: (item: Item) => void,
+    onDeleteItem: (item: Item) => void,
+    onAddItem: (reportDate: string) => void
 }) => {
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
-    const firestore = useFirestore();
     
     const monthlyReports = useMemo(() => {
         if(!reports) return [];
@@ -781,7 +825,13 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
                                       </div>
                                   </AccordionTrigger>
                                 <AccordionContent className="p-4 pt-0">
-                                    <ReportDetail report={report} bomboniereItems={bomboniereItems} />
+                                    <ReportDetail 
+                                        report={report} 
+                                        bomboniereItems={bomboniereItems} 
+                                        onEditItem={onEditItem}
+                                        onDeleteItem={onDeleteItem}
+                                        onAddItem={onAddItem}
+                                    />
                                 </AccordionContent>
                             </Card>
                         </AccordionItem>
@@ -858,7 +908,13 @@ const WeeklyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRepo
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 pt-0">
-                                    <ReportDetail report={aggregated} bomboniereItems={bomboniereItems} />
+                                    <ReportDetail 
+                                        report={aggregated} 
+                                        bomboniereItems={bomboniereItems} 
+                                        onEditItem={() => {}} 
+                                        onDeleteItem={() => {}} 
+                                        onAddItem={() => {}}
+                                    />
                                 </AccordionContent>
                              </Card>
                         </AccordionItem>
@@ -927,7 +983,13 @@ const MonthlyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRep
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 pt-0">
-                                    <ReportDetail report={aggregated} bomboniereItems={bomboniereItems} />
+                                    <ReportDetail 
+                                        report={aggregated} 
+                                        bomboniereItems={bomboniereItems} 
+                                        onEditItem={() => {}} 
+                                        onDeleteItem={() => {}} 
+                                        onAddItem={() => {}}
+                                    />
                                 </AccordionContent>
                              </Card>
                         </AccordionItem>
@@ -976,7 +1038,13 @@ const YearlyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRepo
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="p-4 pt-0">
-                                    <ReportDetail report={aggregated} bomboniereItems={bomboniereItems} />
+                                    <ReportDetail 
+                                        report={aggregated} 
+                                        bomboniereItems={bomboniereItems} 
+                                        onEditItem={() => {}} 
+                                        onDeleteItem={() => {}} 
+                                        onAddItem={() => {}}
+                                    />
                                 </AccordionContent>
                              </Card>
                         </AccordionItem>
@@ -1013,7 +1081,13 @@ const GeneralReportSection = ({ reports, bomboniereItems }: { reports: DailyRepo
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <ReportDetail report={generalReport} bomboniereItems={bomboniereItems} />
+                        <ReportDetail 
+                            report={generalReport} 
+                            bomboniereItems={bomboniereItems} 
+                            onEditItem={() => {}} 
+                            onDeleteItem={() => {}} 
+                            onAddItem={() => {}}
+                        />
                     </CardContent>
                 </Card>
             ) : (
@@ -1032,11 +1106,22 @@ const GeneralReportSection = ({ reports, bomboniereItems }: { reports: DailyRepo
 function ReportsPageContent() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
   
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
   const [reportToEditDate, setReportToEditDate] = useState<DailyReport | null>(null);
   const [newReportDate, setNewReportDate] = useState<Date | undefined>();
   const [isUpdatingDate, setIsUpdatingDate] = useState(false);
+
+  // Edit states for archived items
+  const [archivedItemToDelete, setArchivedItemToDelete] = useState<Item | null>(null);
+  const [archivedItemToEdit, setArchivedItemToEdit] = useState<Item | null>(null);
+  const [editArchivedInput, setEditArchivedInput] = useState('');
+  const [isProcessingEdit, setIsProcessingEdit] = useState(false);
+  const [activeReportDateForAdd, setActiveReportDateForAdd] = useState<string | null>(null);
+
+  const [predefinedPrices] = usePersistentState('predefinedPrices', PREDEFINED_PRICES);
+  const [deliveryFee] = usePersistentState('deliveryFee', DELIVERY_FEE);
   
   const allReportsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -1049,36 +1134,304 @@ function ReportsPageContent() {
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
     [firestore]
   );
-  const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereQuery);
+  const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereQuery);
 
-  const { isUserLoading } = useUser();
+  const bomboniereItemsByName = useMemo(() => {
+    if (!bomboniereItems) return {};
+    return bomboniereItems.reduce((acc, item) => {
+        acc[item.name.toLowerCase()] = item;
+        return acc;
+    }, {} as Record<string, BomboniereItem>);
+  }, [bomboniereItems]);
 
-  const isLoading = isLoadingReports || isLoadingBomboniere || isUserLoading;
+  const isLoading = isLoadingReports || isUserLoading;
 
-  const handleDeleteReportRequest = (reportId: string) => {
-    const report = allReports?.find(r => r.id === reportId);
-    if(report) {
-        setReportToDelete(report);
+  const recalculateReport = async (reportDate: string) => {
+    if (!firestore || !user?.uid) return;
+
+    try {
+        const orderItemsQuery = query(
+            collection(firestore, 'order_items'),
+            where('reportDate', '==', reportDate)
+        );
+        const snapshot = await getDocs(orderItemsQuery);
+        const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
+
+        const totals = items.reduce(
+            (acc, item) => {
+                acc.totalGeral += item.total;
+                acc.totalItens += item.quantity;
+                acc.totalTaxas += item.deliveryFee;
+
+                const itemIsRua = item.group === 'Vendas rua' || item.group === 'Fiados rua';
+                if (itemIsRua) {
+                    if (item.deliveryFee > 0) acc.totalEntregas++;
+                    acc.totalItensRua += item.quantity;
+                }
+
+                if (item.group === 'Fiados salão' || item.group === 'Fiados rua') {
+                    acc.totalFiado += item.total;
+                } else {
+                    acc.totalAVista += item.total;
+                }
+
+                switch (item.group) {
+                    case 'Vendas salão': acc.totalVendasSalao += item.total; break;
+                    case 'Vendas rua': acc.totalVendasRua += item.total; break;
+                    case 'Fiados salão': acc.totalFiadoSalao += item.total; break;
+                    case 'Fiados rua': acc.totalFiadoRua += item.total; break;
+                }
+
+                const itemsToCount = [
+                    ...(item.predefinedItems?.map((i) => ({ ...i, count: 1 })) || []),
+                    ...(item.bomboniereItems?.map((i) => ({ name: i.name, count: i.quantity })) || []),
+                    ...(item.individualPrices?.map(() => ({ name: 'KG', count: 1 })) || []),
+                ];
+
+                itemsToCount.forEach(({ name, count }) => {
+                    acc.contagemTotal[name] = (acc.contagemTotal[name] || 0) + count;
+                    if (itemIsRua) {
+                        acc.contagemRua[name] = (acc.contagemRua[name] || 0) + count;
+                    }
+                });
+
+                const bomboniereTotal = item.bomboniereItems?.reduce((sum, bi) => sum + bi.price * bi.quantity, 0) || 0;
+                if (itemIsRua) {
+                    acc.totalBomboniereRua += bomboniereTotal;
+                } else {
+                    acc.totalBomboniereSalao += bomboniereTotal;
+                }
+
+                return acc;
+            },
+            {
+                totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
+                totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
+                totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
+                contagemTotal: {} as ItemCount, contagemRua: {} as ItemCount,
+            }
+        );
+
+        const reportSnapshot = await getDocs(query(collection(firestore, 'daily_reports'), where('reportDate', '==', reportDate)));
+        if (!reportSnapshot.empty) {
+            const reportRef = reportSnapshot.docs[0].ref;
+            await setDoc(reportRef, {
+                ...totals,
+                totalPedidos: items.length,
+                reportDate,
+                userId: user.uid,
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+        }
+    } catch (error) {
+        console.error("Error recalculating report:", error);
     }
   };
-  
-  const handleEditDateRequest = (report: DailyReport) => {
-    setReportToEditDate(report);
-    setNewReportDate(parseISO(report.reportDate));
+
+  const handleUpsertArchivedItem = async (rawInput: string, currentItem?: Item | null, specificDate?: string) => {
+    if (!firestore || !user?.uid) return;
+    setIsProcessingEdit(true);
+
+    const reportDateStr = currentItem?.reportDate || specificDate;
+    if (!reportDateStr) {
+        setIsProcessingEdit(false);
+        return;
+    }
+
+    try {
+        const batch = writeBatch(firestore);
+
+        // Restore stock for old item if editing
+        if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
+            for (const oldSoldItem of currentItem.bomboniereItems) {
+                const itemDef = bomboniereItems.find((i) => i.id === oldSoldItem.id);
+                if (itemDef) {
+                    batch.update(doc(firestore, 'bomboniere_items', itemDef.id), { estoque: itemDef.estoque + oldSoldItem.quantity });
+                }
+            }
+        }
+
+        // Parse logic (simplified version of Home's logic)
+        let mainInput = rawInput.trim();
+        let group: Group = 'Vendas salão';
+        let deliveryFeeApplicable = false;
+        let isTaxExempt = false;
+        let customerName = '';
+
+        const partsEx = mainInput.split(' ').filter(p => p.trim() !== '');
+        if (partsEx.some(p => p.toUpperCase() === 'E')) {
+            isTaxExempt = true;
+            mainInput = partsEx.filter(p => p.toUpperCase() !== 'E').join(' ');
+        }
+
+        const up = mainInput.toUpperCase();
+        if (up.startsWith('R ')) { group = 'Vendas rua'; deliveryFeeApplicable = true; mainInput = mainInput.substring(2).trim(); }
+        else if (up.startsWith('FR ')) { group = 'Fiados rua'; deliveryFeeApplicable = true; mainInput = mainInput.substring(3).trim(); }
+        else if (up.startsWith('F ')) { group = 'Fiados salão'; mainInput = mainInput.substring(2).trim(); }
+
+        let parts = mainInput.split(' ').filter(p => p.trim() !== '');
+        let consumed = new Array(parts.length).fill(false);
+        let totalQty = 0;
+        let totalPrice = 0;
+        let individualPrices: number[] = [];
+        let predefinedItems: PredefinedItem[] = [];
+        let procBomboniere: SelectedBomboniereItem[] = [];
+        let customFee: number | null = null;
+        let addFeeToTotal = true;
+
+        // Bomboniere
+        for (let i = 0; i < parts.length; i++) {
+            if (consumed[i]) continue;
+            let bestMatch = null; let bestEnd = -1;
+            for (let j = parts.length; j > i; j--) {
+                const pot = parts.slice(i, j).join(' ').toLowerCase();
+                if (bomboniereItemsByName[pot]) { bestMatch = bomboniereItemsByName[pot]; bestEnd = j; break; }
+            }
+            if (bestMatch) {
+                let bomboniereQty = 1;
+                if (i > 0 && !consumed[i - 1] && isNumeric(parts[i - 1])) { bomboniereQty = parseInt(parts[i - 1], 10); consumed[i - 1] = true; }
+                let priceToUse = bestMatch.price;
+                if (bestEnd < parts.length && !consumed[bestEnd] && isNumeric(parts[bestEnd])) { priceToUse = parseFloat(parts[bestEnd].replace(',', '.')); consumed[bestEnd] = true; }
+                procBomboniere.push({ id: bestMatch.id, name: bestMatch.name, quantity: bomboniereQty, price: priceToUse });
+                totalPrice += priceToUse * bomboniereQty; totalQty += bomboniereQty;
+                for (let k = i; k < bestEnd; k++) consumed[k] = true;
+                i = bestEnd - 1;
+            }
+        }
+
+        // KG, TX, Predefined
+        for (let i = 0; i < parts.length; i++) {
+            if (consumed[i]) continue;
+            const part = parts[i];
+            if (part.toUpperCase() === 'KG') {
+                consumed[i] = true;
+                let next = i + 1;
+                while(next < parts.length && !consumed[next] && isNumeric(parts[next])) {
+                    const pr = parseFloat(parts[next].replace(',', '.'));
+                    individualPrices.push(pr); totalPrice += pr; totalQty++; consumed[next] = true; next++;
+                }
+                i = next - 1; continue;
+            }
+            if (part.toUpperCase() === 'TX' && i + 1 < parts.length && !consumed[i+1]) {
+                let feePart = parts[i + 1];
+                if (feePart.toLowerCase().startsWith('d')) { addFeeToTotal = false; feePart = feePart.substring(1); }
+                if (isNumeric(feePart)) { customFee = parseFloat(feePart.replace(',', '.')); consumed[i] = true; consumed[i+1] = true; i++; }
+                continue;
+            }
+            let qty = 1; let itemPart = part;
+            const qm = part.match(/^(\d+)([a-zA-Z\s]+)/);
+            if (qm) { qty = parseInt(qm[1], 10); itemPart = qm[2]; }
+            const prDef = predefinedPrices[itemPart.toUpperCase()];
+            if (prDef) {
+                consumed[i] = true;
+                let priceToUse = prDef;
+                if (i + 1 < parts.length && !consumed[i + 1] && isNumeric(parts[i + 1])) { priceToUse = parseFloat(parts[i + 1].replace(',', '.')); consumed[i + 1] = true; i++; }
+                for (let j = 0; j < qty; j++) { predefinedItems.push({ name: itemPart.toUpperCase(), price: priceToUse }); totalPrice += priceToUse; }
+                totalQty += qty; continue;
+            }
+        }
+
+        const potName = parts.filter((_, idx) => !consumed[idx]).join(' ');
+        customerName = potName;
+
+        const finalFee = isTaxExempt ? 0 : customFee !== null ? customFee : deliveryFeeApplicable ? deliveryFee : 0;
+        const total = addFeeToTotal ? (totalPrice + finalFee) : totalPrice;
+
+        const nameParts = [];
+        if (predefinedItems.length > 0) nameParts.push(predefinedItems.map(p => p.name).join(' '));
+        if (individualPrices.length > 0) nameParts.push('KG');
+        if (procBomboniere.length > 0) nameParts.push(procBomboniere.map(it => `${it.quantity > 1 ? it.quantity : ''}${it.name}`).join(' '));
+        const consolidatedName = nameParts.join(' + ') || 'Lançamento';
+
+        const finalItem: Omit<Item, 'id'> = {
+            userId: user.uid,
+            name: consolidatedName,
+            quantity: totalQty,
+            price: totalPrice,
+            group,
+            timestamp: currentItem?.timestamp || serverTimestamp() as Timestamp,
+            deliveryFee: finalFee,
+            total,
+            originalCommand: rawInput,
+            reportado: true,
+            reportDate: reportDateStr,
+            ...(customerName && { customerName }),
+            ...(individualPrices.length > 0 ? { individualPrices } : {}),
+            ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
+            ...(procBomboniere.length > 0 ? { bomboniereItems: procBomboniere } : {}),
+        };
+
+        // Update Stock
+        if (bomboniereItems) {
+            for (const soldItem of procBomboniere) {
+                const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
+                if (itemDef) {
+                    batch.update(doc(firestore, 'bomboniere_items', itemDef.id), { estoque: itemDef.estoque - soldItem.quantity });
+                }
+            }
+        }
+
+        if (currentItem) {
+            batch.set(doc(firestore, 'order_items', currentItem.id), finalItem);
+        } else {
+            batch.set(doc(collection(firestore, 'order_items')), finalItem);
+        }
+
+        await batch.commit();
+        await recalculateReport(reportDateStr);
+
+        toast({ title: 'Sucesso', description: 'O lançamento foi atualizado e o relatório recalculado.' });
+        setArchivedItemToEdit(null);
+        setActiveReportDateForAdd(null);
+    } catch (error: any) {
+        console.error("Error upserting archived item:", error);
+        toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    } finally {
+        setIsProcessingEdit(false);
+    }
   };
-  
+
+  const confirmDeleteArchivedItem = async () => {
+    if (!firestore || !archivedItemToDelete) return;
+    setIsProcessingEdit(true);
+
+    try {
+        const batch = writeBatch(firestore);
+        const reportDate = archivedItemToDelete.reportDate;
+
+        // Restore stock
+        if (archivedItemToDelete.bomboniereItems && archivedItemToDelete.bomboniereItems.length > 0 && bomboniereItems) {
+            for (const soldItem of archivedItemToDelete.bomboniereItems) {
+                const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
+                if (itemDef) {
+                    batch.update(doc(firestore, 'bomboniere_items', itemDef.id), { estoque: itemDef.estoque + soldItem.quantity });
+                }
+            }
+        }
+
+        batch.delete(doc(firestore, 'order_items', archivedItemToDelete.id));
+        await batch.commit();
+        
+        if (reportDate) await recalculateReport(reportDate);
+
+        toast({ title: 'Item removido', variant: 'destructive' });
+    } catch (error: any) {
+        console.error("Error deleting archived item:", error);
+        toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    } finally {
+        setIsProcessingEdit(false);
+        setArchivedItemToDelete(null);
+    }
+  };
+
   const confirmDeleteReport = async () => {
     if (!firestore || !reportToDelete?.id || !reportToDelete.reportDate) return;
     
     try {
         const batch = writeBatch(firestore);
-        
         const reportDateStr = reportToDelete.reportDate;
 
-        const orderItemsQuery = query(
-          collection(firestore, 'order_items'), 
-          where('reportDate', '==', reportDateStr)
-        );
+        const orderItemsQuery = query(collection(firestore, 'order_items'), where('reportDate', '==', reportDateStr));
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
 
         orderItemsSnapshot.forEach(orderDoc => {
@@ -1088,23 +1441,12 @@ function ReportsPageContent() {
             batch.delete(orderDoc.ref);
         });
         
-        const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
-        batch.delete(reportDocRef);
-
+        batch.delete(doc(firestore, "daily_reports", reportToDelete.id));
         await batch.commit();
-        
-        toast({
-            title: "Sucesso",
-            description: "Relatório excluído e os seus itens foram movidos de volta para a tela principal.",
-        });
-
+        toast({ title: "Sucesso", description: "Relatório excluído e itens movidos de volta para a tela principal." });
     } catch (error: any) {
         console.error("Error deleting report:", error);
-        toast({
-            variant: "destructive",
-            title: "Erro",
-            description: error.message || "Não foi possível excluir o relatório.",
-        });
+        toast({ variant: "destructive", title: "Erro", description: error.message || "Não foi possível excluir o relatório." });
     } finally {
         setReportToDelete(null);
     }
@@ -1112,61 +1454,36 @@ function ReportsPageContent() {
   
   const confirmEditDate = async () => {
     if (!firestore || !reportToEditDate || !newReportDate) return;
-
     setIsUpdatingDate(true);
     const oldDateStr = reportToEditDate.reportDate;
     const newDateStr = format(newReportDate, 'yyyy-MM-dd');
 
     if (oldDateStr === newDateStr) {
-        toast({ title: "Nenhuma alteração", description: "A data selecionada é a mesma que a data atual." });
-        setIsUpdatingDate(false);
-        setReportToEditDate(null);
-        return;
+        setIsUpdatingDate(false); setReportToEditDate(null); return;
     }
 
     try {
         const batch = writeBatch(firestore);
+        batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { reportDate: newDateStr });
 
-        const reportDocRef = doc(firestore, "daily_reports", reportToEditDate.id!);
-        batch.update(reportDocRef, { reportDate: newDateStr });
-
-        const orderItemsQuery = query(
-          collection(firestore, 'order_items'), 
-          where('reportDate', '==', oldDateStr)
-        );
+        const orderItemsQuery = query(collection(firestore, 'order_items'), where('reportDate', '==', oldDateStr));
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
-
         orderItemsSnapshot.forEach(orderDoc => {
             batch.update(orderDoc.ref, { reportDate: newDateStr });
         });
 
         await batch.commit();
-        
-        toast({
-            title: "Sucesso!",
-            description: `A data do relatório foi alterada para ${format(newReportDate, 'dd/MM/yyyy', { locale: ptBR })}.`,
-        });
-
+        toast({ title: "Sucesso!", description: `Data alterada para ${format(newReportDate, 'dd/MM/yyyy', { locale: ptBR })}.` });
     } catch (error: any) {
         console.error("Error updating report date:", error);
-        toast({
-            variant: "destructive",
-            title: "Erro",
-            description: error.message || "Não foi possível alterar a data do relatório.",
-        });
+        toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
-        setIsUpdatingDate(false);
-        setReportToEditDate(null);
-        setNewReportDate(undefined);
+        setIsUpdatingDate(false); setReportToEditDate(null); setNewReportDate(undefined);
     }
   };
   
   if (isLoading && !allReports) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
+    return <div className="flex h-64 items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
 
   return (
@@ -1175,9 +1492,7 @@ function ReportsPageContent() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Relatório?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O relatório será excluído e os seus itens voltarão para a tela principal como "não reportados".
-            </AlertDialogDescription>
+            <AlertDialogDescription>Esta ação moverá os itens de volta para a tela principal.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -1185,23 +1500,61 @@ function ReportsPageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!archivedItemToDelete} onOpenChange={(open) => !open && setArchivedItemToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Lançamento do Histórico?</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação é permanente e irá recalcular os totais deste relatório diário.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteArchivedItem} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={!!archivedItemToEdit || !!activeReportDateForAdd} onOpenChange={(open) => {
+          if(!open) { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); setEditArchivedInput(''); }
+      }}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>{archivedItemToEdit ? 'Editar Lançamento' : 'Adicionar Lançamento'}</DialogTitle>
+                <DialogDescription>
+                    {archivedItemToEdit ? 'Corrija o comando original deste pedido.' : 'Insira o comando para adicionar um novo item a este relatório.'}
+                </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+                <Input 
+                    value={editArchivedInput} 
+                    onChange={(e) => setEditArchivedInput(e.target.value)}
+                    placeholder="Ex: M P coca-lata"
+                    autoFocus
+                />
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button>
+                <Button 
+                    onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit, activeReportDateForAdd || undefined)}
+                    disabled={isProcessingEdit || !editArchivedInput.trim()}
+                >
+                    {isProcessingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
+                    {archivedItemToEdit ? 'Salvar Alteração' : 'Adicionar'}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <Dialog open={!!reportToEditDate} onOpenChange={(open) => { if (!open) setReportToEditDate(null)}}>
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Alterar Data do Relatório</DialogTitle>
                 <DialogDescription>
-                    Selecione a nova data para o relatório de <span className="font-bold">{reportToEditDate ? format(parseISO(reportToEditDate.reportDate), 'dd/MM/yyyy', { locale: ptBR }) : ''}</span>. 
-                    Isto também atualizará a data de todos os itens de pedido arquivados neste relatório.
+                    Selecione a nova data para o relatório.
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4 flex justify-center">
-                <Calendar
-                  mode="single"
-                  selected={newReportDate}
-                  onSelect={setNewReportDate}
-                  initialFocus
-                />
+                <Calendar mode="single" selected={newReportDate} onSelect={setNewReportDate} initialFocus />
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setReportToEditDate(null)}>Cancelar</Button>
@@ -1224,7 +1577,21 @@ function ReportsPageContent() {
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
-                       <DailyReportsSection reports={allReports || []} bomboniereItems={bomboniereItems || []} onDeleteRequest={handleDeleteReportRequest} onEditDateRequest={handleEditDateRequest} />
+                       <DailyReportsSection 
+                            reports={allReports || []} 
+                            bomboniereItems={bomboniereItems || []} 
+                            onDeleteRequest={handleDeleteReportRequest} 
+                            onEditDateRequest={handleEditDateRequest} 
+                            onEditItem={(item) => {
+                                setArchivedItemToEdit(item);
+                                setEditArchivedInput(item.originalCommand || '');
+                            }}
+                            onDeleteItem={setArchivedItemToDelete}
+                            onAddItem={(date) => {
+                                setActiveReportDateForAdd(date);
+                                setEditArchivedInput('');
+                            }}
+                       />
                     </AccordionContent>
                 </Card>
             </AccordionItem>
