@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
@@ -288,8 +287,6 @@ function LancheTrackerPageContent() {
       
 
       // --- Pass 1: Bomboniere Items ---
-      // This loop is tricky because bomboniere names can have spaces.
-      // We look for the longest possible match first.
       for (let i = 0; i < parts.length; i++) {
         if (consumedParts[i]) continue;
 
@@ -307,7 +304,6 @@ function LancheTrackerPageContent() {
 
         if (bestMatch) {
             let bomboniereQty = 1;
-            // Rule: "qualquer numero q anteceder algum bomboniere é a quantidade do mesmo"
             if (i > 0 && !consumedParts[i - 1] && isNumeric(parts[i - 1])) {
                 bomboniereQty = parseInt(parts[i - 1], 10);
                 consumedParts[i - 1] = true;
@@ -326,7 +322,7 @@ function LancheTrackerPageContent() {
             for (let k = i; k < bestMatchEndIndex; k++) {
                 consumedParts[k] = true;
             }
-            i = bestMatchEndIndex - 1; // Continue loop after the consumed parts
+            i = bestMatchEndIndex - 1;
         }
       }
 
@@ -336,11 +332,9 @@ function LancheTrackerPageContent() {
       
         const part = parts[i];
       
-        // Handle KG
         if (part.toUpperCase() === 'KG') {
             consumedParts[i] = true;
             let nextIndex = i + 1;
-            // KG can be followed by multiple prices
             while(nextIndex < parts.length && !consumedParts[nextIndex] && isNumeric(parts[nextIndex])) {
                 const price = parseFloat(parts[nextIndex].replace(',', '.'));
                 individualPrices.push(price);
@@ -349,11 +343,10 @@ function LancheTrackerPageContent() {
                 consumedParts[nextIndex] = true;
                 nextIndex++;
             }
-            i = nextIndex - 1; // Adjust outer loop
+            i = nextIndex - 1;
             continue;
         }
         
-        // Handle TX
         if (part.toUpperCase() === 'TX') {
           if (i + 1 < parts.length && !consumedParts[i+1]) {
             let feePart = parts[i + 1];
@@ -372,7 +365,6 @@ function LancheTrackerPageContent() {
           continue;
         }
       
-        // Handle predefined items
         let qty = 1;
         let itemNamePart = part;
         const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
@@ -387,11 +379,10 @@ function LancheTrackerPageContent() {
             consumedParts[i] = true;
             let priceToUse = isPredefined;
             
-            // Check for a manual price ONLY if the next part is a number AND hasn't been consumed
             if (i + 1 < parts.length && !consumedParts[i + 1] && isNumeric(parts[i + 1])) {
                 priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
                 consumedParts[i + 1] = true;
-                i++; // extra increment since we consumed the price
+                i++;
             }
 
             for (let j = 0; j < qty; j++) {
@@ -462,7 +453,8 @@ function LancheTrackerPageContent() {
         quantity: totalQuantity,
         price: totalPrice,
         group,
-        timestamp: serverTimestamp() as Timestamp,
+        // Crucial change: Maintain original timestamp if editing
+        timestamp: currentItem ? currentItem.timestamp : (serverTimestamp() as Timestamp),
         deliveryFee: finalDeliveryFee,
         total,
         originalCommand: rawInputToProcess,
@@ -508,7 +500,6 @@ function LancheTrackerPageContent() {
       .map((item) => {
         const qtyPart = item.quantity;
         const namePart = bomboniereItems.find((bi) => bi.id === item.id)?.name || item.name;
-        // Use the structure <qty> <name> <price> to be compatible with the new parser
         return `${qtyPart} ${namePart} ${String(item.price).replace('.', ',')}`;
       })
       .join(' ');
@@ -664,7 +655,7 @@ function LancheTrackerPageContent() {
 
   const handleToggleSelectionMode = () => {
     setIsSelectionModeActive(prev => !prev);
-    setSelectedItems([]); // Clear selection when toggling mode
+    setSelectedItems([]);
   };
   
   const handleItemSelect = (itemId: string, isSelected: boolean) => {
@@ -694,13 +685,11 @@ function LancheTrackerPageContent() {
     const liveItemsCollectionRef = collection(firestore, 'live_items');
     const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
     const deleteBatch = writeBatch(firestore);
-    let itemsRestoredToStock = 0;
   
     try {
       for (const itemId of selectedItems) {
         const itemBeingDeleted = items.find((it) => it.id === itemId);
   
-        // Restore stock for bomboniere items
         if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
           for (const soldItem of itemBeingDeleted.bomboniereItems) {
             const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
@@ -708,12 +697,10 @@ function LancheTrackerPageContent() {
               const newStock = itemDef.estoque + soldItem.quantity;
               const docRef = doc(bomboniereCollectionRef, itemDef.id);
               deleteBatch.update(docRef, { estoque: newStock });
-              itemsRestoredToStock++;
             }
           }
         }
   
-        // Delete the item from live_items
         const docRef = doc(liveItemsCollectionRef, itemId);
         deleteBatch.delete(docRef);
       }
@@ -909,7 +896,6 @@ function LancheTrackerPageContent() {
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="relative mb-6 flex h-20 items-center justify-center">
           <div className="absolute left-0 flex items-center gap-2">
-            {/* Placeholder */}
           </div>
           <div className="flex flex-col items-center">
             <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />

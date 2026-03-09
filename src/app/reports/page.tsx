@@ -264,7 +264,7 @@ const CustomerReportsSection = ({
     return (
         <div className="space-y-6">
             <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomer(null)}>
-                <DialogContent className="max-w-md sm:max-w-2xl">
+                <DialogContent className="max-w-md sm:max-w-2xl" onInteractOutside={(e) => e.preventDefault()}>
                     <DialogHeader>
                         <div className="flex items-center justify-between pr-6">
                             <div className="flex items-center gap-2">
@@ -311,7 +311,7 @@ const CustomerReportsSection = ({
                                         <div className="text-right">
                                             <p className="text-sm font-mono font-bold text-primary">{formatCurrency(order.total)}</p>
                                         </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center gap-1">
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
@@ -1279,7 +1279,6 @@ function ReportsPageContent() {
                 updatedAt: new Date().toISOString()
             }, { merge: true });
         } else {
-            // Create report if it doesn't exist (edge case)
             await addDoc(collection(firestore, 'daily_reports'), {
                 ...totals,
                 totalPedidos: items.length,
@@ -1299,7 +1298,6 @@ function ReportsPageContent() {
 
     const oldReportDate = currentItem?.reportDate;
     
-    // Parse manual date and time
     const [year, month, day] = editArchivedDateStr.split('-').map(Number);
     const [hours, minutes] = editArchivedTime.split(':').map(Number);
     const finalDate = new Date(year, month - 1, day, hours, minutes);
@@ -1566,7 +1564,7 @@ function ReportsPageContent() {
         const orderItemsQuery = query(collection(firestore, 'order_items'), where('reportDate', '==', oldDateStr));
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
         orderItemsSnapshot.forEach(orderDoc => {
-            batch.update(orderDoc.ref, { reportDate: newReportDateStr });
+            batch.update(orderDoc.ref, { reportDate: newDateStr });
         });
 
         await batch.commit();
@@ -1692,11 +1690,11 @@ function ReportsPageContent() {
       </Dialog>
       
       <Dialog open={!!reportToEditDate} onOpenChange={(open) => { if (!open) setReportToEditDate(null)}}>
-        <DialogContent>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader>
                 <DialogTitle>Alterar Data do Relatório</DialogTitle>
                 <DialogDescription>
-                    Selecione a nova data para o relatório.
+                    Selecione a nova data para o relatório. Todos os pedidos deste dia serão movidos.
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4 flex justify-center">
