@@ -25,7 +25,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon, Copy, Share2, Pencil, Plus } from 'lucide-react';
+import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon, Copy, Share2, Pencil, Plus, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -58,7 +58,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import type { DailyReport, ItemCount, BomboniereItem, Item, Group, PredefinedItem, SelectedBomboniereItem } from '@/types';
+import type { DailyReport, ItemCount, BomboniereItem, Item, Group, PredefinedItem, SelectedBomboniereItem, SavedFavorite } from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
@@ -68,6 +68,8 @@ import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
 import { Input } from '@/components/ui/input';
 import usePersistentState from '@/hooks/use-persistent-state';
 import { PREDEFINED_PRICES, DELIVERY_FEE } from '@/lib/constants';
+import FavoritesMenu from '@/components/favorites-menu';
+import BomboniereModal from '@/components/bomboniere-modal';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -105,6 +107,7 @@ const ArchivedItemsTable = ({
                 const snapshot = await getDocs(q);
                 const fetchedItems = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
                 
+                // Sort ascending by timestamp locally
                 fetchedItems.sort((a, b) => {
                     const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
                     const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
@@ -195,6 +198,7 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
                 }
             });
 
+            // For each customer, sort their orders by timestamp ASC
             const sortedStats = Object.values(stats)
                 .map((data) => {
                     data.orders.sort((a, b) => {
@@ -632,24 +636,22 @@ const ReportDetail = ({
           <div>
               <h3 className="font-semibold mb-2">Proporção de Vendas</h3>
               <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                          <ChartTooltip
-                          cursor={false}
-                          content={<ChartTooltipContent hideLabel formatter={(value, name, item) => (
-                              <div className="flex flex-col">
-                                  <span>{item.payload.name}</span>
-                                  <span className="font-bold">{formatCurrency(value as number)}</span>
-                              </div>
-                          )} />}
-                          />
-                          <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={40} strokeWidth={2}>
-                          {chartData.map((entry) => (
-                              <Cell key={`cell-${entry.name}`} fill={entry.fill} />
-                          ))}
-                          </Pie>
-                      </PieChart>
-                  </ResponsiveContainer>
+                  <PieChart>
+                      <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent hideLabel formatter={(value, name, item) => (
+                          <div className="flex flex-col">
+                              <span>{item.payload.name}</span>
+                              <span className="font-bold">{formatCurrency(value as number)}</span>
+                          </div>
+                      )} />}
+                      />
+                      <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={40} strokeWidth={2}>
+                      {chartData.map((entry) => (
+                          <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+                      ))}
+                      </Pie>
+                  </PieChart>
               </ChartContainer>
           </div>
         </div>
@@ -1119,6 +1121,10 @@ function ReportsPageContent() {
   const [editArchivedInput, setEditArchivedInput] = useState('');
   const [isProcessingEdit, setIsProcessingEdit] = useState(false);
   const [activeReportDateForAdd, setActiveReportDateForAdd] = useState<string | null>(null);
+  
+  // Favorites and Bomboniere state for archived edits
+  const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
+  const [isBomboniereModalOpen, setIsBomboniereModalOpen] = useState(false);
 
   const [predefinedPrices] = usePersistentState('predefinedPrices', PREDEFINED_PRICES);
   const [deliveryFee] = usePersistentState('deliveryFee', DELIVERY_FEE);
@@ -1228,7 +1234,7 @@ function ReportsPageContent() {
     }
   };
 
-  const handleUpsertArchivedItem = async (rawInput: string, currentItem?: Item | null, specificDate?: string) => {
+  const handleUpsertArchivedItem = async (rawInput: string, currentItem?: Item | null, specificDate?: string, favoriteName?: string) => {
     if (!firestore || !user?.uid) return;
     setIsProcessingEdit(true);
 
@@ -1256,7 +1262,7 @@ function ReportsPageContent() {
         let group: Group = 'Vendas salão';
         let deliveryFeeApplicable = false;
         let isTaxExempt = false;
-        let customerName = '';
+        let customerName = favoriteName || '';
 
         const partsEx = mainInput.split(' ').filter(p => p.trim() !== '');
         if (partsEx.some(p => p.toUpperCase() === 'E')) {
@@ -1332,7 +1338,7 @@ function ReportsPageContent() {
         }
 
         const potName = parts.filter((_, idx) => !consumed[idx]).join(' ');
-        customerName = potName;
+        if(!customerName) customerName = potName;
 
         const finalFee = isTaxExempt ? 0 : customFee !== null ? customFee : deliveryFeeApplicable ? deliveryFee : 0;
         const total = addFeeToTotal ? (totalPrice + finalFee) : totalPrice;
@@ -1383,12 +1389,27 @@ function ReportsPageContent() {
         toast({ title: 'Sucesso', description: 'O lançamento foi atualizado e o relatório recalculado.' });
         setArchivedItemToEdit(null);
         setActiveReportDateForAdd(null);
+        setEditArchivedInput('');
     } catch (error: any) {
         console.error("Error upserting archived item:", error);
         toast({ variant: 'destructive', title: 'Erro', description: error.message });
     } finally {
         setIsProcessingEdit(false);
     }
+  };
+
+  const handleBomboniereAddForArchived = (itemsToAdd: SelectedBomboniereItem[]) => {
+    if (!bomboniereItems) return;
+    const itemsString = itemsToAdd
+      .map((item) => {
+        const qtyPart = item.quantity;
+        const namePart = bomboniereItems.find((bi) => bi.id === item.id)?.name || item.name;
+        return `${qtyPart} ${namePart} ${String(item.price).replace('.', ',')}`;
+      })
+      .join(' ');
+
+    setIsBomboniereModalOpen(false);
+    setEditArchivedInput((prev) => `${prev} ${itemsString}`.trim());
   };
 
   const confirmDeleteArchivedItem = async () => {
@@ -1498,6 +1519,13 @@ function ReportsPageContent() {
 
   return (
     <>
+      <BomboniereModal
+        isOpen={isBomboniereModalOpen}
+        onClose={() => setIsBomboniereModalOpen(false)}
+        onAddItems={handleBomboniereAddForArchived}
+        bomboniereItems={bomboniereItems || []}
+      />
+
       <AlertDialog open={!!reportToDelete} onOpenChange={(open) => !open && setReportToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1527,20 +1555,36 @@ function ReportsPageContent() {
       <Dialog open={!!archivedItemToEdit || !!activeReportDateForAdd} onOpenChange={(open) => {
           if(!open) { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); setEditArchivedInput(''); }
       }}>
-        <DialogContent>
+        <DialogContent className="max-w-xl">
             <DialogHeader>
-                <DialogTitle>{archivedItemToEdit ? 'Editar Lançamento' : 'Adicionar Lançamento'}</DialogTitle>
+                <DialogTitle>{archivedItemToEdit ? 'Editar Lançamento Histórico' : 'Novo Lançamento Histórico'}</DialogTitle>
                 <DialogDescription>
-                    {archivedItemToEdit ? 'Corrija o comando original deste pedido.' : 'Insira o comando para adicionar um novo item a este relatório.'}
+                    {archivedItemToEdit ? 'Corrija o comando original deste pedido.' : 'Insira o comando para adicionar um novo item a este relatório diário.'}
                 </DialogDescription>
             </DialogHeader>
-            <div className="py-4">
-                <Input 
-                    value={editArchivedInput} 
-                    onChange={(e) => setEditArchivedInput(e.target.value)}
-                    placeholder="Ex: M P coca-lata"
-                    autoFocus
-                />
+            <div className="py-4 space-y-4">
+                <div className="flex gap-2">
+                    <Input 
+                        value={editArchivedInput} 
+                        onChange={(e) => setEditArchivedInput(e.target.value)}
+                        placeholder="Ex: M P coca-lata"
+                        className="h-12"
+                        autoFocus
+                    />
+                    <FavoritesMenu 
+                        savedFavorites={savedFavorites} 
+                        onSelect={(fav) => handleUpsertArchivedItem(fav.command, archivedItemToEdit, activeReportDateForAdd || undefined, fav.name)} 
+                        onDelete={(id) => setSavedFavorites(prev => prev.filter(f => f.id !== id))} 
+                    />
+                    <Button 
+                        variant="outline" 
+                        className="h-12 px-4" 
+                        onClick={() => setIsBomboniereModalOpen(true)}
+                    >
+                        <Plus className="h-5 w-5" />
+                        <span className="hidden sm:inline ml-2">Outros</span>
+                    </Button>
+                </div>
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button>
@@ -1549,7 +1593,7 @@ function ReportsPageContent() {
                     disabled={isProcessingEdit || !editArchivedInput.trim()}
                 >
                     {isProcessingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
-                    {archivedItemToEdit ? 'Salvar Alteração' : 'Adicionar'}
+                    {archivedItemToEdit ? 'Salvar Alteração' : 'Adicionar ao Relatório'}
                 </Button>
             </DialogFooter>
         </DialogContent>
