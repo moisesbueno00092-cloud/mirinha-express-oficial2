@@ -24,7 +24,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon, Copy, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -50,7 +50,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
+} from "@/accordion";
 import {
   ChartContainer,
   ChartTooltip,
@@ -63,6 +63,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import ItemList from '@/components/item-list';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -126,6 +127,7 @@ const ArchivedItemsTable = ({ reportDate }: { reportDate: string }) => {
 
 const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: BomboniereItem[] }) => {
     const firestore = useFirestore();
+    const { toast } = useToast();
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
     const [loading, setLoading] = useState(false);
     const [customerData, setCustomerData] = useState<{ name: string, total: number, count: number, orders: Item[] }[]>([]);
@@ -188,6 +190,32 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
     useEffect(() => {
         fetchCustomerStats();
     }, [firestore, currentDate]);
+
+    const handleCopyToWhatsApp = () => {
+        if (customerData.length === 0) return;
+
+        const monthName = format(currentDate, 'MMMM/yyyy', { locale: ptBR });
+        let message = `*📊 RELATÓRIO DE CONSUMO - ${monthName.toUpperCase()}*\n`;
+        message += `------------------------------------------\n\n`;
+
+        customerData.forEach((cust, index) => {
+            message += `${index + 1}. *${cust.name}*\n`;
+            message += `   📦 Pedidos: ${cust.count}\n`;
+            message += `   💰 Total: ${formatCurrency(cust.total)}\n`;
+            message += `\n`;
+        });
+
+        const totalGeral = customerData.reduce((acc, c) => acc + c.total, 0);
+        message += `------------------------------------------\n`;
+        message += `*TOTAL GERAL DOS CLIENTES: ${formatCurrency(totalGeral)}*`;
+
+        navigator.clipboard.writeText(message).then(() => {
+            toast({
+                title: "Relatório Copiado!",
+                description: "O resumo foi copiado para a área de transferência. Agora pode colá-lo no WhatsApp.",
+            });
+        });
+    };
 
     const generateYearOptions = () => {
         const currentYear = new Date().getFullYear();
@@ -260,35 +288,46 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
                 </DialogContent>
             </Dialog>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="text-sm font-medium text-muted-foreground">Mês</label>
-                    <Select
-                        value={String(currentDate.getMonth())}
-                        onValueChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
-                    >
-                        <SelectTrigger className="w-full">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {monthOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <div className="grid grid-cols-2 gap-4 flex-grow">
+                    <div>
+                        <label className="text-sm font-medium text-muted-foreground">Mês</label>
+                        <Select
+                            value={String(currentDate.getMonth())}
+                            onValueChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {monthOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-muted-foreground">Ano</label>
+                        <Select
+                            value={String(currentDate.getFullYear())}
+                            onValueChange={(value) => setCurrentDate(setYear(new Date(currentDate), parseInt(value)))}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {generateYearOptions().map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
-                <div>
-                    <label className="text-sm font-medium text-muted-foreground">Ano</label>
-                    <Select
-                        value={String(currentDate.getFullYear())}
-                        onValueChange={(value) => setCurrentDate(setYear(new Date(currentDate), parseInt(value)))}
-                    >
-                        <SelectTrigger className="w-full">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {generateYearOptions().map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
+                <Button 
+                    variant="outline" 
+                    className="shrink-0 flex items-center gap-2 border-green-500/50 text-green-500 hover:bg-green-500/10"
+                    onClick={handleCopyToWhatsApp}
+                    disabled={loading || customerData.length === 0}
+                >
+                    <WhatsAppIcon className="h-4 w-4" />
+                    Copiar para WhatsApp
+                </Button>
             </div>
 
             {loading ? (
