@@ -436,7 +436,7 @@ const CustomerReportsSection = ({
 
 const ReportDetail = ({ 
     report, 
-    bomboniereItems,
+    bomboniereItems, 
     onEditItem,
     onDeleteItem,
     onAddItem
@@ -1145,7 +1145,9 @@ function ReportsPageContent() {
   const [archivedItemToDelete, setArchivedItemToDelete] = useState<Item | null>(null);
   const [archivedItemToEdit, setArchivedItemToEdit] = useState<Item | null>(null);
   const [editArchivedInput, setEditArchivedInput] = useState('');
-  const [editArchivedDateStr, setEditArchivedDateStr] = useState(''); // YYYY-MM-DD
+  
+  // States for manual date/time override in the archived item edit dialog
+  const [editArchivedDate, setEditArchivedDate] = useState<Date | undefined>();
   const [editArchivedTime, setEditArchivedTime] = useState('12:00');
   
   const [isProcessingEdit, setIsProcessingEdit] = useState(false);
@@ -1184,7 +1186,7 @@ function ReportsPageContent() {
     if (archivedItemToEdit) {
         setEditArchivedInput(archivedItemToEdit.originalCommand || '');
         const itemDate = archivedItemToEdit.timestamp?.toDate ? archivedItemToEdit.timestamp.toDate() : new Date(archivedItemToEdit.timestamp);
-        setEditArchivedDateStr(format(itemDate, 'yyyy-MM-dd'));
+        setEditArchivedDate(itemDate);
         setEditArchivedTime(format(itemDate, 'HH:mm'));
     }
   }, [archivedItemToEdit]);
@@ -1288,17 +1290,18 @@ function ReportsPageContent() {
   };
 
   const handleUpsertArchivedItem = async (rawInput: string, currentItem?: Item | null, specificDate?: string, favoriteName?: string) => {
-    if (!firestore || !user?.uid || !editArchivedDateStr) return;
+    if (!firestore || !user?.uid || !editArchivedDate) return;
     setIsProcessingEdit(true);
 
     const oldReportDate = currentItem?.reportDate;
     
-    const [year, month, day] = editArchivedDateStr.split('-').map(Number);
+    // Construct the full date/time object from inputs
     const [hours, minutes] = editArchivedTime.split(':').map(Number);
-    const finalDate = new Date(year, month - 1, day, hours, minutes);
+    const finalDate = new Date(editArchivedDate);
+    finalDate.setHours(hours, minutes, 0, 0);
     
     if (!isValid(finalDate)) {
-        toast({ variant: 'destructive', title: 'Data Inválida', description: 'Por favor, insira uma data e hora válidas.' });
+        toast({ variant: 'destructive', title: 'Data Inválida', description: 'Por favor, selecione uma data e hora válidas.' });
         setIsProcessingEdit(false);
         return;
     }
@@ -1406,13 +1409,14 @@ function ReportsPageContent() {
         if (procBomboniere.length > 0) nameParts.push(procBomboniere.map(it => `${it.quantity > 1 ? it.quantity : ''}${it.name}`).join(' '));
         const consolidatedName = nameParts.join(' + ') || 'Lançamento';
 
+        // PRESERVAÇÃO DE HORÁRIO: Se a data/hora coincidir com o formato original, mantém o Timestamp original (com milisegundos)
         let finalTimestamp: Timestamp;
         if (currentItem) {
             const itemDate = currentItem.timestamp?.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp);
             const originalDateStr = format(itemDate, 'yyyy-MM-dd');
             const originalTimeStr = format(itemDate, 'HH:mm');
             
-            if (editArchivedDateStr === originalDateStr && editArchivedTime === originalTimeStr) {
+            if (format(finalDate, 'yyyy-MM-dd') === originalDateStr && editArchivedTime === originalTimeStr) {
                 finalTimestamp = currentItem.timestamp;
             } else {
                 finalTimestamp = Timestamp.fromDate(finalDate);
@@ -1467,7 +1471,7 @@ function ReportsPageContent() {
         setEditArchivedInput('');
     } catch (error: any) {
         console.error("Error upserting archived item:", error);
-        toast({ variant: 'destructive', title: 'Erro', description: error.message });
+        toast({ variant: 'destructive', title: 'Erro', description: 'Ocorreu um erro ao guardar.' });
     } finally {
         setIsProcessingEdit(false);
     }
@@ -1512,7 +1516,7 @@ function ReportsPageContent() {
         toast({ title: 'Item removido', variant: 'destructive' });
     } catch (error: any) {
         console.error("Error deleting archived item:", error);
-        toast({ variant: 'destructive', title: 'Erro', description: error.message });
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível remover o item.' });
     } finally {
         setIsProcessingEdit(false);
         setArchivedItemToDelete(null);
@@ -1551,7 +1555,7 @@ function ReportsPageContent() {
         toast({ title: "Sucesso", description: "Relatório excluído e itens movidos de volta." });
     } catch (error: any) {
         console.error("Error deleting report:", error);
-        toast({ variant: "destructive", title: "Erro", description: error.message });
+        toast({ variant: "destructive", title: "Erro", description: "Não foi possível excluir o relatório." });
     } finally {
         setReportToDelete(null);
     }
@@ -1574,14 +1578,15 @@ function ReportsPageContent() {
         const orderItemsQuery = query(collection(firestore, 'order_items'), where('reportDate', '==', oldDateStr));
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
         orderItemsSnapshot.forEach(orderDoc => {
+            // SINCRONIA AUTOMÁTICA: Move cada pedido individual para a nova data
             batch.update(orderDoc.ref, { reportDate: newDateStr });
         });
 
         await batch.commit();
-        toast({ title: "Sucesso!", description: `Data alterada para ${format(newReportDate, 'dd/MM/yyyy', { locale: ptBR })}.` });
+        toast({ title: "Sucesso!", description: `Relatório e todos os seus pedidos movidos para ${format(newReportDate, 'dd/MM/yyyy', { locale: ptBR })}.` });
     } catch (error: any) {
         console.error("Error updating report date:", error);
-        toast({ variant: "destructive", title: "Erro", description: error.message });
+        toast({ variant: "destructive", title: "Erro", description: "Erro ao sincronizar data." });
     } finally {
         setIsUpdatingDate(false); setReportToEditDate(null); setNewReportDate(undefined);
     }
@@ -1668,12 +1673,7 @@ function ReportsPageContent() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Data</Label>
-                        <DatePicker 
-                            date={editArchivedDateStr ? parseISO(editArchivedDateStr) : undefined} 
-                            setDate={(date) => {
-                                if (date) setEditArchivedDateStr(format(date, 'yyyy-MM-dd'));
-                            }} 
-                        />
+                        <DatePicker date={editArchivedDate} setDate={setEditArchivedDate} />
                     </div>
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2"><Clock className="h-4 w-4" /> Hora</Label>
@@ -1690,7 +1690,7 @@ function ReportsPageContent() {
                 <Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button>
                 <Button 
                     onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit, activeReportDateForAdd || undefined)}
-                    disabled={isProcessingEdit || !editArchivedInput.trim() || !editArchivedDateStr}
+                    disabled={isProcessingEdit || !editArchivedInput.trim() || !editArchivedDate}
                 >
                     {isProcessingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
                     {archivedItemToEdit ? 'Salvar Alteração' : 'Adicionar ao Relatório'}
@@ -1743,7 +1743,7 @@ function ReportsPageContent() {
                             onAddItem={(date) => {
                                 setActiveReportDateForAdd(date);
                                 setEditArchivedInput('');
-                                setEditArchivedDateStr(date);
+                                setEditArchivedDate(parseISO(date));
                                 setEditArchivedTime('12:00');
                             }}
                        />

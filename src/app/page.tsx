@@ -124,10 +124,9 @@ function LancheTrackerPageContent() {
       toast({
         variant: 'destructive',
         title: 'Erro ao carregar itens',
-        description: `Não foi possível carregar os lançamentos. Verifique a sua conexão ou as permissões da base de dados. Detalhe: ${itemsError.message}`,
+        description: `Não foi possível carregar os lançamentos. Verifique a sua conexão ou as permissões da base de dados.`,
         duration: 8000,
       });
-      console.error("Firestore Error:", itemsError);
     }
   }, [itemsError, toast]);
 
@@ -485,7 +484,7 @@ function LancheTrackerPageContent() {
       toast({
           variant: 'destructive',
           title: 'Erro ao processar item',
-          description: error.message || 'Ocorreu um problema ao processar o lançamento.',
+          description: 'Ocorreu um problema ao processar o lançamento.',
       });
     } finally {
       setIsProcessing(false);
@@ -538,7 +537,7 @@ function LancheTrackerPageContent() {
         for (const soldItem of itemBeingDeleted.bomboniereItems) {
           const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
           if (itemDef) {
-            const newStock = itemDef.estoque + soldItem.quantity;
+            const newStock = itemDef.estoque + oldSoldItem.quantity;
             const docRef = doc(bomboniereCollectionRef, itemDef.id);
             batch.update(docRef, { estoque: newStock });
           }
@@ -552,7 +551,7 @@ function LancheTrackerPageContent() {
       toast({ title: 'Item removido com sucesso.', variant: 'destructive' });
     } catch (error: any) {
       console.error('Error deleting item:', error);
-      toast({ variant: 'destructive', title: 'Erro ao remover', description: error.message || 'Não foi possível remover the item.' });
+      toast({ variant: 'destructive', title: 'Erro ao remover', description: 'Não foi possível remover o item.' });
     } finally {
       setItemToDelete(null);
     }
@@ -647,7 +646,7 @@ function LancheTrackerPageContent() {
       toast({
           variant: 'destructive',
           title: 'Erro ao Salvar',
-          description: error.message || 'Não foi possível salvar o relatório ou arquivar os itens.',
+          description: 'Não foi possível salvar o relatório ou arquivar os itens.',
         });
     } finally {
       setIsSavingReport(false);
@@ -718,7 +717,7 @@ function LancheTrackerPageContent() {
       toast({
         variant: 'destructive',
         title: 'Erro ao Remover',
-        description: error.message || 'Não foi possível remover os itens selecionados.',
+        description: 'Não foi possível remover os itens selecionados.',
       });
     } finally {
       setSelectedItems([]);
