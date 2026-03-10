@@ -20,8 +20,20 @@ interface DatePickerProps {
     setDate: (date: Date | undefined) => void;
 }
 
+/**
+ * A robust DatePicker component that ensures date selection is correctly
+ * propagated to the parent state and the popover closes gracefully.
+ */
 export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
+
+  // Directly handle selection to ensure state updates and popover closes
+  const handleSelect = (newDate: Date | undefined) => {
+    if (newDate) {
+        setDate(newDate);
+        setOpen(false);
+    }
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -41,10 +53,7 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
         <Calendar
           mode="single"
           selected={date}
-          onSelect={(newDate) => {
-            setDate(newDate);
-            setOpen(false);
-          }}
+          onSelect={handleSelect}
           initialFocus
           locale={ptBR}
         />

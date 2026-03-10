@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
@@ -106,7 +107,7 @@ function LancheTrackerPageContent() {
 
   const liveItemsQuery = useMemo(() => {
     if (!firestore) return null;
-    // Removed direct orderBy to avoid Firestore Index Errors
+    // Query without orderBy to avoid index requirement errors
     const q = query(collection(firestore, 'live_items'));
     return q;
   }, [firestore]);
@@ -115,7 +116,7 @@ function LancheTrackerPageContent() {
 
   const items = useMemo(() => {
     if (!allItems) return [];
-    // Filter and Sort in memory to avoid index requirement and errors
+    // Filter and Sort in memory to avoid indexing/FirestoreErrors
     return [...allItems]
       .filter(item => !item.reportado)
       .sort((a, b) => {

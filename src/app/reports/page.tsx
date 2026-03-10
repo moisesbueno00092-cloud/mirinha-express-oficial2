@@ -18,7 +18,11 @@ import {
     getMonth,
     setYear,
     setMonth,
-    isValid
+    isValid,
+    setHours,
+    setMinutes,
+    setSeconds,
+    setMilliseconds
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -82,6 +86,9 @@ const formatCurrency = (value: number | undefined | null) => {
 
 const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
+/**
+ * Safe date formatter to prevent RangeErrors
+ */
 const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     if (!dateInput) return '-';
     let d: Date;
@@ -120,6 +127,7 @@ const ArchivedItemsTable = ({
 
     const { data: rawItems, isLoading } = useCollection<Item>(archivedItemsQuery);
 
+    // Sort in memory to avoid indexing errors
     const sortedItems = useMemo(() => {
         if (!rawItems) return [];
         return [...rawItems].sort((a, b) => {
@@ -235,6 +243,7 @@ const CustomerReportsSection = ({
 
             setCustomerData(sortedStats);
             
+            // If a customer was selected, update its order list
             if (selectedCustomer) {
                 const updatedSelected = sortedStats.find(c => c.name.toLowerCase() === selectedCustomer.name.toLowerCase());
                 if (updatedSelected) {
@@ -1233,6 +1242,9 @@ function ReportsPageContent() {
     }
   }, [archivedItemToEdit]);
 
+  /**
+   * Recalculates all totals for a specific daily report date
+   */
   const recalculateReport = async (reportDate: string) => {
     if (!firestore || !user?.uid) return;
 
@@ -1331,12 +1343,16 @@ function ReportsPageContent() {
     }
   };
 
+  /**
+   * Handles creating or updating an archived item, preserving original time if needed
+   */
   const handleUpsertArchivedItem = async (rawInput: string, currentItem?: Item | null, specificDate?: string, favoriteName?: string) => {
     if (!firestore || !user?.uid || !editArchivedDate) return;
     setIsProcessingEdit(true);
 
     const oldReportDate = currentItem?.reportDate;
     
+    // Combine selected date with selected time
     const [hours, minutes] = editArchivedTime.split(':').map(Number);
     const finalDate = new Date(editArchivedDate);
     finalDate.setHours(hours, minutes, 0, 0);
@@ -1352,6 +1368,7 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
 
+        // Revert stock if editing existing item
         if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
             for (const oldSoldItem of currentItem.bomboniereItems) {
                 const itemDef = bomboniereItems.find((i) => i.id === oldSoldItem.id);
@@ -1450,6 +1467,7 @@ function ReportsPageContent() {
         if (procBomboniere.length > 0) nameParts.push(procBomboniere.map(it => `${it.quantity > 1 ? it.quantity : ''}${it.name}`).join(' '));
         const consolidatedName = nameParts.join(' + ') || 'Lançamento';
 
+        // PRESERVAÇÃO DE HORÁRIO: Se for edição e o dia/hora forem os mesmos, mantém o timestamp original (com milissegundos)
         let finalTimestamp: Timestamp;
         if (currentItem) {
             let itemDate: Date;
@@ -1462,10 +1480,18 @@ function ReportsPageContent() {
             const originalDateStr = format(itemDate, 'yyyy-MM-dd');
             const originalTimeStr = format(itemDate, 'HH:mm');
             
+            // Check if user actually changed the date or time
             if (format(finalDate, 'yyyy-MM-dd') === originalDateStr && editArchivedTime === originalTimeStr) {
+                // Keep strictly the original timestamp object
                 finalTimestamp = currentItem.timestamp;
             } else {
-                finalTimestamp = Timestamp.fromDate(finalDate);
+                // User changed date or time, create new timestamp but try to preserve original seconds/ms if only date changed
+                const updatedDate = finalDate;
+                if (format(finalDate, 'yyyy-MM-dd') !== originalDateStr && editArchivedTime === originalTimeStr) {
+                    updatedDate.setSeconds(itemDate.getSeconds());
+                    updatedDate.setMilliseconds(itemDate.getMilliseconds());
+                }
+                finalTimestamp = Timestamp.fromDate(updatedDate);
             }
         } else {
             finalTimestamp = Timestamp.fromDate(finalDate);
@@ -1489,6 +1515,7 @@ function ReportsPageContent() {
             ...(procBomboniere.length > 0 ? { bomboniereItems: procBomboniere } : {}),
         };
 
+        // Update stock
         if (bomboniereItems) {
             for (const soldItem of procBomboniere) {
                 const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
@@ -1506,6 +1533,7 @@ function ReportsPageContent() {
 
         await batch.commit();
         
+        // Recalculate daily reports
         await recalculateReport(newReportDateStr);
         if (oldReportDate && oldReportDate !== newReportDateStr) {
             await recalculateReport(oldReportDate);
@@ -1607,6 +1635,9 @@ function ReportsPageContent() {
     }
   };
   
+  /**
+   * Updates the date of a DailyReport and synchronously moves all its order_items to the new date.
+   */
   const confirmEditDate = async () => {
     if (!firestore || !reportToEditDate || !newReportDate) return;
     setIsUpdatingDate(true);
@@ -1620,10 +1651,10 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
         
-        // 1. Atualizar a data no próprio relatório
+        // 1. Update date in the report itself
         batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { reportDate: newDateStr });
 
-        // 2. SINCRONIA: Mover todos os pedidos individuais deste dia para a nova data
+        // 2. SYNCHRONIZATION: Move all individual orders of this day to the new reportDate
         const orderItemsQuery = query(collection(firestore, 'order_items'), where('reportDate', '==', oldDateStr));
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
         orderItemsSnapshot.forEach(orderDoc => {
@@ -1752,7 +1783,7 @@ function ReportsPageContent() {
             <DialogHeader>
                 <DialogTitle>Alterar Data do Relatório</DialogTitle>
                 <DialogDescription>
-                    Selecione a nova data para o relatório. Todos os pedidos deste dia serão movidos.
+                    Selecione a nova data para o relatório. Todos os pedidos deste dia serão movidos automaticamente.
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4 flex flex-col items-center">
