@@ -1624,7 +1624,6 @@ function ReportsPageContent() {
         batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { reportDate: newDateStr });
 
         // 2. SINCRONIA: Mover todos os pedidos individuais deste dia para a nova data
-        // Isso garante que o histórico individual do cliente continue correto.
         const orderItemsQuery = query(collection(firestore, 'order_items'), where('reportDate', '==', oldDateStr));
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
         orderItemsSnapshot.forEach(orderDoc => {

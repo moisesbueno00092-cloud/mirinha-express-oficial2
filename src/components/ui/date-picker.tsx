@@ -23,22 +23,13 @@ interface DatePickerProps {
 export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
-  // Função para lidar com a seleção e fechar o popover
-  const handleSelect = (selectedDate: Date | undefined) => {
-    setDate(selectedDate);
-    // Se uma data foi selecionada, fechamos o calendário
-    if (selectedDate) {
-      setOpen(false);
-    }
-  };
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
           className={cn(
-            "w-full justify-start text-left font-normal h-10",
+            "w-full justify-start text-left font-normal h-10 bg-background",
             !date && "text-muted-foreground"
           )}
         >
@@ -46,11 +37,14 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
           {date ? format(date, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0 z-[110]" align="start">
         <Calendar
           mode="single"
           selected={date}
-          onSelect={handleSelect}
+          onSelect={(newDate) => {
+            setDate(newDate);
+            setOpen(false);
+          }}
           initialFocus
           locale={ptBR}
         />
