@@ -46,7 +46,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Accordion,
   AccordionContent,
@@ -95,20 +94,30 @@ const ArchivedItemsTable = ({
 }) => {
     const firestore = useFirestore();
     
+    // Simplificamos a query para NÃO precisar de índice composto
     const archivedItemsQuery = useMemo(() => {
         if (!firestore || !reportDate) return null;
         return query(
             collection(firestore, 'order_items'),
-            where('reportDate', '==', reportDate),
-            orderBy('timestamp', 'asc')
+            where('reportDate', '==', reportDate)
         );
     }, [firestore, reportDate]);
 
-    const { data: items, isLoading } = useCollection<Item>(archivedItemsQuery);
+    const { data: rawItems, isLoading } = useCollection<Item>(archivedItemsQuery);
+
+    // Ordenação manual em memória para evitar erro de índice do Firestore
+    const sortedItems = useMemo(() => {
+        if (!rawItems) return [];
+        return [...rawItems].sort((a, b) => {
+            const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime());
+            const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime());
+            return timeA - timeB;
+        });
+    }, [rawItems]);
 
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     
-    if (!items || items.length === 0) return (
+    if (!sortedItems || sortedItems.length === 0) return (
         <div className="mt-8 border-t pt-6 text-center">
              <p className="text-muted-foreground text-sm py-4">Nenhum pedido encontrado.</p>
              <Button variant="outline" size="sm" onClick={onAdd}>
@@ -130,11 +139,11 @@ const ArchivedItemsTable = ({
             </div>
             <div className="rounded-md border">
                 <ItemList 
-                    items={items} 
+                    items={sortedItems} 
                     isLoading={false} 
                     onEdit={onEdit}
                     onDelete={(id) => {
-                        const item = items.find(it => it.id === id);
+                        const item = sortedItems.find(it => it.id === id);
                         if (item) onDelete(item);
                     }}
                 />
@@ -194,8 +203,8 @@ const CustomerReportsSection = ({
             const sortedStats = Object.values(stats)
                 .map((data) => {
                     data.orders.sort((a, b) => {
-                        const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
-                        const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
+                        const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime());
+                        const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime());
                         return timeA - timeB;
                     });
                     return data;
@@ -225,20 +234,22 @@ const CustomerReportsSection = ({
 
     const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
         const monthName = format(currentDate, 'MMM/yy', { locale: ptBR }).toUpperCase();
+        // Extrato ultracompacto
         let message = `*📊 EXTRATO ${monthName} - ${customer.name.toUpperCase()}*\n`;
 
         customer.orders.forEach((order) => {
             const date = format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd/MM HH:mm');
-            message += `• ${date}: *${formatCurrency(order.total)}* (${order.name})\n`;
+            // Formato: • dd/MM HH:mm: *R$0,00*(Item)
+            message += `•${date}:*${formatCurrency(order.total).replace(/\s/g, '')}*(${order.name.substring(0, 20)})\n`;
         });
 
         const total = customer.orders.reduce((acc, o) => acc + o.total, 0);
-        message += `*TOTAL: ${formatCurrency(total)}*`;
+        message += `*TOTAL:${formatCurrency(total).replace(/\s/g, '')}*`;
 
         navigator.clipboard.writeText(message).then(() => {
             toast({
                 title: "Extrato Copiado!",
-                description: `O extrato de ${customer.name} foi copiado para o WhatsApp.`,
+                description: `O extrato compacto de ${customer.name} foi copiado.`,
             });
         });
     };
@@ -274,7 +285,7 @@ const CustomerReportsSection = ({
                                 onClick={() => selectedCustomer && handleCopyIndividualToWhatsApp(selectedCustomer)}
                             >
                                 <WhatsAppIcon className="h-4 w-4" />
-                                <span>Copiar Extrato</span>
+                                <span>Copiar Compacto</span>
                             </Button>
                         </div>
                         <DialogDescription>
@@ -744,7 +755,6 @@ const DailyReportsSection = ({
 }) => {
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
     
-    // ORDENAÇÃO CRONOLÓGICA CRESCENTE: Dia 1 para frente
     const monthlyReports = useMemo(() => {
         if(!reports) return [];
         return reports.filter(r => {
@@ -776,7 +786,7 @@ const DailyReportsSection = ({
                         value={String(currentDate.getMonth())}
                         onValueChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
                     >
-                        <SelectTrigger id="month-select-daily" className="w-[180px]">
+                        <SelectTrigger id="month-select-daily" className="w-full">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -790,7 +800,7 @@ const DailyReportsSection = ({
                         value={String(currentDate.getFullYear())}
                         onValueChange={(value) => setCurrentDate(setYear(new Date(currentDate), parseInt(value)))}
                     >
-                        <SelectTrigger id="year-select-daily" className="w-[120px]">
+                        <SelectTrigger id="year-select-daily" className="w-full">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1702,8 +1712,16 @@ function ReportsPageContent() {
                     Selecione a nova data para o relatório. Todos os pedidos deste dia serão movidos.
                 </DialogDescription>
             </DialogHeader>
-            <div className="py-4 flex justify-center">
-                <Calendar mode="single" selected={newReportDate} onSelect={setNewReportDate} initialFocus />
+            <div className="py-4 flex flex-col items-center">
+                <Input 
+                    type="date" 
+                    className="max-w-[200px]"
+                    value={newReportDate ? format(newReportDate, 'yyyy-MM-dd') : ''}
+                    onChange={(e) => {
+                        const [y, m, d] = e.target.value.split('-').map(Number);
+                        setNewReportDate(new Date(y, m - 1, d));
+                    }}
+                />
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setReportToEditDate(null)}>Cancelar</Button>

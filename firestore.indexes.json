@@ -2,14 +2,6 @@
 {
   "indexes": [
     {
-      "collectionId": "order_items",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "reportDate", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionId": "entradas_mercadorias",
       "queryScope": "COLLECTION",
       "fields": [

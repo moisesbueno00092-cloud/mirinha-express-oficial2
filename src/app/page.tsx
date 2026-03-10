@@ -538,7 +538,7 @@ function LancheTrackerPageContent() {
         for (const soldItem of itemBeingDeleted.bomboniereItems) {
           const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
           if (itemDef) {
-            const newStock = itemDef.estoque + oldSoldItem.quantity;
+            const newStock = itemDef.estoque + soldItem.quantity;
             const docRef = doc(bomboniereCollectionRef, itemDef.id);
             batch.update(docRef, { estoque: newStock });
           }
