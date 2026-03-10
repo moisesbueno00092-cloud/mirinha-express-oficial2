@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useFirestore, useCollection, useUser } from '@/firebase';
-import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch, setDoc, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, doc, where, getDocs, deleteDoc, writeBatch, setDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { 
     format, 
     parseISO, 
@@ -82,6 +82,22 @@ const formatCurrency = (value: number | undefined | null) => {
 
 const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
+// Helper to safely parse and format dates
+const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
+    if (!dateInput) return '-';
+    let d: Date;
+    if (dateInput instanceof Date) {
+        d = dateInput;
+    } else if (dateInput?.toDate) {
+        d = dateInput.toDate();
+    } else {
+        d = new Date(dateInput);
+    }
+    
+    if (!isValid(d)) return '-';
+    return format(d, formatStr, options);
+};
+
 const ArchivedItemsTable = ({ 
     reportDate, 
     onEdit, 
@@ -97,6 +113,7 @@ const ArchivedItemsTable = ({
     
     const archivedItemsQuery = useMemo(() => {
         if (!firestore || !reportDate) return null;
+        // Removed orderBy to prevent index errors, sorting in memory below
         return query(
             collection(firestore, 'order_items'),
             where('reportDate', '==', reportDate)
@@ -108,9 +125,13 @@ const ArchivedItemsTable = ({
     const sortedItems = useMemo(() => {
         if (!rawItems) return [];
         return [...rawItems].sort((a, b) => {
-            const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime());
-            const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime());
-            return timeA - timeB;
+            const getT = (ts: any) => {
+                if (!ts) return 0;
+                if (ts.toDate) return ts.toDate().getTime();
+                const d = new Date(ts);
+                return isNaN(d.getTime()) ? 0 : d.getTime();
+            };
+            return getT(a.timestamp) - getT(b.timestamp);
         });
     }, [rawItems]);
 
@@ -202,9 +223,13 @@ const CustomerReportsSection = ({
             const sortedStats = Object.values(stats)
                 .map((data) => {
                     data.orders.sort((a, b) => {
-                        const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime());
-                        const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime());
-                        return timeA - timeB;
+                        const getT = (ts: any) => {
+                            if (!ts) return 0;
+                            if (ts.toDate) return ts.toDate().getTime();
+                            const d = new Date(ts);
+                            return isNaN(d.getTime()) ? 0 : d.getTime();
+                        };
+                        return getT(a.timestamp) - getT(b.timestamp);
                     });
                     return data;
                 })
@@ -232,12 +257,12 @@ const CustomerReportsSection = ({
     }, [firestore, currentDate]);
 
     const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
-        const monthName = format(currentDate, 'MMM/yy', { locale: ptBR }).toUpperCase();
+        const monthName = safeFormat(currentDate, 'MMM/yy', { locale: ptBR }).toUpperCase();
         let message = `*📊 EXTRATO ${monthName} - ${customer.name.toUpperCase()}*\n`;
 
         customer.orders.forEach((order) => {
-            const date = format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd/MM HH:mm');
-            message += `•${date}:*${formatCurrency(order.total).replace(/\s/g, '')}*(${order.name.substring(0, 20)})\n`;
+            const time = safeFormat(order.timestamp, 'dd/MM HH:mm');
+            message += `•${time}:*${formatCurrency(order.total).replace(/\s/g, '')}*(${order.name.substring(0, 20)})\n`;
         });
 
         const total = customer.orders.reduce((acc, o) => acc + o.total, 0);
@@ -286,7 +311,7 @@ const CustomerReportsSection = ({
                             </Button>
                         </div>
                         <DialogDescription>
-                            Listagem dos pedidos em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}.
+                            Listagem dos pedidos em {safeFormat(currentDate, 'MMMM yyyy', { locale: ptBR })}.
                         </DialogDescription>
                     </DialogHeader>
                     
@@ -297,15 +322,15 @@ const CustomerReportsSection = ({
                                     <div className="flex items-center gap-3">
                                         <div className="bg-background p-2 rounded-md border text-center min-w-[50px]">
                                             <p className="text-[0.6rem] font-bold uppercase text-muted-foreground leading-none">
-                                                {format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'MMM', { locale: ptBR })}
+                                                {safeFormat(order.timestamp, 'MMM', { locale: ptBR })}
                                             </p>
                                             <p className="text-lg font-bold leading-tight">
-                                                {format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd')}
+                                                {safeFormat(order.timestamp, 'dd')}
                                             </p>
                                         </div>
                                         <div>
                                             <p className="text-[0.65rem] font-medium text-muted-foreground">
-                                                {format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'EEEE, HH:mm', { locale: ptBR })}
+                                                {safeFormat(order.timestamp, 'EEEE, HH:mm', { locale: ptBR })}
                                             </p>
                                             <p className="text-sm font-semibold truncate max-w-[150px] sm:max-w-[300px]">{order.name}</p>
                                             <Badge variant="outline" className="text-[0.6rem] h-4 mt-1">{order.group}</Badge>
@@ -815,11 +840,11 @@ const DailyReportsSection = ({
                                       <div className="flex justify-between items-center w-full">
                                           <div className="flex items-center gap-4">
                                               <div className="text-center">
-                                                  <p className="text-2xl font-bold">{format(parseISO(report.reportDate), 'dd')}</p>
-                                                  <p className="text-[0.6rem] uppercase text-muted-foreground">{format(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p>
+                                                  <p className="text-2xl font-bold">{safeFormat(parseISO(report.reportDate), 'dd')}</p>
+                                                  <p className="text-[0.6rem] uppercase text-muted-foreground">{safeFormat(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p>
                                               </div>
                                               <div>
-                                                  <p className="font-semibold text-base">{format(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p>
+                                                  <p className="font-semibold text-base">{safeFormat(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p>
                                                   <p className="text-sm text-muted-foreground">{report.totalPedidos} pedidos</p>
                                               </div>
                                           </div>
@@ -870,7 +895,7 @@ const DailyReportsSection = ({
                 <Card>
                     <CardContent className="text-center text-muted-foreground py-20">
                         <Info className="mx-auto h-8 w-8 mb-2"/>
-                        <p>Nenhum relatório encontrado para o mês de {format(currentDate, 'MMMM', { locale: ptBR })}.</p>
+                        <p>Nenhum relatório encontrado para o mês de {safeFormat(currentDate, 'MMMM', { locale: ptBR })}.</p>
                     </CardContent>
                 </Card>
             )}
@@ -903,7 +928,7 @@ const WeeklyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRepo
             const lastDay = endOfWeek(parseISO(weekReports[0].reportDate), { weekStartsOn: 1 });
             return {
                 weekNumber: Number(week),
-                dateRange: `${format(firstDay, 'dd/MM')} - ${format(lastDay, 'dd/MM')}`,
+                dateRange: `${safeFormat(firstDay, 'dd/MM')} - ${safeFormat(lastDay, 'dd/MM')}`,
                 aggregated: aggregateReports(weekReports)
             }
         }).sort((a, b) => a.weekNumber - b.weekNumber);
@@ -1161,13 +1186,18 @@ function ReportsPageContent() {
   
   const allReportsQuery = useMemo(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'asc'));
+    return query(collection(firestore, 'daily_reports'));
   }, [firestore]);
 
-  const { data: allReports, isLoading: isLoadingReports } = useCollection<DailyReport>(allReportsQuery);
+  const { data: allReportsRaw, isLoading: isLoadingReports } = useCollection<DailyReport>(allReportsQuery);
+
+  const allReports = useMemo(() => {
+    if (!allReportsRaw) return [];
+    return [...allReportsRaw].sort((a, b) => parseISO(a.reportDate).getTime() - parseISO(b.reportDate).getTime());
+  }, [allReportsRaw]);
 
   const bomboniereQuery = useMemo(
-    () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
+    () => firestore ? query(collection(firestore, 'bomboniere_items')) : null,
     [firestore]
   );
   const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereQuery);
@@ -1185,9 +1215,20 @@ function ReportsPageContent() {
   useEffect(() => {
     if (archivedItemToEdit) {
         setEditArchivedInput(archivedItemToEdit.originalCommand || '');
-        const itemDate = archivedItemToEdit.timestamp?.toDate ? archivedItemToEdit.timestamp.toDate() : new Date(archivedItemToEdit.timestamp);
-        setEditArchivedDate(itemDate);
-        setEditArchivedTime(format(itemDate, 'HH:mm'));
+        let itemDate: Date;
+        if (archivedItemToEdit.timestamp?.toDate) {
+            itemDate = archivedItemToEdit.timestamp.toDate();
+        } else {
+            itemDate = new Date(archivedItemToEdit.timestamp);
+        }
+        
+        if (isValid(itemDate)) {
+            setEditArchivedDate(itemDate);
+            setEditArchivedTime(format(itemDate, 'HH:mm'));
+        } else {
+            setEditArchivedDate(new Date());
+            setEditArchivedTime('12:00');
+        }
     }
   }, [archivedItemToEdit]);
 
@@ -1409,10 +1450,16 @@ function ReportsPageContent() {
         if (procBomboniere.length > 0) nameParts.push(procBomboniere.map(it => `${it.quantity > 1 ? it.quantity : ''}${it.name}`).join(' '));
         const consolidatedName = nameParts.join(' + ') || 'Lançamento';
 
-        // PRESERVAÇÃO DE HORÁRIO: Se a data/hora coincidir com o formato original, mantém o Timestamp original (com milisegundos)
+        // PRESERVAÇÃO DE HORÁRIO: Se a data/hora coincidir com o formato original, mantém o Timestamp original
         let finalTimestamp: Timestamp;
         if (currentItem) {
-            const itemDate = currentItem.timestamp?.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp);
+            let itemDate: Date;
+            if (currentItem.timestamp?.toDate) {
+                itemDate = currentItem.timestamp.toDate();
+            } else {
+                itemDate = new Date(currentItem.timestamp);
+            }
+            
             const originalDateStr = format(itemDate, 'yyyy-MM-dd');
             const originalTimeStr = format(itemDate, 'HH:mm');
             
@@ -1578,12 +1625,11 @@ function ReportsPageContent() {
         const orderItemsQuery = query(collection(firestore, 'order_items'), where('reportDate', '==', oldDateStr));
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
         orderItemsSnapshot.forEach(orderDoc => {
-            // SINCRONIA AUTOMÁTICA: Move cada pedido individual para a nova data
             batch.update(orderDoc.ref, { reportDate: newDateStr });
         });
 
         await batch.commit();
-        toast({ title: "Sucesso!", description: `Relatório e todos os seus pedidos movidos para ${format(newReportDate, 'dd/MM/yyyy', { locale: ptBR })}.` });
+        toast({ title: "Sucesso!", description: `Relatório e todos os seus pedidos movidos para ${safeFormat(newReportDate, 'dd/MM/yyyy', { locale: ptBR })}.` });
     } catch (error: any) {
         console.error("Error updating report date:", error);
         toast({ variant: "destructive", title: "Erro", description: "Erro ao sincronizar data." });
@@ -1592,7 +1638,7 @@ function ReportsPageContent() {
     }
   };
   
-  if (isLoading && !allReports) {
+  if (isLoading && allReports.length === 0) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
 
