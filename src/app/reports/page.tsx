@@ -1193,7 +1193,7 @@ function ReportsPageContent() {
   const allReports = useMemo(() => {
     if (!allReportsRaw) return [];
     return [...allReportsRaw]
-      .filter(r => r.reportDate) // Seguranca contra dados corrompidos
+      .filter(r => r.reportDate) 
       .sort((a, b) => parseISO(a.reportDate).getTime() - parseISO(b.reportDate).getTime());
   }, [allReportsRaw]);
 
@@ -1619,8 +1619,12 @@ function ReportsPageContent() {
 
     try {
         const batch = writeBatch(firestore);
+        
+        // 1. Atualizar a data no próprio relatório
         batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { reportDate: newDateStr });
 
+        // 2. SINCRONIA: Mover todos os pedidos individuais deste dia para a nova data
+        // Isso garante que o histórico individual do cliente continue correto.
         const orderItemsQuery = query(collection(firestore, 'order_items'), where('reportDate', '==', oldDateStr));
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
         orderItemsSnapshot.forEach(orderDoc => {
