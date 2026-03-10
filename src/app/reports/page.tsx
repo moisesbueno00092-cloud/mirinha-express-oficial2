@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -44,7 +45,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from "@/Dialog";
+} from "@/components/ui/dialog";
 import {
   Accordion,
   AccordionContent,
@@ -111,7 +112,6 @@ const ArchivedItemsTable = ({
     
     const archivedItemsQuery = useMemo(() => {
         if (!firestore || !reportDate) return null;
-        // Removed orderBy to prevent Firestore index errors
         return query(
             collection(firestore, 'order_items'),
             where('reportDate', '==', reportDate)
