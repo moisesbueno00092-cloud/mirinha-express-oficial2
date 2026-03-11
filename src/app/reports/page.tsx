@@ -1393,11 +1393,7 @@ function ReportsPageContent() {
         let consumed = new Array(parts.length).fill(false);
         let totalQty = 0;
         let totalPrice = 0;
-        let individualPrices: number[] = [];
-        let predefinedItems: PredefinedItem[] = [];
-        let procBomboniere: SelectedBomboniereItem[] = [];
-        let customFee: number | null = null;
-        let addFeeToTotal = true;
+        let individualPrices: number[] = []; let predefinedItems: PredefinedItem[] = []; let procBomboniere: SelectedBomboniereItem[] = []; let customFee: number | null = null; let addFeeToTotal = true;
 
         for (let i = 0; i < parts.length; i++) {
             if (consumed[i]) continue;
@@ -1925,7 +1921,7 @@ function ReportsPageContent() {
 }
 
 export default function ReportsPage() {
-    const { isUserLoading } = useUser();
+    const { user, isUserLoading } = useUser();
 
     if (isUserLoading) {
         return (

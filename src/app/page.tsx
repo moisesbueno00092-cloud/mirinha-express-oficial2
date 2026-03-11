@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type {
   Item,
@@ -107,16 +107,13 @@ function LancheTrackerPageContent() {
 
   const liveItemsQuery = useMemo(() => {
     if (!firestore) return null;
-    // Consulta simples sem orderBy para evitar erros de índice
-    const q = query(collection(firestore, 'live_items'));
-    return q;
+    return query(collection(firestore, 'live_items'));
   }, [firestore]);
   
   const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
 
   const items = useMemo(() => {
     if (!allItems) return [];
-    // Ordenação manual em memória para evitar a necessidade de criar índices compostos no Firestore
     return [...allItems]
       .filter(item => !item.reportado)
       .sort((a, b) => {
@@ -168,7 +165,6 @@ function LancheTrackerPageContent() {
   const [isStockEditModalOpen, setIsStockEditModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const prevIsProcessing = useRef<boolean>(undefined);
 
 
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -181,13 +177,6 @@ function LancheTrackerPageContent() {
   const [isSelectionModeActive, setIsSelectionModeActive] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isDeleteSelectedAlertOpen, setIsDeleteSelectedAlertOpen] = useState(false);
-
-  useEffect(() => {
-    if (prevIsProcessing.current === true && !isProcessing) {
-      inputRef.current?.focus();
-    }
-    prevIsProcessing.current = isProcessing;
-  }, [isProcessing]);
 
 
   const handlePasswordSuccess = () => {
@@ -221,6 +210,7 @@ function LancheTrackerPageContent() {
   };
 
   async function handleUpsertItem(rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) {
+    if (isProcessing) return;
     setIsProcessing(true);
     if (!firestore || !user?.uid) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Base de dados indisponível.' });
@@ -246,7 +236,10 @@ function LancheTrackerPageContent() {
       }
 
       let mainInput = rawInputToProcess.trim();
-      if (!mainInput) return;
+      if (!mainInput) {
+          setIsProcessing(false);
+          return;
+      }
 
       let group: Group = 'Vendas salão';
 
@@ -519,10 +512,11 @@ function LancheTrackerPageContent() {
     }
   };
 
-  const handleItemFormSubmit = async (e: React.FormEvent) => {
+  const handleItemFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rawInput.trim()) return;
-    await handleUpsertItem(rawInput, itemToEdit);
+    const input = rawInput.trim();
+    if (!input) return;
+    handleUpsertItem(input, itemToEdit);
   };
 
   const handleDeleteRequest = async (id: string) => {
