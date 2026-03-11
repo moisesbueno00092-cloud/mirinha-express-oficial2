@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFirestore, useCollection, useUser } from '@/firebase';
 import { 
     collection, 
@@ -22,10 +22,7 @@ import {
     endOfWeek, 
     startOfMonth, 
     endOfMonth, 
-    startOfYear, 
-    endOfYear, 
-    getWeek,
-    getYear,
+    getYear, 
     getMonth,
     setYear,
     setMonth,
@@ -937,9 +934,10 @@ const WeeklyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRepo
         const yearReports = reports.filter(r => r.reportDate && getYear(parseISO(r.reportDate)) === year);
         const weeks: Record<number, DailyReport[]> = {};
         for(const report of yearReports) {
-            const weekNumber = getWeek(parseISO(report.reportDate), { weekStartsOn: 1 });
-            if(!weeks[weekNumber]) weeks[weekNumber] = [];
-            weeks[weekNumber].push(report);
+            const weekNumber = format(parseISO(report.reportDate), 'w', { locale: ptBR });
+            const weekNum = Number(weekNumber);
+            if(!weeks[weekNum]) weeks[weekNum] = [];
+            weeks[weekNum].push(report);
         }
         return Object.entries(weeks).map(([week, weekReports]) => {
             const firstDay = startOfWeek(parseISO(weekReports[0].reportDate), { weekStartsOn: 1 });
@@ -1474,19 +1472,10 @@ function ReportsPageContent() {
                 itemDate = new Date(currentItem.timestamp);
             }
             
-            const originalDateStr = format(itemDate, 'yyyy-MM-dd');
-            const originalTimeStr = format(itemDate, 'HH:mm');
-            
-            if (format(finalDate, 'yyyy-MM-dd') === originalDateStr && editArchivedTime === originalTimeStr) {
-                finalTimestamp = currentItem.timestamp;
-            } else {
-                const updatedDate = finalDate;
-                if (format(finalDate, 'yyyy-MM-dd') !== originalDateStr && editArchivedTime === originalTimeStr) {
-                    updatedDate.setSeconds(itemDate.getSeconds());
-                    updatedDate.setMilliseconds(itemDate.getMilliseconds());
-                }
-                finalTimestamp = Timestamp.fromDate(updatedDate);
-            }
+            const updatedDate = finalDate;
+            updatedDate.setSeconds(itemDate.getSeconds());
+            updatedDate.setMilliseconds(itemDate.getMilliseconds());
+            finalTimestamp = Timestamp.fromDate(updatedDate);
         } else {
             finalTimestamp = Timestamp.fromDate(finalDate);
         }
@@ -1661,8 +1650,8 @@ function ReportsPageContent() {
 
         await batch.commit();
         toast({ 
-            title: "Data Sincronizada!", 
-            description: `Relatório e ${orderItemsSnapshot.size} pedido(s) movidos para ${safeFormat(newReportDate, 'dd/MM/yyyy', { locale: ptBR })}.` 
+            title: "Sincronização Concluída", 
+            description: `Relatório e ${orderItemsSnapshot.size} pedidos movidos para ${safeFormat(newReportDate, 'dd/MM/yyyy', { locale: ptBR })}.` 
         });
     } catch (error: any) {
         console.error("Error updating report date:", error);
@@ -1759,7 +1748,7 @@ function ReportsPageContent() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Data</Label>
-                        <div className="border rounded-md p-2 bg-background">
+                        <div className="border rounded-md p-2 bg-background flex justify-center">
                             <Calendar
                                 mode="single"
                                 selected={editArchivedDate}
@@ -1798,7 +1787,7 @@ function ReportsPageContent() {
             <DialogHeader>
                 <DialogTitle>Alterar Data do Relatório</DialogTitle>
                 <DialogDescription>
-                    Selecione a nova data para o relatório. Todos os pedidos deste dia serão movidos automaticamente para garantir o histórico correto do cliente.
+                    Selecione a nova data. Todos os pedidos deste dia serão movidos automaticamente para o histórico do cliente.
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md">
