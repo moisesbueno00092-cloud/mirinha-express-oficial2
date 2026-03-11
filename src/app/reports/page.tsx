@@ -18,36 +18,26 @@ import {
 import { 
     format, 
     parseISO, 
-    startOfWeek, 
-    endOfWeek, 
     startOfMonth, 
     endOfMonth, 
-    getYear, 
-    getMonth,
     setYear,
     setMonth,
     isValid,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { 
     Loader2, 
     Trash2, 
-    Info, 
     CalendarDays, 
-    BarChart4, 
-    AreaChart, 
-    LineChart, 
-    GanttChart, 
     ListOrdered, 
     User, 
     Eye, 
     Calendar as CalendarIcon, 
-    Clock, 
     Pencil, 
     Plus 
 } from 'lucide-react';
@@ -76,25 +66,16 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart"
 import type { 
     DailyReport, 
     ItemCount, 
     BomboniereItem, 
     Item, 
     Group, 
-    PredefinedItem, 
-    SelectedBomboniereItem, 
     SavedFavorite 
 } from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart, Pie, Cell } from 'recharts';
 import ItemList from '@/components/item-list';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
@@ -102,7 +83,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import usePersistentState from '@/hooks/use-persistent-state';
 import { PREDEFINED_PRICES, DELIVERY_FEE } from '@/lib/constants';
-import FavoritesMenu from '@/components/favorites-menu';
 import BomboniereModal from '@/components/bomboniere-modal';
 import { Calendar } from '@/components/ui/calendar';
 
@@ -130,76 +110,7 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     return format(d, formatStr, options);
 };
 
-// Componente para a tabela de pedidos arquivados (detalhe do dia)
-const ArchivedItemsTable = ({ 
-    reportDate, 
-    onEdit, 
-    onDelete, 
-    onAdd 
-}: { 
-    reportDate: string, 
-    onEdit: (item: Item) => void, 
-    onDelete: (item: Item) => void,
-    onAdd: () => void
-}) => {
-    const firestore = useFirestore();
-    
-    const archivedItemsQuery = useMemo(() => {
-        if (!firestore || !reportDate) return null;
-        return query(
-            collection(firestore, 'order_items'),
-            where('reportDate', '==', reportDate)
-        );
-    }, [firestore, reportDate]);
-
-    const { data: rawItems, isLoading } = useCollection<Item>(archivedItemsQuery);
-
-    const sortedItems = useMemo(() => {
-        if (!rawItems) return [];
-        return [...rawItems].sort((a, b) => {
-            const getT = (ts: any) => (ts?.toMillis ? ts.toMillis() : new Date(ts).getTime() || 0);
-            return getT(a.timestamp) - getT(b.timestamp);
-        });
-    }, [rawItems]);
-
-    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-    
-    if (!sortedItems || sortedItems.length === 0) return (
-        <div className="mt-8 border-t pt-6 text-center">
-             <p className="text-muted-foreground text-sm py-4">Nenhum pedido encontrado para esta data.</p>
-             <Button variant="outline" size="sm" onClick={onAdd}>
-                <Plus className="h-4 w-4 mr-2" /> Adicionar Item
-             </Button>
-        </div>
-    );
-
-    return (
-        <div className="mt-8 border-t pt-6">
-            <div className="flex justify-between items-center mb-4">
-                <h4 className="font-semibold flex items-center gap-2">
-                    <ListOrdered className="h-5 w-5 text-primary" />
-                    Listagem de Pedidos Detalhada
-                </h4>
-                <Button variant="outline" size="sm" onClick={onAdd}>
-                    <Plus className="h-4 w-4 mr-2" /> Novo Item
-                </Button>
-            </div>
-            <div className="rounded-md border">
-                <ItemList 
-                    items={sortedItems} 
-                    isLoading={false} 
-                    onEdit={onEdit}
-                    onDelete={(id) => {
-                        const item = sortedItems.find(it => it.id === id);
-                        if (item) onDelete(item);
-                    }}
-                />
-            </div>
-        </div>
-    );
-};
-
-// Seção de Consumo por Cliente (Mensal)
+// Seção de Consumo por Cliente (Mensal) - Atualizado para tempo real
 const CustomerReportsSection = ({ 
     globalDate,
     onEditItem,
@@ -256,7 +167,6 @@ const CustomerReportsSection = ({
             .sort((a, b) => b.total - a.total);
     }, [items]);
 
-    // Estabilização do cliente selecionado para evitar loops infinitos
     const selectedCustomer = useMemo(() => {
         if (!selectedCustomerName) return null;
         return customerData.find(c => c.name.toLowerCase() === selectedCustomerName.toLowerCase()) || null;
@@ -432,7 +342,22 @@ const ReportDetail = ({
     onDeleteItem: (item: Item) => void,
     onAddItem: (reportDate: string) => void
 }) => {
-    
+    const firestore = useFirestore();
+    const archivedItemsQuery = useMemo(() => {
+        if (!firestore || !report?.reportDate) return null;
+        return query(collection(firestore, 'order_items'), where('reportDate', '==', report.reportDate));
+    }, [firestore, report?.reportDate]);
+
+    const { data: rawItems, isLoading } = useCollection<Item>(archivedItemsQuery);
+
+    const sortedItems = useMemo(() => {
+        if (!rawItems) return [];
+        return [...rawItems].sort((a, b) => {
+            const getT = (ts: any) => (ts?.toMillis ? ts.toMillis() : new Date(ts).getTime() || 0);
+            return getT(a.timestamp) - getT(b.timestamp);
+        });
+    }, [rawItems]);
+
     const isBomboniere = (itemName: string): boolean => {
       if (!bomboniereItems) return false;
       const lowerItemName = itemName.toLowerCase();
@@ -456,13 +381,6 @@ const ReportDetail = ({
     
     if (!report) return null;
 
-    const chartData = [
-        { name: 'Vendas Salão', value: report.totalVendasSalao || 0, fill: 'hsl(var(--chart-1))' },
-        { name: 'Vendas Rua', value: report.totalVendasRua || 0, fill: 'hsl(var(--chart-2))' },
-        { name: 'Fiado Salão', value: report.totalFiadoSalao || 0, fill: 'hsl(var(--chart-3))' },
-        { name: 'Fiado Rua', value: report.totalFiadoRua || 0, fill: 'hsl(var(--chart-5))' },
-    ].filter(item => item.value > 0);
-
     const { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua } = useMemo(() => {
         const contagemSalao: ItemCount = {};
         if (report.contagemTotal) {
@@ -473,11 +391,9 @@ const ReportDetail = ({
                 if (salaoCount > 0) contagemSalao[key] = salaoCount;
             }
         }
-        
         const contagemRua = report.contagemRua || {};
         const { lanches: lS, bomboniere: bS } = separateItemsByCategory(contagemSalao);
         const { lanches: lR, bomboniere: bR } = separateItemsByCategory(contagemRua);
-        
         return { lanchesSalao: lS, bomboniereSalao: bS, lanchesRua: lR, bomboniereRua: bR };
     }, [report.contagemTotal, report.contagemRua, bomboniereItems]);
 
@@ -535,35 +451,33 @@ const ReportDetail = ({
           </div>
         </div>
       </div>
-      <ArchivedItemsTable 
-        reportDate={report.reportDate} 
-        onEdit={onEditItem} 
-        onDelete={onDeleteItem}
-        onAdd={() => onAddItem(report.reportDate)}
-      />
+
+      <div className="mt-8 border-t pt-6">
+            <div className="flex justify-between items-center mb-4">
+                <h4 className="font-semibold flex items-center gap-2">
+                    <ListOrdered className="h-5 w-5 text-primary" />
+                    Listagem de Pedidos Detalhada
+                </h4>
+                <Button variant="outline" size="sm" onClick={() => onAddItem(report.reportDate)}>
+                    <Plus className="h-4 w-4 mr-2" /> Novo Item
+                </Button>
+            </div>
+            {isLoading ? <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div> : (
+                <div className="rounded-md border">
+                    <ItemList 
+                        items={sortedItems} 
+                        isLoading={false} 
+                        onEdit={onEditItem}
+                        onDelete={(id) => {
+                            const item = sortedItems.find(it => it.id === id);
+                            if (item) onDelete(item);
+                        }}
+                    />
+                </div>
+            )}
+        </div>
     </div>
   )
-};
-
-const aggregateReports = (reports: DailyReport[]): DailyReport | null => {
-    if (!reports || reports.length === 0) return null;
-    const initial: DailyReport = {
-        userId: '', reportDate: '', createdAt: '',
-        totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
-        totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
-        totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
-        contagemTotal: {}, contagemRua: {},
-    };
-    return reports.reduce((acc, r) => {
-        acc.totalGeral += r.totalGeral; acc.totalAVista += r.totalAVista; acc.totalFiado += r.totalFiado;
-        acc.totalVendasSalao += r.totalVendasSalao; acc.totalVendasRua += r.totalVendasRua;
-        acc.totalFiadoSalao += r.totalFiadoSalao; acc.totalFiadoRua += r.totalFiadoRua;
-        acc.totalTaxas += r.totalTaxas; acc.totalItens += r.totalItens; acc.totalPedidos += r.totalPedidos;
-        acc.totalEntregas += r.totalEntregas;
-        for (const k in r.contagemTotal) acc.contagemTotal[k] = (acc.contagemTotal[k] || 0) + r.contagemTotal[k];
-        for (const k in r.contagemRua) acc.contagemRua[k] = (acc.contagemRua[k] || 0) + r.contagemRua[k];
-        return acc;
-    }, initial);
 };
 
 function ReportsPageContent() {
@@ -571,7 +485,6 @@ function ReportsPageContent() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   
-  // Estado global de data (Mês/Ano) para toda a página
   const [globalDate, setGlobalDate] = useState<Date>(new Date());
 
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
@@ -587,9 +500,7 @@ function ReportsPageContent() {
   const [isProcessingEdit, setIsProcessingEdit] = useState(false);
   const [activeReportDateForAdd, setActiveReportDateForAdd] = useState<string | null>(null);
   
-  const [savedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
   const [isBomboniereModalOpen, setIsBomboniereModalOpen] = useState(false);
-  const [predefinedPrices] = usePersistentState('predefinedPrices', PREDEFINED_PRICES);
   const [deliveryFee] = usePersistentState('deliveryFee', DELIVERY_FEE);
   
   const allReportsQuery = useMemo(() => firestore ? query(collection(firestore, 'daily_reports')) : null, [firestore]);
@@ -608,10 +519,6 @@ function ReportsPageContent() {
   }, [allReports, globalDate]);
 
   const { data: bomboniereItems } = useCollection<BomboniereItem>(firestore ? collection(firestore, 'bomboniere_items') : null);
-  const bomboniereItemsByName = useMemo(() => {
-    if (!bomboniereItems) return {};
-    return bomboniereItems.reduce((acc, item) => ({ ...acc, [item.name.toLowerCase()]: item }), {});
-  }, [bomboniereItems]);
 
   useEffect(() => {
     if (archivedItemToEdit) {
@@ -662,7 +569,16 @@ function ReportsPageContent() {
     if (!firestore || !user?.uid || !editArchivedDate) return;
     setIsProcessingEdit(true);
     const [h, m] = editArchivedTime.split(':').map(Number);
-    const finalDate = new Date(editArchivedDate); finalDate.setHours(h, m, 0, 0);
+    const finalDate = new Date(editArchivedDate); 
+    
+    // Preservar segundos e ms originais se estiver a editar
+    if (currentItem?.timestamp) {
+        const origTs = currentItem.timestamp.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp);
+        finalDate.setHours(h, m, origTs.getSeconds(), origTs.getMilliseconds());
+    } else {
+        finalDate.setHours(h, m, 0, 0);
+    }
+    
     const newReportDateStr = format(finalDate, 'yyyy-MM-dd');
 
     try {
@@ -679,7 +595,6 @@ function ReportsPageContent() {
 
         const parts = mainInput.split(' ').filter(p => p);
         let totalPrice = 0; let totalQty = 0;
-        // Lógica simplificada de parsing para histórico
         parts.forEach(p => {
             if (isNumeric(p)) totalPrice += parseFloat(p.replace(',', '.'));
             else totalQty++;
@@ -721,7 +636,7 @@ function ReportsPageContent() {
             const data = orderDoc.data() as Item;
             const originalTs = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
             const updatedTs = new Date(newReportDate);
-            updatedTs.setHours(originalTs.getHours(), originalTs.getMinutes(), originalTs.getSeconds());
+            updatedTs.setHours(originalTs.getHours(), originalTs.getMinutes(), originalTs.getSeconds(), originalTs.getMilliseconds());
             
             batch.update(orderDoc.ref, { 
                 reportDate: newDateStr,
@@ -811,16 +726,12 @@ function ReportsPageContent() {
         </DialogContent>
       </Dialog>
 
-      <div className="mb-8 p-4 bg-muted/30 rounded-xl border border-primary/20">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg text-primary"><CalendarIcon className="h-6 w-6"/></div>
-                  <div>
-                      <h2 className="text-lg font-bold leading-none">Período de Visualização</h2>
-                      <p className="text-xs text-muted-foreground mt-1 capitalize">{safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR })}</p>
-                  </div>
-              </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+      <Card className="mb-8">
+          <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center gap-2"><CalendarIcon className="h-5 w-5 text-primary"/>Período de Visualização</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
                   <Select value={String(globalDate.getMonth())} onValueChange={(v) => setGlobalDate(setMonth(new Date(globalDate), parseInt(v)))}>
                       <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                       <SelectContent>{Array.from({length: 12}, (_, i) => <SelectItem key={i} value={String(i)}>{format(new Date(2000, i), 'MMMM', { locale: ptBR })}</SelectItem>)}</SelectContent>
@@ -830,8 +741,9 @@ function ReportsPageContent() {
                       <SelectContent>{[2024, 2025].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
                   </Select>
               </div>
-          </div>
-      </div>
+              <p className="text-sm text-muted-foreground capitalize">{safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR })}</p>
+          </CardContent>
+      </Card>
       
       <main className="space-y-6">
         <Accordion type="single" collapsible defaultValue="diario" className="w-full space-y-4">
@@ -860,8 +772,8 @@ function ReportsPageContent() {
                                                     <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                                 </div>
                                                 <div className="flex gap-1">
-                                                    <Button variant="ghost" size="icon" onClick={() => handleEditDateRequest(report)}><CalendarDays className="h-4 w-4" /></Button>
-                                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteReportRequest(report.id!)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                                    <Button variant="ghost" size="icon" onClick={() => { setReportToEditDate(report); setNewReportDate(parseISO(report.reportDate)); }}><CalendarDays className="h-4 w-4" /></Button>
+                                                    <Button variant="ghost" size="icon" onClick={() => setReportToDelete(report)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                                 </div>
                                             </div>
                                         </div>
