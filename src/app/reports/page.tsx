@@ -83,7 +83,7 @@ const formatCurrency = (value: number | undefined | null) => {
 const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
 /**
- * Safe date formatter to prevent RangeErrors
+ * Função segura para formatar datas, evitando o erro RangeError: Invalid time value
  */
 const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     if (!dateInput) return '-';
@@ -115,6 +115,7 @@ const ArchivedItemsTable = ({
     
     const archivedItemsQuery = useMemo(() => {
         if (!firestore || !reportDate) return null;
+        // Consulta simples para evitar erros de índice composto
         return query(
             collection(firestore, 'order_items'),
             where('reportDate', '==', reportDate)
@@ -123,7 +124,7 @@ const ArchivedItemsTable = ({
 
     const { data: rawItems, isLoading } = useCollection<Item>(archivedItemsQuery);
 
-    // Sort in memory to avoid indexing errors
+    // Ordenação em memória para eliminar a necessidade de índices complexos no Firestore
     const sortedItems = useMemo(() => {
         if (!rawItems) return [];
         return [...rawItems].sort((a, b) => {
@@ -224,6 +225,7 @@ const CustomerReportsSection = ({
 
             const sortedStats = Object.values(stats)
                 .map((data) => {
+                    // Sort orders by timestamp in memory
                     data.orders.sort((a, b) => {
                         const getT = (ts: any) => {
                             if (!ts) return 0;
@@ -239,7 +241,6 @@ const CustomerReportsSection = ({
 
             setCustomerData(sortedStats);
             
-            // If a customer was selected, update its order list
             if (selectedCustomer) {
                 const updatedSelected = sortedStats.find(c => c.name.toLowerCase() === selectedCustomer.name.toLowerCase());
                 if (updatedSelected) {
@@ -786,7 +787,7 @@ const DailyReportsSection = ({
             if (!r.reportDate) return false;
             const reportDate = parseISO(r.reportDate);
             return reportDate.getFullYear() === currentDate.getFullYear() && reportDate.getMonth() === currentDate.getMonth();
-        }).sort((a, b) => a.reportDate.localeCompare(b.reportDate)); // Fixed sorting day 1 first
+        }).sort((a, b) => a.reportDate.localeCompare(b.reportDate)); 
     }, [reports, currentDate]);
 
     const generateYearOptions = () => {
@@ -1239,7 +1240,7 @@ function ReportsPageContent() {
   }, [archivedItemToEdit]);
 
   /**
-   * Recalculates all totals for a specific daily report date
+   * Recalcula todos os totais de um relatório diário específico.
    */
   const recalculateReport = async (reportDate: string) => {
     if (!firestore || !user?.uid) return;
@@ -1340,7 +1341,7 @@ function ReportsPageContent() {
   };
 
   /**
-   * Handles creating or updating an archived item, preserving original time if needed
+   * Lógica para salvar ou atualizar um item arquivado, preservando o horário original.
    */
   const handleUpsertArchivedItem = async (rawInput: string, currentItem?: Item | null, specificDate?: string, favoriteName?: string) => {
     if (!firestore || !user?.uid || !editArchivedDate) return;
@@ -1348,7 +1349,7 @@ function ReportsPageContent() {
 
     const oldReportDate = currentItem?.reportDate;
     
-    // Combine selected date with selected time
+    // Combina a data selecionada no calendário com a hora selecionada no input
     const [hours, minutes] = editArchivedTime.split(':').map(Number);
     const finalDate = new Date(editArchivedDate);
     finalDate.setHours(hours, minutes, 0, 0);
@@ -1364,7 +1365,7 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
 
-        // Revert stock if editing existing item
+        // Reverte o estoque se estivermos editando um item existente
         if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
             for (const oldSoldItem of currentItem.bomboniereItems) {
                 const itemDef = bomboniereItems.find((i) => i.id === oldSoldItem.id);
@@ -1463,7 +1464,7 @@ function ReportsPageContent() {
         if (procBomboniere.length > 0) nameParts.push(procBomboniere.map(it => `${it.quantity > 1 ? it.quantity : ''}${it.name}`).join(' '));
         const consolidatedName = nameParts.join(' + ') || 'Lançamento';
 
-        // PRESERVAÇÃO DE HORÁRIO: Se for edição e o dia/hora forem os mesmos, mantém o timestamp original (com milissegundos)
+        // PRESERVAÇÃO DE HORÁRIO: Mantém o timestamp original se a hora e o dia forem os mesmos.
         let finalTimestamp: Timestamp;
         if (currentItem) {
             let itemDate: Date;
@@ -1476,12 +1477,9 @@ function ReportsPageContent() {
             const originalDateStr = format(itemDate, 'yyyy-MM-dd');
             const originalTimeStr = format(itemDate, 'HH:mm');
             
-            // Check if user actually changed the date or time
             if (format(finalDate, 'yyyy-MM-dd') === originalDateStr && editArchivedTime === originalTimeStr) {
-                // Keep strictly the original timestamp object
                 finalTimestamp = currentItem.timestamp;
             } else {
-                // User changed date or time, create new timestamp but try to preserve original seconds/ms if only date changed
                 const updatedDate = finalDate;
                 if (format(finalDate, 'yyyy-MM-dd') !== originalDateStr && editArchivedTime === originalTimeStr) {
                     updatedDate.setSeconds(itemDate.getSeconds());
@@ -1511,7 +1509,7 @@ function ReportsPageContent() {
             ...(procBomboniere.length > 0 ? { bomboniereItems: procBomboniere } : {}),
         };
 
-        // Update stock
+        // Atualiza estoque
         if (bomboniereItems) {
             for (const soldItem of procBomboniere) {
                 const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
@@ -1529,7 +1527,7 @@ function ReportsPageContent() {
 
         await batch.commit();
         
-        // Recalculate daily reports
+        // Recalcula relatórios diários afetados
         await recalculateReport(newReportDateStr);
         if (oldReportDate && oldReportDate !== newReportDateStr) {
             await recalculateReport(oldReportDate);
@@ -1601,7 +1599,8 @@ function ReportsPageContent() {
   const handleEditDateRequest = (report: DailyReport) => {
     setReportToEditDate(report);
     if (report.reportDate) {
-        setNewReportDate(parseISO(report.reportDate));
+        // Usa meio-dia para evitar shifts de timezone
+        setNewReportDate(new Date(report.reportDate + 'T12:00:00'));
     }
   };
 
@@ -1634,7 +1633,7 @@ function ReportsPageContent() {
   };
   
   /**
-   * Updates the date of a DailyReport and synchronously moves all its order_items to the new date.
+   * Atualiza a data de um DailyReport e SINCRONIZA todos os seus order_items para a nova data.
    */
   const confirmEditDate = async () => {
     if (!firestore || !reportToEditDate || !newReportDate || !user?.uid) return;
@@ -1651,13 +1650,13 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
         
-        // 1. Update date in the report document
+        // 1. Atualiza a data no documento do relatório
         batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { 
             reportDate: newDateStr,
             updatedAt: new Date().toISOString()
         });
 
-        // 2. SYNCHRONIZATION: Move all associated order_items to the new reportDate
+        // 2. SINCRONIZAÇÃO: Move todos os order_items associados para a nova reportDate
         const orderItemsQuery = query(
             collection(firestore, 'order_items'), 
             where('reportDate', '==', oldDateStr)
@@ -1838,7 +1837,7 @@ function ReportsPageContent() {
                             onAddItem={(date) => {
                                 setActiveReportDateForAdd(date);
                                 setEditArchivedInput('');
-                                setEditArchivedDate(parseISO(date));
+                                setEditArchivedDate(new Date(date + 'T12:00:00'));
                                 setEditArchivedTime('12:00');
                             }}
                        />

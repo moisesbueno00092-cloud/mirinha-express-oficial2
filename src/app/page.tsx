@@ -107,7 +107,7 @@ function LancheTrackerPageContent() {
 
   const liveItemsQuery = useMemo(() => {
     if (!firestore) return null;
-    // Query without orderBy to avoid index requirement errors
+    // Consulta simples sem orderBy para evitar erros de índice
     const q = query(collection(firestore, 'live_items'));
     return q;
   }, [firestore]);
@@ -116,12 +116,12 @@ function LancheTrackerPageContent() {
 
   const items = useMemo(() => {
     if (!allItems) return [];
-    // Filter and Sort in memory to avoid indexing/FirestoreErrors
+    // Ordenação manual em memória para evitar a necessidade de criar índices compostos no Firestore
     return [...allItems]
       .filter(item => !item.reportado)
       .sort((a, b) => {
         const getT = (ts: any) => (ts?.toMillis ? ts.toMillis() : new Date(ts).getTime() || 0);
-        return getT(b.timestamp) - getT(a.timestamp); // Newer first
+        return getT(b.timestamp) - getT(a.timestamp); 
       });
   }, [allItems]);
 
@@ -458,7 +458,7 @@ function LancheTrackerPageContent() {
         quantity: totalQuantity,
         price: totalPrice,
         group,
-        // PRESERVAÇÃO DE HORÁRIO: Se estiver a editar, mantém o timestamp original do primeiro registo
+        // PRESERVAÇÃO DE HORÁRIO: Mantém o timestamp original se estiver a editar
         timestamp: currentItem ? currentItem.timestamp : (serverTimestamp() as Timestamp),
         deliveryFee: finalDeliveryFee,
         total,

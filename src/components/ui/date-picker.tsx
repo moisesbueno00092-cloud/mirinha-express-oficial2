@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { format } from "date-fns"
+import { format, isValid } from "date-fns"
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon } from 'lucide-react';
 
@@ -21,11 +21,17 @@ interface DatePickerProps {
 }
 
 /**
- * A robust DatePicker component that ensures date selection is correctly
- * propagated to the parent state and the popover closes gracefully.
+ * Componente DatePicker robusto que garante a propagação imediata da data selecionada.
  */
 export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
+
+  const handleSelect = (selectedDate: Date | undefined) => {
+    if (selectedDate && isValid(selectedDate)) {
+      setDate(selectedDate);
+      setOpen(false);
+    }
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -38,19 +44,14 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+          {date && isValid(date) ? format(date, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0 z-[120]" align="start">
         <Calendar
           mode="single"
           selected={date}
-          onSelect={(newDate) => {
-            if (newDate) {
-              setDate(newDate);
-              setOpen(false);
-            }
-          }}
+          onSelect={handleSelect}
           initialFocus
           locale={ptBR}
         />
