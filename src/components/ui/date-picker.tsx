@@ -27,14 +27,6 @@ interface DatePickerProps {
 export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
-  // Directly handle selection to ensure state updates and popover closes
-  const handleSelect = (newDate: Date | undefined) => {
-    if (newDate) {
-        setDate(newDate);
-        setOpen(false);
-    }
-  };
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -49,11 +41,16 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
           {date ? format(date, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 z-[110]" align="start">
+      <PopoverContent className="w-auto p-0 z-[120]" align="start">
         <Calendar
           mode="single"
           selected={date}
-          onSelect={handleSelect}
+          onSelect={(newDate) => {
+            if (newDate) {
+              setDate(newDate);
+              setOpen(false);
+            }
+          }}
           initialFocus
           locale={ptBR}
         />

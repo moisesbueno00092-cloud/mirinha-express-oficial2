@@ -1198,7 +1198,7 @@ function ReportsPageContent() {
   const allReports = useMemo(() => {
     if (!allReportsRaw) return [];
     return [...allReportsRaw]
-      .filter(r => r.reportDate) 
+      .filter(r => r && typeof r.reportDate === 'string') 
       .sort((a, b) => a.reportDate.localeCompare(b.reportDate));
   }, [allReportsRaw]);
 
@@ -1600,7 +1600,9 @@ function ReportsPageContent() {
 
   const handleEditDateRequest = (report: DailyReport) => {
     setReportToEditDate(report);
-    setNewReportDate(parseISO(report.reportDate));
+    if (report.reportDate) {
+        setNewReportDate(parseISO(report.reportDate));
+    }
   };
 
   const confirmDeleteReport = async () => {
@@ -1635,35 +1637,53 @@ function ReportsPageContent() {
    * Updates the date of a DailyReport and synchronously moves all its order_items to the new date.
    */
   const confirmEditDate = async () => {
-    if (!firestore || !reportToEditDate || !newReportDate) return;
+    if (!firestore || !reportToEditDate || !newReportDate || !user?.uid) return;
     setIsUpdatingDate(true);
     const oldDateStr = reportToEditDate.reportDate;
     const newDateStr = format(newReportDate, 'yyyy-MM-dd');
 
     if (oldDateStr === newDateStr) {
-        setIsUpdatingDate(false); setReportToEditDate(null); return;
+        setIsUpdatingDate(false); 
+        setReportToEditDate(null); 
+        return;
     }
 
     try {
         const batch = writeBatch(firestore);
         
-        // 1. Update date in the report itself
-        batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { reportDate: newDateStr });
+        // 1. Update date in the report document
+        batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { 
+            reportDate: newDateStr,
+            updatedAt: new Date().toISOString()
+        });
 
-        // 2. SYNCHRONIZATION: Move all individual orders of this day to the new reportDate
-        const orderItemsQuery = query(collection(firestore, 'order_items'), where('reportDate', '==', oldDateStr));
+        // 2. SYNCHRONIZATION: Move all associated order_items to the new reportDate
+        const orderItemsQuery = query(
+            collection(firestore, 'order_items'), 
+            where('reportDate', '==', oldDateStr)
+        );
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
+        
         orderItemsSnapshot.forEach(orderDoc => {
             batch.update(orderDoc.ref, { reportDate: newDateStr });
         });
 
         await batch.commit();
-        toast({ title: "Sucesso!", description: `Relatório e todos os seus pedidos movidos para ${safeFormat(newReportDate, 'dd/MM/yyyy', { locale: ptBR })}.` });
+        toast({ 
+            title: "Data Sincronizada!", 
+            description: `Relatório e ${orderItemsSnapshot.size} pedido(s) movidos para ${safeFormat(newReportDate, 'dd/MM/yyyy', { locale: ptBR })}.` 
+        });
     } catch (error: any) {
         console.error("Error updating report date:", error);
-        toast({ variant: "destructive", title: "Erro", description: "Erro ao sincronizar data." });
+        toast({ 
+            variant: "destructive", 
+            title: "Erro na Sincronização", 
+            description: "Não foi possível mover os dados para a nova data." 
+        });
     } finally {
-        setIsUpdatingDate(false); setReportToEditDate(null); setNewReportDate(undefined);
+        setIsUpdatingDate(false); 
+        setReportToEditDate(null); 
+        setNewReportDate(undefined);
     }
   };
   
