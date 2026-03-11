@@ -107,7 +107,6 @@ import usePersistentState from '@/hooks/use-persistent-state';
 import { PREDEFINED_PRICES, DELIVERY_FEE } from '@/lib/constants';
 import FavoritesMenu from '@/components/favorites-menu';
 import BomboniereModal from '@/components/bomboniere-modal';
-import { DatePicker } from '@/components/ui/date-picker';
 import { Calendar } from '@/components/ui/calendar';
 
 const formatCurrency = (value: number | undefined | null) => {
@@ -219,9 +218,8 @@ const CustomerReportsSection = ({
     const firestore = useFirestore();
     const { toast } = useToast();
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
-    const [selectedCustomer, setSelectedCustomer] = useState<{ name: string, orders: Item[] } | null>(null);
+    const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
 
-    // Agora usamos useCollection para ter sincronização em tempo real com order_items
     const orderItemsQuery = useMemo(() => {
         if (!firestore) return null;
         const start = format(startOfMonth(currentDate), 'yyyy-MM-dd');
@@ -254,7 +252,7 @@ const CustomerReportsSection = ({
             }
         });
 
-        const sortedStats = Object.values(stats)
+        return Object.values(stats)
             .map((data) => {
                 data.orders.sort((a, b) => {
                     const getT = (ts: any) => {
@@ -268,21 +266,12 @@ const CustomerReportsSection = ({
                 return data;
             })
             .sort((a, b) => b.total - a.total);
-
-        return sortedStats;
     }, [items]);
 
-    // Atualiza o cliente selecionado se os dados dele mudarem
-    useEffect(() => {
-        if (selectedCustomer && customerData.length > 0) {
-            const updated = customerData.find(c => c.name.toLowerCase() === selectedCustomer.name.toLowerCase());
-            if (updated) {
-                setSelectedCustomer({ name: updated.name, orders: updated.orders });
-            } else {
-                setSelectedCustomer(null);
-            }
-        }
-    }, [customerData, selectedCustomer]);
+    const selectedCustomer = useMemo(() => {
+        if (!selectedCustomerName) return null;
+        return customerData.find(c => c.name.toLowerCase() === selectedCustomerName.toLowerCase()) || null;
+    }, [customerData, selectedCustomerName]);
 
     const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
         const monthName = safeFormat(currentDate, 'MMM/yy', { locale: ptBR }).toUpperCase();
@@ -320,7 +309,7 @@ const CustomerReportsSection = ({
 
     return (
         <div className="space-y-6">
-            <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomer(null)}>
+            <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomerName(null)}>
                 <DialogContent className="max-w-md sm:max-w-2xl" onInteractOutside={(e) => e.preventDefault()}>
                     <DialogHeader>
                         <div className="flex items-center justify-between pr-6">
@@ -400,7 +389,7 @@ const CustomerReportsSection = ({
                                     {formatCurrency(selectedCustomer?.orders.reduce((acc, o) => acc + o.total, 0))}
                                 </span>
                             </div>
-                            <Button variant="outline" onClick={() => setSelectedCustomer(null)}>Fechar</Button>
+                            <Button variant="outline" onClick={() => setSelectedCustomerName(null)}>Fechar</Button>
                         </div>
                     </DialogFooter>
                 </DialogContent>
@@ -457,7 +446,7 @@ const CustomerReportsSection = ({
                                 <tr 
                                     key={cust.name} 
                                     className="hover:bg-muted/30 transition-colors cursor-pointer group"
-                                    onClick={() => setSelectedCustomer({ name: cust.name, orders: cust.orders })}
+                                    onClick={() => setSelectedCustomerName(cust.name)}
                                 >
                                     <td className="p-4 flex items-center gap-2">
                                         <div className="bg-primary/10 text-primary p-1.5 rounded-full">
@@ -1770,7 +1759,15 @@ function ReportsPageContent() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Data</Label>
-                        <DatePicker date={editArchivedDate} setDate={setEditArchivedDate} />
+                        <div className="border rounded-md p-2 bg-background">
+                            <Calendar
+                                mode="single"
+                                selected={editArchivedDate}
+                                onSelect={setEditArchivedDate}
+                                locale={ptBR}
+                                initialFocus
+                            />
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2"><Clock className="h-4 w-4" /> Hora</Label>
