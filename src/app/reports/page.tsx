@@ -19,10 +19,6 @@ import {
     setYear,
     setMonth,
     isValid,
-    setHours,
-    setMinutes,
-    setSeconds,
-    setMilliseconds
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -790,7 +786,7 @@ const DailyReportsSection = ({
             if (!r.reportDate) return false;
             const reportDate = parseISO(r.reportDate);
             return reportDate.getFullYear() === currentDate.getFullYear() && reportDate.getMonth() === currentDate.getMonth();
-        }).sort((a, b) => parseISO(a.reportDate).getTime() - parseISO(b.reportDate).getTime());
+        }).sort((a, b) => a.reportDate.localeCompare(b.reportDate)); // Fixed sorting day 1 first
     }, [reports, currentDate]);
 
     const generateYearOptions = () => {
@@ -1203,7 +1199,7 @@ function ReportsPageContent() {
     if (!allReportsRaw) return [];
     return [...allReportsRaw]
       .filter(r => r.reportDate) 
-      .sort((a, b) => parseISO(a.reportDate).getTime() - parseISO(b.reportDate).getTime());
+      .sort((a, b) => a.reportDate.localeCompare(b.reportDate));
   }, [allReportsRaw]);
 
   const bomboniereQuery = useMemo(
