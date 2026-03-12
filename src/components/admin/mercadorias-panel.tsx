@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings, Camera, Video, ChevronUp, ChevronDown } from 'lucide-react';
 import { Separator } from '../ui/separator';
-import { format as formatDateFn, addDays } from 'date-fns';
+import { format as formatDateFn, addDays, parseISO, isValid } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -137,6 +137,15 @@ export default function MercadoriasPanel() {
     const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
     const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
+    const matchSupplierByName = useCallback((name: string) => {
+        if (!name || !fornecedores) return undefined;
+        const searchName = name.toLowerCase();
+        return fornecedores.find(f => 
+            f.nome.toLowerCase().includes(searchName) || 
+            searchName.includes(f.nome.toLowerCase())
+        );
+    }, [fornecedores]);
+
     const predictAndSetSupplier = useCallback((currentProdutos: LancamentoProduto[]) => {
         if (!currentProdutos.length || !allEntradas?.length || !fornecedores?.length) {
             return;
@@ -154,7 +163,7 @@ export default function MercadoriasPanel() {
             });
     
             if (Object.keys(productHistory).length > 0) {
-                const mostLikelySupplierForProduct = Object.entries(productHistory).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+                const mostLikely supplierForProduct = Object.entries(productHistory).reduce((a, b) => a[1] > b[1] ? a : b)[0];
                 if (mostLikelySupplierForProduct) {
                     supplierScores[mostLikelySupplierForProduct] = (supplierScores[mostLikelySupplierForProduct] || 0) + 1;
                 }
@@ -416,9 +425,6 @@ export default function MercadoriasPanel() {
     }
     
     const handleEditProduto = (produto: LancamentoProduto) => {
-        // This is complex now with the new logic. For now, just remove and let user re-enter.
-        // A better implementation would require reversing the logic.
-        // For simplicity, we just put the raw name and unit price back.
         const inputToEdit = `${produto.produtoNome} ${String(produto.precoUnitario).replace('.', ',')}`;
         
         setLancamentoInput(inputToEdit);
@@ -434,6 +440,53 @@ export default function MercadoriasPanel() {
         setNumParcelas('1');
     }
     
+    const processFlowOutput = useCallback((output: any) => {
+        const { items, fornecedorNome, dataVencimento: aiDueDate } = output;
+
+        if (items.length > 0) {
+            const newProdutos: LancamentoProduto[] = items.map((item: any) => {
+                const valorTotal = item.valorTotal;
+                const quantidade = item.quantidade > 0 ? item.quantidade : 1;
+                const precoUnitario = valorTotal / quantidade;
+                return {
+                    id: Date.now() + Math.random(),
+                    produtoNome: item.produtoNome,
+                    quantidade, precoUnitario, preco: valorTotal,
+                };
+            });
+            
+            setProdutosLancados(prev => {
+                const newList = [...prev, ...newProdutos];
+                // Only predict supplier based on products if no supplier name was explicitly detected
+                if (!fornecedorNome) {
+                    predictAndSetSupplier(newList);
+                }
+                return newList;
+            });
+        }
+
+        // Automatic Supplier Filling
+        if (fornecedorNome) {
+            const matchedSupplier = matchSupplierByName(fornecedorNome);
+            if (matchedSupplier) {
+                setFornecedorId(matchedSupplier.id);
+                toast({ title: 'Fornecedor Reconhecido', description: `Selecionámos "${matchedSupplier.nome}" automaticamente.` });
+            } else {
+                setNewFornecedorName(fornecedorNome);
+                toast({ title: 'Novo Fornecedor?', description: `A IA detetou "${fornecedorNome}" no documento.` });
+            }
+        }
+
+        // Automatic Due Date Filling
+        if (aiDueDate) {
+            const parsedDate = parseISO(aiDueDate);
+            if (isValid(parsedDate)) {
+                setDataVencimento(parsedDate);
+                toast({ title: 'Vencimento Identificado', description: `Data de vencimento ajustada para ${formatDateFn(parsedDate, 'dd/MM/yyyy')}.` });
+            }
+        }
+    }, [matchSupplierByName, predictAndSetSupplier, toast]);
+
     const handleCameraCapture = async (dataUri: string | null) => {
         if (!dataUri) {
             setIsCameraSheetOpen(false);
@@ -442,31 +495,17 @@ export default function MercadoriasPanel() {
 
         setIsParsingRomaneio(true);
         setIsCameraSheetOpen(false);
-        toast({ title: 'A processar imagem...', description: 'A extrair itens da foto. Isto pode demorar um momento.' });
+        toast({ title: 'A processar imagem...', description: 'A extrair itens, fornecedor e vencimento. Isto pode demorar um momento.' });
 
         try {
             const compressedUri = await compressImage(dataUri, 0.85);
-            const { items } = await parseRomaneio({ romaneioPhoto: compressedUri });
+            const output = await parseRomaneio({ romaneioPhoto: compressedUri });
 
-            if (items.length === 0) {
+            if (!output.items || output.items.length === 0) {
                 toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens da imagem fornecida.' });
             } else {
-                const newProdutos: LancamentoProduto[] = items.map(item => {
-                    const valorTotal = item.valorTotal;
-                    const quantidade = item.quantidade > 0 ? item.quantidade : 1;
-                    const precoUnitario = valorTotal / quantidade;
-                    return {
-                        id: Date.now() + Math.random(),
-                        produtoNome: item.produtoNome,
-                        quantidade, precoUnitario, preco: valorTotal,
-                    };
-                });
-                
-                const newList = [...produtosLancados, ...newProdutos];
-                setProdutosLancados(newList);
-                predictAndSetSupplier(newList);
-
-                toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados.` });
+                processFlowOutput(output);
+                toast({ title: 'Sucesso!', description: `${output.items.length} itens foram extraídos e adicionados.` });
             }
         } catch (error: any) {
             console.error("Erro ao analisar a imagem da câmera:", error);
@@ -498,7 +537,6 @@ export default function MercadoriasPanel() {
             duration: (files.length + 1) * 60000
         });
 
-        let allNewItemsFromAllFiles: LancamentoProduto[] = [];
         let hasAnySuccess = false;
 
         for (const [index, file] of Array.from(files).entries()) {
@@ -516,24 +554,11 @@ export default function MercadoriasPanel() {
                 });
 
                 const compressedUri = await compressImage(dataUri, 0.85);
-                const { items } = await parseRomaneio({ romaneioPhoto: compressedUri });
+                const output = await parseRomaneio({ romaneioPhoto: compressedUri });
 
-                if (items.length > 0) {
+                if (output.items && output.items.length > 0) {
                     hasAnySuccess = true;
-                    const newProdutos: LancamentoProduto[] = items.map(item => {
-                        const valorTotal = item.valorTotal;
-                        const quantidade = item.quantidade > 0 ? item.quantidade : 1;
-                        const precoUnitario = valorTotal / quantidade;
-                        return {
-                            id: Date.now() + Math.random(),
-                            produtoNome: item.produtoNome,
-                            quantidade,
-                            precoUnitario,
-                            preco: valorTotal
-                        };
-                    });
-                    
-                    allNewItemsFromAllFiles.push(...newProdutos);
+                    processFlowOutput(output);
                 }
             } catch (error: any) {
                 const errorMessage = error.message.includes('429')
@@ -557,13 +582,9 @@ export default function MercadoriasPanel() {
         }
 
         if (hasAnySuccess) {
-            const newList = [...produtosLancados, ...allNewItemsFromAllFiles];
-            setProdutosLancados(newList);
-            predictAndSetSupplier(newList);
-
             toast({
                 title: "Processamento Finalizado",
-                description: `${allNewItemsFromAllFiles.length} item(ns) adicionado(s) no total.`,
+                description: "Leitura concluída com sucesso.",
             });
         } else {
             toast({
@@ -588,7 +609,6 @@ export default function MercadoriasPanel() {
         try {
             const fornecedorNome = fornecedores?.find(f => f.id === finalFornecedorId)?.nome || 'Fornecedor desconhecido';
             
-            // Lógica a pedido: se não houver data, é à vista hoje
             const vencimentoBase = dataVencimento || new Date();
             const estaPaga = !dataVencimento;
             const parcelas = estaPaga ? 1 : parseInt(numParcelas, 10);
@@ -596,7 +616,6 @@ export default function MercadoriasPanel() {
             const valorParcela = totalCompra / parcelas;
             const batch = writeBatch(firestore);
 
-            // Geração de descrição baseada nos produtos (Ex: "Arroz, Feijão")
             const nomesProdutos = produtosLancados.map(p => {
                 const qtyPrefix = p.quantidade > 1 ? `${p.quantidade}x ` : '';
                 return `${qtyPrefix}${p.produtoNome}`;
@@ -632,7 +651,6 @@ export default function MercadoriasPanel() {
                 const entradaDocRef = doc(collection(firestore, 'entradas_mercadorias'));
                 batch.set(entradaDocRef, novaEntrada);
                 
-                // Stock update logic
                 const matchedBomboniereItem = findBestBomboniereMatch(produto.produtoNome, bomboniereItems || []);
                 if (matchedBomboniereItem) {
                     const bomboniereDocRef = doc(firestore, 'bomboniere_items', matchedBomboniereItem.id);

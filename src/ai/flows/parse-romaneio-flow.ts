@@ -31,6 +31,8 @@ const ParsedItemSchema = z.object({
 
 const ParseRomaneioOutputSchema = z.object({
   items: z.array(ParsedItemSchema).describe("An array of items found in the delivery note."),
+  fornecedorNome: z.string().optional().describe("The name of the supplier/issuer of the note if clearly visible."),
+  dataVencimento: z.string().optional().describe("The due date (vencimento) of the note if found, in YYYY-MM-DD format."),
 });
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
@@ -46,6 +48,10 @@ const parseRomaneioPrompt = ai.definePrompt({
   prompt: `You are an expert OCR assistant specialized in reading Brazilian invoices and delivery notes (romaneios).
 Your task is to analyze the provided image and extract a list of all products, their quantities, and their total prices for each line.
 
+Additionally, try to identify:
+1. The Supplier Name (Fornecedor/Emitente): Usually found at the very top, next to a CNPJ or logo.
+2. The Due Date (Data de Vencimento): Look for labels like 'Vencimento', 'Pagar em', 'Data Vcto'. If multiple installments exist, pick the first one.
+
 - Identify each product line item.
 - For each item, extract the product name, the quantity, and the total value for that line.
 - CRITICAL: You must look for a column named 'valor total', 'custo total', or simply 'total' to get the final price for the line. Do NOT use the unit price column for the final value.
@@ -53,6 +59,7 @@ Your task is to analyze the provided image and extract a list of all products, t
 - Quantity is often abbreviated as 'Qtd' or 'Qtde'.
 - Ignore overall taxes, totals for the entire note, subtotals, and any other information that is not a product line item.
 - Ensure all extracted values are converted to the correct numeric types.
+- If you find a due date, return it in YYYY-MM-DD format.
 
 Analyze the following delivery note:
 {{media url=romaneioPhoto}}
@@ -99,4 +106,3 @@ const parseRomaneioFlow = ai.defineFlow(
     throw new Error('Flow failed to produce an output after all retries.');
   }
 );
-    
