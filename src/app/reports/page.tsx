@@ -117,29 +117,130 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     return format(d, formatStr, options);
 };
 
+const PREDEFINED_KEYS = ['PP', 'P', 'M', 'G', 'GG', 'KITM', 'KITG', 'PF', 'SL', 'SLKIT', 'S', 'KG'];
+
+const mergeCounts = (target: Record<string, number>, source: Record<string, number>) => {
+    if (!source) return target;
+    Object.entries(source).forEach(([name, qty]) => {
+        target[name] = (target[name] || 0) + (qty || 0);
+    });
+    return target;
+};
+
 // --- COMPONENTES AUXILIARES ---
 
-/**
- * Exibe os dados consolidados no formato padronizado (Financeiro | Operacional)
- */
-const SummaryDisplay = ({ data }: { data: any }) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-        <div className="space-y-2 text-sm">
-            <h3 className="font-bold border-b pb-1">Financeiro</h3>
-            <div className="flex justify-between"><span>Vendas Salão:</span> <span>{formatCurrency(data.totalVendasSalao)}</span></div>
-            <div className="flex justify-between"><span>Vendas Rua:</span> <span>{formatCurrency(data.totalVendasRua)}</span></div>
-            <div className="flex justify-between text-destructive font-semibold"><span>Fiado Total:</span> <span>{formatCurrency(data.totalFiado)}</span></div>
-            <Separator className="my-1"/>
-            <div className="flex justify-between font-bold text-primary"><span>Total Geral:</span> <span>{formatCurrency(data.totalGeral)}</span></div>
+const SummaryDisplay = ({ data, title = "Resumo do Dia - FATURAMENTO" }: { data: any, title?: string }) => {
+    const contagemTotal = data.contagemTotal || {};
+    const contagemRua = data.contagemRua || {};
+    
+    const contagemSalao: Record<string, number> = {};
+    Object.keys(contagemTotal).forEach(key => {
+        const total = contagemTotal[key] || 0;
+        const rua = contagemRua[key] || 0;
+        const salao = total - rua;
+        if (salao > 0) contagemSalao[key] = salao;
+    });
+
+    const renderItemCountSection = (counts: Record<string, number>, isBomboniere: boolean) => {
+        const items = Object.entries(counts).filter(([key]) => {
+            const isPredefined = PREDEFINED_KEYS.includes(key.toUpperCase());
+            return isBomboniere ? !isPredefined : isPredefined;
+        });
+
+        if (items.length === 0) return <p className="text-[0.65rem] text-muted-foreground/50 italic">Nenhum item</p>;
+
+        return (
+            <div className="space-y-0.5">
+                {items.map(([name, qty]) => (
+                    <div key={name} className="flex gap-2 items-center text-[0.7rem]">
+                        <span className="font-bold w-3 text-right">{qty}</span>
+                        <span className="uppercase text-muted-foreground font-medium">{name}</span>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
+    const totalSalaoItems = Object.entries(contagemSalao).reduce((acc, [_, v]) => acc + v, 0);
+    const totalRuaItems = Object.entries(contagemRua).reduce((acc, [_, v]) => acc + v, 0);
+
+    return (
+        <div className="space-y-6 pt-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-muted/20 p-4 rounded-t-lg border-b border-border/50">
+                <h2 className="text-lg font-bold tracking-tight uppercase text-muted-foreground">{title}</h2>
+                <div className="text-right">
+                    <p className="text-3xl font-black text-primary leading-none">{formatCurrency(data.totalGeral)}</p>
+                    <p className="text-[0.6rem] text-muted-foreground uppercase font-bold mt-1 tracking-tighter">
+                        Faturamento à Vista: <span className="text-foreground">{formatCurrency(data.totalAVista)}</span>
+                    </p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[1.2fr_2fr] gap-10 px-4 pb-4">
+                {/* Resumo Financeiro */}
+                <div className="space-y-4">
+                    <h3 className="font-bold uppercase text-[0.65rem] tracking-widest text-muted-foreground/70 border-b pb-1">Resumo Financeiro</h3>
+                    <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between font-medium"><span>Vendas Salão:</span> <span>{formatCurrency(data.totalVendasSalao)}</span></div>
+                        <div className="flex justify-between font-medium text-blue-400"><span>Vendas Rua:</span> <span>{formatCurrency(data.totalVendasRua)}</span></div>
+                        <div className="flex justify-between font-medium text-pink-500/80"><span>Fiado Salão:</span> <span>{formatCurrency(data.totalFiadoSalao)}</span></div>
+                        <div className="flex justify-between font-medium text-orange-400/80"><span>Fiado Rua:</span> <span>{formatCurrency(data.totalFiadoRua)}</span></div>
+                        
+                        <Separator className="my-3 opacity-30"/>
+                        
+                        <div className="flex justify-between"><span>Total Geral Bomboniere:</span> <span className="font-bold">{formatCurrency((data.totalBomboniereSalao || 0) + (data.totalBomboniereRua || 0))}</span></div>
+                        
+                        <div className="flex justify-between mt-4 text-muted-foreground">
+                            <span>Total Entregas:</span> 
+                            <span><span className="font-bold text-foreground">{data.totalEntregas}</span> ({formatCurrency(data.totalTaxas)})</span>
+                        </div>
+                        <div className="flex justify-between font-bold border-t pt-2 mt-2">
+                            <span>Total Geral (Itens):</span> 
+                            <span className="text-primary">{data.totalItens}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Contagem de Itens */}
+                <div className="space-y-4">
+                    <h3 className="font-bold uppercase text-[0.65rem] tracking-widest text-muted-foreground/70 border-b pb-1">Contagem de Itens</h3>
+                    
+                    <div className="grid grid-cols-2 gap-8">
+                        {/* Coluna Salão */}
+                        <div className="space-y-5">
+                            <div className="space-y-2">
+                                <h4 className="text-[0.65rem] font-black uppercase text-purple-400 tracking-tighter">Salão</h4>
+                                {renderItemCountSection(contagemSalao, false)}
+                            </div>
+                            <div className="space-y-2">
+                                <h4 className="text-[0.6rem] font-bold uppercase text-purple-400/50 tracking-tighter border-t border-purple-400/10 pt-1">Bomboniere</h4>
+                                {renderItemCountSection(contagemSalao, true)}
+                            </div>
+                            <div className="pt-2 border-t border-dashed opacity-40">
+                                <p className="text-[0.6rem] text-muted-foreground">({totalSalaoItems} itens)</p>
+                            </div>
+                        </div>
+
+                        {/* Coluna Rua */}
+                        <div className="space-y-5">
+                            <div className="space-y-2">
+                                <h4 className="text-[0.65rem] font-black uppercase text-blue-400 tracking-tighter">Rua</h4>
+                                {renderItemCountSection(contagemRua, false)}
+                            </div>
+                            <div className="space-y-2">
+                                <h4 className="text-[0.6rem] font-bold uppercase text-blue-400/50 tracking-tighter border-t border-blue-400/10 pt-1">Bomboniere</h4>
+                                {renderItemCountSection(contagemRua, true)}
+                            </div>
+                            <div className="pt-2 border-t border-dashed opacity-40">
+                                <p className="text-[0.6rem] text-muted-foreground">({totalRuaItems} itens)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div className="space-y-2 text-sm">
-            <h3 className="font-bold border-b pb-1">Operacional</h3>
-            <div className="flex justify-between"><span>Entregas (Taxas):</span> <span>{data.totalEntregas} ({formatCurrency(data.totalTaxas)})</span></div>
-            <div className="flex justify-between"><span>Total de Itens:</span> <span>{data.totalItens}</span></div>
-            <div className="flex justify-between"><span>Total de Pedidos:</span> <span>{data.totalPedidos}</span></div>
-        </div>
-    </div>
-);
+    );
+};
 
 const CustomerReportsSection = ({ 
     globalDate,
@@ -285,7 +386,7 @@ const ReportDetail = ({ report, bomboniereItems, onEditItem, onDeleteItem, onAdd
         <div className="space-y-6">
             <SummaryDisplay data={report} />
             <div className="border-t pt-4">
-                <div className="flex justify-between items-center mb-4"><h4 className="font-bold flex items-center gap-2"><ListOrdered className="h-4 w-4"/>Pedidos do Dia</h4><Button variant="outline" size="sm" onClick={() => onAddItem(report.reportDate)}><Plus className="h-4 w-4 mr-1"/>Novo</Button></div>
+                <div className="flex justify-between items-center mb-4"><h4 className="font-bold flex items-center gap-2 text-xs uppercase text-muted-foreground tracking-widest"><ListOrdered className="h-4 w-4"/>Pedidos do Dia</h4><Button variant="outline" size="sm" onClick={() => onAddItem(report.reportDate)}><Plus className="h-4 w-4 mr-1"/>Novo</Button></div>
                 {isLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : <div className="rounded-md border"><ItemList items={sortedItems} isLoading={false} onEdit={onEditItem} onDelete={(id) => { const it = sortedItems.find(i => i.id === id); if(it) onDeleteItem(it); }} /></div>}
             </div>
         </div>
@@ -372,19 +473,44 @@ export default function ReportsPage() {
                   count: 0, 
                   start: startOfWeek(d, { locale: ptBR }), 
                   end: endOfWeek(d, { locale: ptBR }),
-                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0 }
+                  data: { 
+                      totalGeral: 0, 
+                      totalAVista: 0,
+                      totalVendasSalao: 0, 
+                      totalVendasRua: 0, 
+                      totalFiado: 0, 
+                      totalFiadoSalao: 0,
+                      totalFiadoRua: 0,
+                      totalTaxas: 0, 
+                      totalEntregas: 0, 
+                      totalItens: 0, 
+                      totalPedidos: 0,
+                      totalBomboniereSalao: 0,
+                      totalBomboniereRua: 0,
+                      contagemTotal: {},
+                      contagemRua: {}
+                  }
               };
           }
           
           stats[key].count++;
-          stats[key].data.totalGeral += r.totalGeral || 0;
-          stats[key].data.totalVendasSalao += r.totalVendasSalao || 0;
-          stats[key].data.totalVendasRua += r.totalVendasRua || 0;
-          stats[key].data.totalFiado += r.totalFiado || 0;
-          stats[key].data.totalTaxas += r.totalTaxas || 0;
-          stats[key].data.totalEntregas += r.totalEntregas || 0;
-          stats[key].data.totalItens += r.totalItens || 0;
-          stats[key].data.totalPedidos += r.totalPedidos || 0;
+          const dRef = stats[key].data;
+          dRef.totalGeral += r.totalGeral || 0;
+          dRef.totalAVista += r.totalAVista || 0;
+          dRef.totalVendasSalao += r.totalVendasSalao || 0;
+          dRef.totalVendasRua += r.totalVendasRua || 0;
+          dRef.totalFiado += r.totalFiado || 0;
+          dRef.totalFiadoSalao += r.totalFiadoSalao || 0;
+          dRef.totalFiadoRua += r.totalFiadoRua || 0;
+          dRef.totalTaxas += r.totalTaxas || 0;
+          dRef.totalEntregas += r.totalEntregas || 0;
+          dRef.totalItens += r.totalItens || 0;
+          dRef.totalPedidos += r.totalPedidos || 0;
+          dRef.totalBomboniereSalao += r.totalBomboniereSalao || 0;
+          dRef.totalBomboniereRua += r.totalBomboniereRua || 0;
+          
+          mergeCounts(dRef.contagemTotal, r.contagemTotal);
+          mergeCounts(dRef.contagemRua, r.contagemRua);
       });
       
       return Object.values(stats).sort((a,b) => b.week - a.week);
@@ -403,19 +529,44 @@ export default function ReportsPage() {
               stats[m] = { 
                   month: m, 
                   count: 0,
-                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0 }
+                  data: { 
+                      totalGeral: 0, 
+                      totalAVista: 0,
+                      totalVendasSalao: 0, 
+                      totalVendasRua: 0, 
+                      totalFiado: 0, 
+                      totalFiadoSalao: 0,
+                      totalFiadoRua: 0,
+                      totalTaxas: 0, 
+                      totalEntregas: 0, 
+                      totalItens: 0, 
+                      totalPedidos: 0,
+                      totalBomboniereSalao: 0,
+                      totalBomboniereRua: 0,
+                      contagemTotal: {},
+                      contagemRua: {}
+                  }
               };
           }
           
           stats[m].count++;
-          stats[m].data.totalGeral += r.totalGeral || 0;
-          stats[m].data.totalVendasSalao += r.totalVendasSalao || 0;
-          stats[m].data.totalVendasRua += r.totalVendasRua || 0;
-          stats[m].data.totalFiado += r.totalFiado || 0;
-          stats[m].data.totalTaxas += r.totalTaxas || 0;
-          stats[m].data.totalEntregas += r.totalEntregas || 0;
-          stats[m].data.totalItens += r.totalItens || 0;
-          stats[m].data.totalPedidos += r.totalPedidos || 0;
+          const dRef = stats[m].data;
+          dRef.totalGeral += r.totalGeral || 0;
+          dRef.totalAVista += r.totalAVista || 0;
+          dRef.totalVendasSalao += r.totalVendasSalao || 0;
+          dRef.totalVendasRua += r.totalVendasRua || 0;
+          dRef.totalFiado += r.totalFiado || 0;
+          dRef.totalFiadoSalao += r.totalFiadoSalao || 0;
+          dRef.totalFiadoRua += r.totalFiadoRua || 0;
+          dRef.totalTaxas += r.totalTaxas || 0;
+          dRef.totalEntregas += r.totalEntregas || 0;
+          dRef.totalItens += r.totalItens || 0;
+          dRef.totalPedidos += r.totalPedidos || 0;
+          dRef.totalBomboniereSalao += r.totalBomboniereSalao || 0;
+          dRef.totalBomboniereRua += r.totalBomboniereRua || 0;
+          
+          mergeCounts(dRef.contagemTotal, r.contagemTotal);
+          mergeCounts(dRef.contagemRua, r.contagemRua);
       });
       
       return Object.values(stats).sort((a,b) => b.month - a.month);
@@ -433,19 +584,44 @@ export default function ReportsPage() {
               stats[y] = { 
                   year: y, 
                   count: 0,
-                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0 }
+                  data: { 
+                      totalGeral: 0, 
+                      totalAVista: 0,
+                      totalVendasSalao: 0, 
+                      totalVendasRua: 0, 
+                      totalFiado: 0, 
+                      totalFiadoSalao: 0,
+                      totalFiadoRua: 0,
+                      totalTaxas: 0, 
+                      totalEntregas: 0, 
+                      totalItens: 0, 
+                      totalPedidos: 0,
+                      totalBomboniereSalao: 0,
+                      totalBomboniereRua: 0,
+                      contagemTotal: {},
+                      contagemRua: {}
+                  }
               };
           }
           
           stats[y].count++;
-          stats[y].data.totalGeral += r.totalGeral || 0;
-          stats[y].data.totalVendasSalao += r.totalVendasSalao || 0;
-          stats[y].data.totalVendasRua += r.totalVendasRua || 0;
-          stats[y].data.totalFiado += r.totalFiado || 0;
-          stats[y].data.totalTaxas += r.totalTaxas || 0;
-          stats[y].data.totalEntregas += r.totalEntregas || 0;
-          stats[y].data.totalItens += r.totalItens || 0;
-          stats[y].data.totalPedidos += r.totalPedidos || 0;
+          const dRef = stats[y].data;
+          dRef.totalGeral += r.totalGeral || 0;
+          dRef.totalAVista += r.totalAVista || 0;
+          dRef.totalVendasSalao += r.totalVendasSalao || 0;
+          dRef.totalVendasRua += r.totalVendasRua || 0;
+          dRef.totalFiado += r.totalFiado || 0;
+          dRef.totalFiadoSalao += r.totalFiadoSalao || 0;
+          dRef.totalFiadoRua += r.totalFiadoRua || 0;
+          dRef.totalTaxas += r.totalTaxas || 0;
+          dRef.totalEntregas += r.totalEntregas || 0;
+          dRef.totalItens += r.totalItens || 0;
+          dRef.totalPedidos += r.totalPedidos || 0;
+          dRef.totalBomboniereSalao += r.totalBomboniereSalao || 0;
+          dRef.totalBomboniereRua += r.totalBomboniereRua || 0;
+          
+          mergeCounts(dRef.contagemTotal, r.contagemTotal);
+          mergeCounts(dRef.contagemRua, r.contagemRua);
       });
       
       return Object.values(stats).sort((a,b) => b.year - a.year);
@@ -473,8 +649,29 @@ export default function ReportsPage() {
                 case 'Fiados salão': acc.totalFiadoSalao += item.total; break;
                 case 'Fiados rua': acc.totalFiadoRua += item.total; break;
             }
+
+            const itemsToCount = [
+                ...(item.predefinedItems?.map((i) => ({ ...i, count: 1 })) || []),
+                ...(item.bomboniereItems?.map((i) => ({ name: i.name, count: i.quantity })) || []),
+                ...(item.individualPrices?.map(() => ({ name: 'KG', count: 1 })) || []),
+            ];
+
+            itemsToCount.forEach(({ name, count }) => {
+                acc.contagemTotal[name] = (acc.contagemTotal[name] || 0) + count;
+                if (item.group.includes('rua')) {
+                    acc.contagemRua[name] = (acc.contagemRua[name] || 0) + count;
+                }
+            });
+
+            const bomboniereTotal = item.bomboniereItems?.reduce((sum, bi) => sum + bi.price * bi.quantity, 0) || 0;
+            if (item.group.includes('rua')) {
+                acc.totalBomboniereRua += bomboniereTotal;
+            } else {
+                acc.totalBomboniereSalao += bomboniereTotal;
+            }
+
             return acc;
-        }, { totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalItens: 0, totalEntregas: 0, totalItensRua: 0, contagemTotal: {} as ItemCount, contagemRua: {} as ItemCount });
+        }, { totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalItens: 0, totalEntregas: 0, totalItensRua: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {} as ItemCount, contagemRua: {} as ItemCount });
         
         if (!reportSnapshot.empty) await setDoc(reportSnapshot.docs[0].ref, { ...totals, totalPedidos: items.length, reportDate, userId: user.uid }, { merge: true });
         else await addDoc(collection(firestore, 'daily_reports'), { ...totals, totalPedidos: items.length, reportDate, userId: user.uid, createdAt: new Date().toISOString() });
@@ -713,7 +910,7 @@ export default function ReportsPage() {
                                             </div>
                                         </AccordionTrigger>
                                         <AccordionContent className="pt-2">
-                                            <div className="flex justify-end gap-2 mb-4">
+                                            <div className="flex justify-end gap-2 mb-4 px-4">
                                                 <Button variant="outline" size="sm" onClick={() => { setReportToEditDate(report); setNewReportDate(parseISO(report.reportDate)); }}>
                                                     <CalendarDays className="h-4 w-4 mr-2" /> Alterar Data
                                                 </Button>
@@ -760,7 +957,7 @@ export default function ReportsPage() {
                                             </div>
                                         </AccordionTrigger>
                                         <AccordionContent className="pt-2">
-                                            <SummaryDisplay data={s.data} />
+                                            <SummaryDisplay data={s.data} title={`RESUMO SEMANA ${s.week}`} />
                                         </AccordionContent>
                                     </AccordionItem>
                                 ))}
@@ -788,7 +985,7 @@ export default function ReportsPage() {
                                             </div>
                                         </AccordionTrigger>
                                         <AccordionContent className="pt-2">
-                                            <SummaryDisplay data={s.data} />
+                                            <SummaryDisplay data={s.data} title={`RESUMO MENSAL - ${format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}`} />
                                         </AccordionContent>
                                     </AccordionItem>
                                 ))}
@@ -816,7 +1013,7 @@ export default function ReportsPage() {
                                             </div>
                                         </AccordionTrigger>
                                         <AccordionContent className="pt-2">
-                                            <SummaryDisplay data={s.data} />
+                                            <SummaryDisplay data={s.data} title={`RESUMO ANUAL - ${s.year}`} />
                                         </AccordionContent>
                                     </AccordionItem>
                                 ))}
