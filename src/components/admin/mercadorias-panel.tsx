@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -163,7 +162,7 @@ export default function MercadoriasPanel() {
             });
     
             if (Object.keys(productHistory).length > 0) {
-                const mostLikely supplierForProduct = Object.entries(productHistory).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+                const mostLikelySupplierForProduct = Object.entries(productHistory).reduce((a, b) => a[1] > b[1] ? a : b)[0];
                 if (mostLikelySupplierForProduct) {
                     supplierScores[mostLikelySupplierForProduct] = (supplierScores[mostLikelySupplierForProduct] || 0) + 1;
                 }
@@ -396,7 +395,7 @@ export default function MercadoriasPanel() {
         }
         
         setProdutosLancados(prev => [...prev, {
-            id: Date.now(),
+            id: number = Date.now(),
             produtoNome: produtoNomeFinal, 
             preco: precoTotal,
             quantidade,
