@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -34,7 +35,6 @@ import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { 
     Loader2, 
     Trash2, 
@@ -91,6 +91,7 @@ import { Label } from '@/components/ui/label';
 import usePersistentState from '@/hooks/use-persistent-state';
 import BomboniereModal from '@/components/bomboniere-modal';
 import { Calendar } from '@/components/ui/calendar';
+import { PREDEFINED_PRICES } from '@/lib/constants';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -116,7 +117,7 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     return format(d, formatStr, options);
 };
 
-const PREDEFINED_KEYS = ['PP', 'P', 'M', 'G', 'GG', 'KITM', 'KITG', 'PF', 'SL', 'SLKIT', 'S', 'KG'];
+const PREDEFINED_KEYS = Object.keys(PREDEFINED_PRICES).concat(['KG']);
 
 const mergeCounts = (target: Record<string, number>, source: Record<string, number>) => {
     if (!source) return target;

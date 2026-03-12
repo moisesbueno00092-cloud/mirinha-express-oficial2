@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -158,7 +159,7 @@ export default function MercadoriasPanel() {
             });
     
             if (Object.keys(productHistory).length > 0) {
-                const mostLikelySupplierId = Object.entries(productHistory).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+                const mostLikelySupplierId = Object.entries(productHistory).reduce((a, b) => (a[1] > b[1] ? a : b))[0];
                 if (mostLikelySupplierId) {
                     supplierScores[mostLikelySupplierId] = (supplierScores[mostLikelySupplierId] || 0) + 1;
                 }
@@ -169,7 +170,7 @@ export default function MercadoriasPanel() {
             return;
         }
     
-        const bestMatchId = Object.entries(supplierScores).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+        const bestMatchId = Object.entries(supplierScores).reduce((a, b) => (a[1] > b[1] ? a : b))[0];
         
         if (bestMatchId && fornecedores.some(f => f.id === bestMatchId)) {
             setFornecedorId(bestMatchId);
@@ -383,15 +384,15 @@ export default function MercadoriasPanel() {
             await batch.commit();
 
             toast({ 
-                title: estaPaga ? 'Lançamento à Vista Realizado!' : 'Compra Parcelada Registada!', 
+                title: estaPaga ? 'Lançamento Realizado!' : 'Compra Registada!', 
                 description: estaPaga 
-                    ? `A compra de ${formatCurrency(totalCompra)} foi registada como paga hoje.` 
-                    : `Entrada de mercadoria e ${parcelas} conta(s) a pagar criadas.` 
+                    ? `A compra de ${formatCurrency(totalCompra)} foi registada.` 
+                    : `Entrada de mercadoria e ${parcelas} conta(s) criadas.` 
             });
             resetForm();
         } catch (error) {
             console.error("Erro ao registar entrada:", error);
-            toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível registar a entrada.' });
+            toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível registar.' });
         } finally {
             setIsSubmitting(false);
         }
@@ -402,7 +403,6 @@ export default function MercadoriasPanel() {
         
         const input = lancamentoInput.trim();
         if (!input) {
-            // If empty and items exist, finalize
             if (produtosLancados.length > 0 && !isSubmitting) {
                 handleRegisterEntry();
             }
@@ -414,7 +414,7 @@ export default function MercadoriasPanel() {
         let precoTotal = 0;
         let produtoNomeFinal = "";
         
-        const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
+        const isNumericStr = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
         const unitRegex = /^(.*?)\s*(un|kg)\s+([\d,.]+)\s+([\d,.]+)$/i;
         const unitMatch = input.match(unitRegex);
@@ -423,20 +423,13 @@ export default function MercadoriasPanel() {
             const [, desc, unit, qtyStr, priceStr] = unitMatch;
             quantidade = parseFloat(qtyStr.replace(',', '.'));
             precoUnitario = parseFloat(priceStr.replace(',', '.'));
-            
-            if (isNaN(quantidade) || isNaN(precoUnitario)) {
-                toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Quantidade ou preço após a sigla são inválidos.'});
-                return;
-            }
-
             precoTotal = quantidade * precoUnitario;
             produtoNomeFinal = `${desc} ${unit}`.trim();
-
         } else {
             const lastSpaceIndex = input.lastIndexOf(' ');
             if (lastSpaceIndex > -1 && lastSpaceIndex < input.length - 1) {
                 const potentialPrice = input.substring(lastSpaceIndex + 1);
-                if (isNumeric(potentialPrice)) {
+                if (isNumericStr(potentialPrice)) {
                     const nomeParte = input.substring(0, lastSpaceIndex).trim();
                     precoUnitario = parseFloat(potentialPrice.replace(',', '.'));
                     
@@ -452,24 +445,14 @@ export default function MercadoriasPanel() {
                     }
                     precoTotal = quantidade * precoUnitario;
                 } else {
-                     toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Formato não reconhecido. Use: <Nome> <Preço> ou <Desc> kg/un <Qtd> <Preço Unit>.'});
                     return;
                 }
             } else {
-                 toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Preço do produto não encontrado.'});
                 return;
             }
         }
         
-        if (isNaN(precoTotal) || precoTotal <= 0) {
-            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'O cálculo final do preço é inválido.' });
-            return;
-        }
-
-        if (!produtoNomeFinal.trim()) {
-             toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Nome do produto não pode ser vazio.' });
-            return;
-        }
+        if (isNaN(precoTotal) || precoTotal <= 0 || !produtoNomeFinal.trim()) return;
         
         setProdutosLancados(prev => [...prev, {
             id: Date.now() + Math.random(),
@@ -501,7 +484,6 @@ export default function MercadoriasPanel() {
     
     const handleEditProduto = (produto: LancamentoProduto) => {
         const inputToEdit = `${produto.produtoNome} ${String(produto.precoUnitario).replace('.', ',')}`;
-        
         setLancamentoInput(inputToEdit);
         handleRemoveProduto(produto.id);
         setTimeout(() => lancamentoInputRef.current?.focus(), 0);
@@ -554,7 +536,7 @@ export default function MercadoriasPanel() {
             const parsedDate = parseISO(aiDueDate);
             if (isValid(parsedDate)) {
                 setDataVencimento(parsedDate);
-                toast({ title: 'Vencimento Identificado', description: `Data de vencimento ajustada para ${formatDateFn(parsedDate, 'dd/MM/yyyy')}.` });
+                toast({ title: 'Vencimento Identificado', description: `Data ajustada para ${formatDateFn(parsedDate, 'dd/MM/yyyy')}.` });
             }
         }
     }, [matchSupplierByName, predictAndSetSupplier, toast]);
@@ -567,24 +549,18 @@ export default function MercadoriasPanel() {
 
         setIsParsingRomaneio(true);
         setIsCameraSheetOpen(false);
-        toast({ title: 'A processar imagem...', description: 'A extrair itens, fornecedor e vencimento. Isto pode demorar um momento.' });
+        toast({ title: 'A processar imagem...', description: 'A extrair itens e fornecedor.' });
 
         try {
             const compressedUri = await compressImage(dataUri, 0.85);
             const output = await parseRomaneio({ romaneioPhoto: compressedUri });
 
-            if (!output.items || output.items.length === 0) {
-                toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens da imagem fornecida.' });
-            } else {
+            if (output.items && output.items.length > 0) {
                 processFlowOutput(output);
-                toast({ title: 'Sucesso!', description: `${output.items.length} itens foram extraídos e adicionados.` });
+                toast({ title: 'Sucesso!', description: `${output.items.length} itens extraídos.` });
             }
         } catch (error: any) {
-            console.error("Erro ao analisar a imagem da câmera:", error);
-            const errorMessage = error.message.includes('429')
-                ? "Limite de IA atingido e tentativas esgotadas."
-                : (error.message || 'Não foi possível extrair os itens da imagem.');
-            toast({ variant: 'destructive', title: 'Erro de Análise', description: errorMessage });
+            toast({ variant: 'destructive', title: 'Erro de Análise', description: 'Não foi possível extrair os itens.' });
         } finally {
             setIsParsingRomaneio(false);
         }
@@ -604,12 +580,10 @@ export default function MercadoriasPanel() {
         }
 
         toast({
-            title: "Processamento em Lote...",
-            description: `A processar ${files.length} imagem(ns). Isto pode demorar vários minutos.`,
-            duration: (files.length + 1) * 60000
+            title: "Processamento...",
+            description: `A ler ${files.length} imagem(ns).`,
+            duration: 60000
         });
-
-        let hasAnySuccess = false;
 
         for (const [index, file] of Array.from(files).entries()) {
             try {
@@ -624,19 +598,10 @@ export default function MercadoriasPanel() {
                 const output = await parseRomaneio({ romaneioPhoto: compressedUri });
 
                 if (output.items && output.items.length > 0) {
-                    hasAnySuccess = true;
                     processFlowOutput(output);
                 }
             } catch (error: any) {
-                const errorMessage = error.message.includes('429')
-                    ? "Limite de IA atingido e tentativas esgotadas."
-                    : (error.message || `Não foi possível processar: ${file.name}`);
-                toast({
-                    variant: 'destructive',
-                    title: `Erro na Imagem ${index + 1}`,
-                    description: errorMessage,
-                    duration: 10000
-                });
+                console.error(error);
             } finally {
                 if (index < files.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 61000));
@@ -644,22 +609,7 @@ export default function MercadoriasPanel() {
             }
         }
 
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
-
-        if (hasAnySuccess) {
-            toast({
-                title: "Processamento Finalizado",
-                description: "Leitura concluída com sucesso.",
-            });
-        } else {
-            toast({
-                variant: "destructive",
-                title: "Processamento Finalizado Sem Sucesso",
-                description: "Nenhum item foi extraído. Verifique os erros e tente novamente.",
-            });
-        }
+        if (fileInputRef.current) fileInputRef.current.value = "";
         setIsParsingRomaneio(false);
     };
 
@@ -702,7 +652,7 @@ export default function MercadoriasPanel() {
                         <div className='flex items-center gap-2'>
                             <Input
                                 id="new-fornecedor"
-                                placeholder="Adicionar novo fornecedor..."
+                                placeholder="Adicionar novo..."
                                 value={newFornecedorName}
                                 onChange={(e) => setNewFornecedorName(e.target.value)}
                                 disabled={isAddingFornecedor}
@@ -715,7 +665,7 @@ export default function MercadoriasPanel() {
                         <div className="flex items-center gap-2">
                             <Select value={fornecedorId} onValueChange={setFornecedorId}>
                                 <SelectTrigger id="fornecedor" disabled={isLoadingFornecedores}>
-                                    <SelectValue placeholder={isLoadingFornecedores ? "A carregar..." : "Selecione um fornecedor"} />
+                                    <SelectValue placeholder={isLoadingFornecedores ? "A carregar..." : "Selecione"} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {fornecedores?.map(f => (
@@ -730,12 +680,11 @@ export default function MercadoriasPanel() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                        <div className="space-y-2">
-                            <Label htmlFor="vencimento">Vencimento da 1ª Parcela</Label>
+                            <Label htmlFor="vencimento">Vencimento</Label>
                             <DatePicker date={dataVencimento} setDate={setDataVencimento} />
-                            <p className="text-xs text-muted-foreground">Deixe em branco para pagamento à vista (hoje).</p>
                         </div>
                          <div className="space-y-2 self-start pt-7">
-                            <Label htmlFor="parcelas">Nº de Parcelas</Label>
+                            <Label htmlFor="parcelas">Parcelas</Label>
                             <Select value={numParcelas} onValueChange={setNumParcelas} disabled={!dataVencimento}>
                                 <SelectTrigger id="parcelas">
                                     <SelectValue />
@@ -746,7 +695,6 @@ export default function MercadoriasPanel() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                             <p className="text-xs text-muted-foreground">Ativo se data for selecionada.</p>
                         </div>
                     </div>
                 </div>
@@ -755,58 +703,14 @@ export default function MercadoriasPanel() {
 
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <Label htmlFor='lancamento-input'>Lançamento de Produto</Label>
+                        <Label htmlFor='lancamento-input'>Produto (Enter vazio para Finalizar)</Label>
                          <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setIsCameraSheetOpen(true)}
-                                disabled={isParsingRomaneio}
-                            >
-                                {isParsingRomaneio ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Video className="mr-2 h-4 w-4"/>}
-                                Usar Câmera
+                            <Button variant="outline" size="sm" onClick={() => setIsCameraSheetOpen(true)} disabled={isParsingRomaneio}>
+                                <Video className="mr-2 h-4 w-4"/>Câmara
                             </Button>
-                             <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isParsingRomaneio}
-                            >
-                                {isParsingRomaneio ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Camera className="mr-2 h-4 w-4"/>}
-                                Ler Romaneio
+                             <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isParsingRomaneio}>
+                                <Camera className="mr-2 h-4 w-4"/>Ficheiro
                             </Button>
-                            <Sheet>
-                            <SheetTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                    <Settings className="h-4 w-4 text-muted-foreground" />
-                                </Button>
-                            </SheetTrigger>
-                            <SheetContent side="right" className="w-[400px] sm:w-[540px]">
-                                <SheetHeader>
-                                <SheetTitle>Formatos de Lançamento de Mercadorias</SheetTitle>
-                                <SheetDescription>
-                                    Utilize os formatos abaixo para registar os produtos comprados.
-                                </SheetDescription>
-                                </SheetHeader>
-                                <div className="py-4">
-                                    <ul className="list-disc pl-5 space-y-4 mt-2 text-sm">
-                                        <li>
-                                            <span className="font-semibold text-foreground">Item único com preço total:</span>
-                                            <p className="text-muted-foreground">Regista um único item com o seu valor total.</p>
-                                            <p className="font-mono text-muted-foreground mt-1 p-2 bg-muted rounded-md">Ex: Caixa de Tomate 55,00</p>
-                                        </li>
-                                        <li>
-                                            <span className="font-semibold text-foreground">Múltiplos itens ou por peso:</span>
-                                            <p className="text-muted-foreground">Formato: (Produto + "un" ou "kg" + Quantidade + Preço Unitário)</p>
-                                            <p className="font-mono text-muted-foreground mt-1 p-2 bg-muted rounded-md">Ex: Queijo kg 2 35</p>
-                                            <p className='text-xs text-muted-foreground'>(Isto regista 2kg de Queijo a 35,00/kg, totalizando 70,00)</p>
-                                            <p className="font-mono text-muted-foreground mt-2 p-2 bg-muted rounded-md">Ex: Coca-cola un 12 8,50</p>
-                                            <p className='text-xs text-muted-foreground'>(Isto regista 12 unidades de Coca-cola a 8,50/un, totalizando 102,00)</p>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </SheetContent>
-                            </Sheet>
                         </div>
                     </div>
                      <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
@@ -815,7 +719,6 @@ export default function MercadoriasPanel() {
                                 onSubmit={handleAddProduto} 
                                 className="flex items-start gap-2"
                                 onKeyDown={(e) => {
-                                    // Trigger registration if Enter is pressed on empty input and we have items
                                     if (e.key === 'Enter' && !lancamentoInput.trim() && produtosLancados.length > 0 && !isSubmitting) {
                                         e.preventDefault();
                                         handleRegisterEntry();
@@ -825,44 +728,32 @@ export default function MercadoriasPanel() {
                                 <Input
                                     id='lancamento-input'
                                     ref={lancamentoInputRef}
-                                    placeholder="adicionar produtos..."
+                                    placeholder="produto preço..."
                                     value={lancamentoInput}
                                     onChange={(e) => setLancamentoInput(e.target.value)}
                                     className='w-full'
                                     autoComplete='off'
                                     onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 150)}
                                     onFocus={() => {
-                                    const trimmedInput = lancamentoInput.trim();
-                                    if (trimmedInput !== '' && suggestions.length > 0) {
-                                        setIsSuggestionsOpen(true);
-                                    }
+                                        if (lancamentoInput.trim() !== '' && suggestions.length > 0) {
+                                            setIsSuggestionsOpen(true);
+                                        }
                                     }}
                                 />
-                                <Button 
-                                    type="submit"
-                                    size="icon"
-                                    className="h-10 w-10 shrink-0"
-                                >
+                                <Button type="submit" size="icon" className="h-10 w-10 shrink-0">
                                     <Plus className="h-5 w-5" />
                                 </Button>
                             </form>
                         </PopoverTrigger>
-                        <PopoverContent 
-                        className='w-[--radix-popover-trigger-width] p-0' 
-                        onOpenAutoFocus={(e) => e.preventDefault()}
-                        >
-                        <ul className='max-h-60 overflow-y-auto'>
-                            {suggestions.map((suggestion, index) => (
-                            <li
-                                key={index}
-                                className='px-3 py-2 text-sm cursor-pointer hover:bg-accent flex items-center gap-2'
-                                onMouseDown={() => handleSelectSuggestion(suggestion)}
-                            >
-                                <span>{suggestion.name}</span>
-                                <span className='font-mono text-sm text-green-500'>{formatCurrency(suggestion.lastPrice)}</span>
-                            </li>
-                            ))}
-                        </ul>
+                        <PopoverContent className='w-[--radix-popover-trigger-width] p-0' onOpenAutoFocus={(e) => e.preventDefault()}>
+                            <ul className='max-h-60 overflow-y-auto'>
+                                {suggestions.map((suggestion, index) => (
+                                    <li key={index} className='px-3 py-2 text-sm cursor-pointer hover:bg-accent flex items-center gap-2' onMouseDown={() => handleSelectSuggestion(suggestion)}>
+                                        <span>{suggestion.name}</span>
+                                        <span className='font-mono text-sm text-green-500'>{formatCurrency(suggestion.lastPrice)}</span>
+                                    </li>
+                                ))}
+                            </ul>
                         </PopoverContent>
                     </Popover>
                 </div>
@@ -870,8 +761,8 @@ export default function MercadoriasPanel() {
                 {produtosLancados.length > 0 && (
                      <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-medium text-muted-foreground">Produtos nesta Entrada</h3>
-                            <p className="text-xs text-muted-foreground italic">(Pressione Enter no campo vazio para finalizar)</p>
+                            <h3 className="text-sm font-medium text-muted-foreground">Itens na Lista</h3>
+                            <p className="text-xs text-muted-foreground italic">Pressione Enter vazio para finalizar</p>
                         </div>
                         <div className="flex items-stretch gap-2">
                             <ScrollArea className="rounded-md border h-48 flex-grow" viewportRef={scrollViewportRef}>
@@ -896,32 +787,23 @@ export default function MercadoriasPanel() {
                                 </div>
                             </ScrollArea>
                             <div className="flex flex-col justify-center gap-1">
-                                <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleScroll('up')}>
-                                    <ChevronUp className="h-5 w-5" />
-                                </Button>
-                                <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleScroll('down')}>
-                                    <ChevronDown className="h-5 w-5" />
-                                </Button>
+                                <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleScroll('up')}><ChevronUp className="h-5 w-5" /></Button>
+                                <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleScroll('down')}><ChevronDown className="h-5 w-5" /></Button>
                             </div>
                         </div>
                          <div className="flex justify-end items-center gap-4 pt-2 font-semibold">
-                            <span>Total da Compra:</span>
+                            <span>Total:</span>
                             <span className="text-xl text-primary">{formatCurrency(totalCompra)}</span>
                         </div>
                     </div>
                 )}
 
-
                 <div className="flex justify-end pt-4">
-                    <Button 
-                        onClick={handleRegisterEntry}
-                        disabled={isSubmitting || produtosLancados.length === 0 || isLoadingBomboniere}
-                    >
+                    <Button onClick={handleRegisterEntry} disabled={isSubmitting || produtosLancados.length === 0 || isLoadingBomboniere}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Registar Entrada e Criar Conta(s)
                     </Button>
                 </div>
-
             </div>
         </>
     );
