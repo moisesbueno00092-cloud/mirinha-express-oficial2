@@ -90,7 +90,6 @@ import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import usePersistentState from '@/hooks/use-persistent-state';
-import { DELIVERY_FEE } from '@/lib/constants';
 import BomboniereModal from '@/components/bomboniere-modal';
 import { Calendar } from '@/components/ui/calendar';
 
@@ -164,7 +163,7 @@ const CustomerReportsSection = ({
                 ...data,
                 orders: data.orders.sort((a, b) => {
                     const getT = (ts: any) => (ts?.toMillis ? ts.toMillis() : new Date(ts).getTime() || 0);
-                    return getT(a.timestamp) - getT(b.timestamp);
+                    return getT(b.timestamp) - getT(a.timestamp);
                 })
             }))
             .sort((a, b) => b.total - a.total);
@@ -255,7 +254,7 @@ const ReportDetail = ({ report, bomboniereItems, onEditItem, onDeleteItem, onAdd
     const { data: rawItems, isLoading } = useCollection<Item>(q);
     const sortedItems = useMemo(() => (rawItems || []).sort((a, b) => {
         const getT = (ts: any) => (ts?.toMillis ? ts.toMillis() : new Date(ts).getTime() || 0);
-        return getT(a.timestamp) - getT(b.timestamp);
+        return getT(b.timestamp) - getT(a.timestamp);
     }), [rawItems]);
 
     if (!report) return null;
@@ -320,7 +319,8 @@ export default function ReportsPage() {
       return d.getFullYear() === globalDate.getFullYear() && d.getMonth() === globalDate.getMonth(); 
   }), [allReports, globalDate]);
 
-  const { data: bomboniereItems } = useCollection<BomboniereItem>(firestore ? collection(firestore, 'bomboniere_items') : null);
+  const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
+  const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
   useEffect(() => {
     if (archivedItemToEdit) {
@@ -441,7 +441,6 @@ export default function ReportsPage() {
     const [h, m] = editArchivedTime.split(':').map(Number);
     const finalDate = new Date(editArchivedDate);
     
-    // Manter segundos originais para integridade cronológica
     if (currentItem?.timestamp) {
         const orig = currentItem.timestamp.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp);
         finalDate.setHours(h, m, orig.getSeconds(), orig.getMilliseconds());
@@ -502,16 +501,13 @@ export default function ReportsPage() {
     try {
         const batch = writeBatch(firestore);
         
-        // 1. Atualizar o relatório diário
         batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { reportDate: newD });
         
-        // 2. Atualizar todos os pedidos individuais associados (SINCRONIZAÇÃO TOTAL)
         const snapshot = await getDocs(query(collection(firestore, 'order_items'), where('reportDate', '==', oldD)));
         snapshot.forEach(d => {
             const data = d.data() as Item;
             const orig = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
             
-            // Criar novo timestamp mantendo a hora original exata
             const upd = new Date(newReportDate);
             upd.setHours(orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds());
             
@@ -619,7 +615,6 @@ export default function ReportsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* PAINEL DE RESUMO (DASHBOARD) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-primary/10 border-primary/20">
               <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><CalendarCheck className="h-3 w-3"/>Hoje</CardTitle></CardHeader>
@@ -639,7 +634,6 @@ export default function ReportsPage() {
           </Card>
       </div>
 
-      {/* SELEÇÃO DE PERÍODO */}
       <Card className="mb-8">
           <CardHeader className="pb-4"><CardTitle className="text-lg flex items-center gap-2"><CalendarIcon className="h-5 w-5 text-primary"/>Período de Referência</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap items-center gap-4">
@@ -657,11 +651,9 @@ export default function ReportsPage() {
           </CardContent>
       </Card>
       
-      {/* GAVETAS DE RELATÓRIOS */}
       <main className="space-y-6">
         <Accordion type="single" collapsible defaultValue="diario" className="w-full space-y-4">
             
-            {/* GAVETA: DIÁRIO */}
             <AccordionItem value="diario">
                 <Card>
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><CalendarDays className="h-6 w-6 text-primary"/><span>Relatórios Diários</span></div></AccordionTrigger>
@@ -715,7 +707,6 @@ export default function ReportsPage() {
                 </Card>
             </AccordionItem>
 
-            {/* GAVETA: SEMANAL */}
             <AccordionItem value="semanal">
                 <Card>
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><BarChart3 className="h-6 w-6 text-primary"/><span>Resumo Semanal</span></div></AccordionTrigger>
@@ -743,7 +734,6 @@ export default function ReportsPage() {
                 </Card>
             </AccordionItem>
 
-            {/* GAVETA: MENSAL */}
             <AccordionItem value="mensal">
                 <Card>
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><TrendingUp className="h-6 w-6 text-primary"/><span>Resumo Mensal</span></div></AccordionTrigger>
@@ -768,7 +758,6 @@ export default function ReportsPage() {
                 </Card>
             </AccordionItem>
 
-            {/* GAVETA: ANUAL */}
             <AccordionItem value="anual">
                 <Card>
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><History className="h-6 w-6 text-primary"/><span>Resumo Anual</span></div></AccordionTrigger>
@@ -793,7 +782,6 @@ export default function ReportsPage() {
                 </Card>
             </AccordionItem>
 
-            {/* GAVETA: CLIENTES */}
             <AccordionItem value="clientes">
                 <Card>
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><User className="h-6 w-6 text-primary"/><span>Consumo por Cliente (Mensal)</span></div></AccordionTrigger>
