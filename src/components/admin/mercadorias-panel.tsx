@@ -38,8 +38,8 @@ interface ProductSuggestion {
 
 const generateStrongColor = () => {
   const h = Math.floor(Math.random() * 360);
-  const s = Math.floor(Math.random() * 20) + 80; // Saturation: 80% to 100%
-  const l = Math.floor(Math.random() * 20) + 65; // Lightness: 65% to 85% for better brightness and vibrancy
+  const s = Math.floor(Math.random() * 20) + 80;
+  const l = Math.floor(Math.random() * 20) + 65;
   return `hsl(${h}, ${s}%, ${l}%)`;
 };
 
@@ -815,7 +815,16 @@ export default function MercadoriasPanel() {
                     </div>
                      <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
                         <PopoverTrigger asChild>
-                            <form onSubmit={handleAddProduto} className="flex items-start gap-2">
+                            <form 
+                                onSubmit={handleAddProduto} 
+                                className="flex items-start gap-2"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !lancamentoInput.trim() && produtosLancados.length > 0 && !isSubmitting) {
+                                        e.preventDefault();
+                                        handleRegisterEntry();
+                                    }
+                                }}
+                            >
                                 <Input
                                     id='lancamento-input'
                                     ref={lancamentoInputRef}
@@ -836,7 +845,6 @@ export default function MercadoriasPanel() {
                                     type="submit"
                                     size="icon"
                                     className="h-10 w-10 shrink-0"
-                                    disabled={!lancamentoInput.trim()}
                                 >
                                     <Plus className="h-5 w-5" />
                                 </Button>
