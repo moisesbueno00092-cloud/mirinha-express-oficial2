@@ -676,9 +676,10 @@ export default function ReportsPage() {
               <CardContent className="p-4 pt-0"><p className="text-2xl font-bold text-primary">{formatCurrency(dashboardStats.month)}</p></CardContent>
           </Card>
           <Card>
-              <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Ano</CardTitle></CardHeader>
+              <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><History className="h-3 w-3"/>Ano</CardTitle></CardHeader>
               <CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.year)}</p></CardContent>
-          </div>
+          </Card>
+      </div>
 
       <Card className="mb-8">
           <CardHeader className="pb-4"><CardTitle className="text-lg flex items-center gap-2"><CalendarIcon className="h-5 w-5 text-primary"/>Período de Referência</CardTitle></CardHeader>
