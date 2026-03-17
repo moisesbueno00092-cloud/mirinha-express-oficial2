@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -49,6 +48,11 @@ import {
     CalendarCheck,
     BarChart3,
     History,
+    Sparkles,
+    Trophy,
+    AlertCircle,
+    TrendingDown,
+    Zap
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -80,7 +84,8 @@ import type {
     ItemCount, 
     BomboniereItem, 
     Item, 
-    Group 
+    Group,
+    EntradaMercadoria
 } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ItemList from '@/components/item-list';
@@ -92,6 +97,8 @@ import usePersistentState from '@/hooks/use-persistent-state';
 import BomboniereModal from '@/components/bomboniere-modal';
 import { Calendar } from '@/components/ui/calendar';
 import { PREDEFINED_PRICES } from '@/lib/constants';
+import { generateManagementReport, type ManagementReportOutput } from '@/ai/flows/generate-management-report';
+import { Progress } from '@/components/ui/progress';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -483,6 +490,10 @@ export default function ReportsPage() {
   
   const [isBomboniereModalOpen, setIsBomboniereModalOpen] = useState(false);
   const [deliveryFee] = usePersistentState('deliveryFee', 6.00);
+
+  // IA Insight State
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiReport, setAiReport] = useState<ManagementReportOutput | null>(null);
   
   const reportsQ = useMemo(() => firestore ? query(collection(firestore, 'daily_reports')) : null, [firestore]);
   const { data: allReportsRaw, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQ);
@@ -496,6 +507,18 @@ export default function ReportsPage() {
 
   const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
   const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
+
+  const entradasQuery = useMemo(() => {
+      if (!firestore) return null;
+      const start = format(startOfMonth(globalDate), 'yyyy-MM-dd');
+      const end = format(endOfMonth(globalDate), 'yyyy-MM-dd');
+      return query(
+          collection(firestore, 'entradas_mercadorias'),
+          where('data', '>=', start),
+          where('data', '<=', end)
+      );
+  }, [firestore, globalDate]);
+  const { data: monthlyEntradas } = useCollection<EntradaMercadoria>(entradasQuery);
 
   useEffect(() => {
     if (archivedItemToEdit) {
@@ -523,6 +546,46 @@ export default function ReportsPage() {
         return acc;
     }, { today: 0, week: 0, month: 0, year: 0 });
   }, [allReports]);
+
+  // IA Generation Logic
+  const handleGenerateAIReport = async () => {
+      setIsGeneratingAI(true);
+      try {
+          const periodLabel = safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR });
+          
+          // Pre-summarize data for IA
+          const consolidatedSales = monthlyReports.reduce((acc, r) => {
+              acc.total += r.totalGeral;
+              acc.rua += r.totalVendasRua + r.totalFiadoRua;
+              acc.salao += r.totalVendasSalao + r.totalFiadoSalao;
+              acc.fiado += r.totalFiado;
+              acc.taxas += r.totalTaxas;
+              mergeCounts(acc.items, r.contagemTotal);
+              return acc;
+          }, { total: 0, rua: 0, salao: 0, fiado: 0, taxas: 0, items: {} as Record<string, number> });
+
+          const consolidatedExpenses = (monthlyEntradas || []).reduce((acc, e) => {
+              acc.total += e.valorTotal;
+              acc.items[e.produtoNome] = (acc.items[e.produtoNome] || 0) + e.valorTotal;
+              return acc;
+          }, { total: 0, items: {} as Record<string, number> });
+
+          const report = await generateManagementReport({
+              periodLabel,
+              salesData: consolidatedSales,
+              expenseData: consolidatedExpenses,
+              customerStats: { totalRelatorios: monthlyReports.length }
+          });
+
+          setAiReport(report);
+          toast({ title: "Análise IA Concluída!", description: "O seu consultor virtual já revisou os dados." });
+      } catch (error) {
+          console.error(error);
+          toast({ variant: 'destructive', title: "Erro na IA", description: "Não foi possível gerar a análise neste momento." });
+      } finally {
+          setIsGeneratingAI(false);
+      }
+  };
 
   // Agregações
   const weeklySummaries = useMemo(() => {
@@ -753,6 +816,104 @@ export default function ReportsPage() {
       <main className="space-y-6">
         <Accordion type="multiple" className="w-full space-y-4">
             
+            <AccordionItem value="ai-insight">
+                <Card className="border-primary/30 bg-primary/5">
+                    <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><Sparkles className="h-6 w-6 text-primary animate-pulse"/><span>Consultoria de Gestão (IA)</span></div></AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <div className="space-y-6">
+                            {!aiReport && !isGeneratingAI && (
+                                <div className="text-center py-10 space-y-4">
+                                    <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+                                        <Zap className="h-8 w-8 text-primary" />
+                                    </div>
+                                    <div className="max-w-md mx-auto">
+                                        <h3 className="font-bold text-lg">Pronto para analisar o seu negócio?</h3>
+                                        <p className="text-sm text-muted-foreground">A nossa IA vai analisar as vendas, compras e taxas deste mês para lhe dar conselhos estratégicos.</p>
+                                    </div>
+                                    <Button onClick={handleGenerateAIReport} className="bg-primary hover:bg-primary/90">
+                                        <Sparkles className="mr-2 h-4 w-4" />
+                                        Gerar Relatório Estratégico
+                                    </Button>
+                                </div>
+                            )}
+
+                            {isGeneratingAI && (
+                                <div className="text-center py-20 space-y-6">
+                                    <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+                                    <div className="space-y-2">
+                                        <p className="font-medium animate-pulse">A Mirinha AI está a ler os romaneios e pedidos...</p>
+                                        <p className="text-xs text-muted-foreground">Isso pode levar alguns segundos.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {aiReport && (
+                                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-8">
+                                    <div className="flex flex-col md:flex-row gap-6 items-start">
+                                        <div className="flex-1 space-y-4">
+                                            <div className="flex items-center gap-2 text-primary font-black uppercase text-xs tracking-widest">
+                                                <TrendingUp className="h-4 w-4" /> Resumo Estratégico
+                                            </div>
+                                            <p className="text-sm leading-relaxed text-foreground/90 italic border-l-4 border-primary/20 pl-4 py-1">
+                                                "{aiReport.summary}"
+                                            </p>
+                                        </div>
+                                        <Card className="w-full md:w-64 bg-background">
+                                            <CardHeader className="p-4 pb-2 text-center"><CardTitle className="text-xs uppercase text-muted-foreground">Eficiência do Período</CardTitle></CardHeader>
+                                            <CardContent className="p-4 pt-0 text-center">
+                                                <div className="text-4xl font-black text-primary mb-2">{aiReport.efficiencyScore}%</div>
+                                                <Progress value={aiReport.efficiencyScore} className="h-2" />
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-4">
+                                            <h4 className="font-bold flex items-center gap-2 text-sm uppercase text-muted-foreground border-b pb-2"><Trophy className="h-4 w-4 text-yellow-500"/> Top Vendidos</h4>
+                                            <div className="space-y-2">
+                                                {aiReport.topSellingItems.map((item, i) => (
+                                                    <div key={i} className="flex justify-between items-center bg-muted/30 p-2 rounded-md border border-border/50">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-bold uppercase">{item.name}</span>
+                                                            <span className="text-[0.6rem] text-muted-foreground uppercase font-medium">{item.category}</span>
+                                                        </div>
+                                                        <Badge variant="outline" className="bg-background">{item.count} un.</Badge>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <h4 className="font-bold flex items-center gap-2 text-sm uppercase text-muted-foreground border-b pb-2"><TrendingDown className="h-4 w-4 text-destructive"/> Maiores Custos</h4>
+                                            <div className="space-y-2">
+                                                {aiReport.mainExpenses.map((item, i) => (
+                                                    <div key={i} className="flex justify-between items-center bg-muted/30 p-2 rounded-md border border-border/50">
+                                                        <span className="text-sm font-bold uppercase truncate pr-4">{item.name}</span>
+                                                        <span className="text-sm font-mono font-black text-destructive">{formatCurrency(item.totalValue)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-primary/10 p-6 rounded-lg border border-primary/20 space-y-4">
+                                        <h4 className="font-black flex items-center gap-2 text-sm uppercase text-primary tracking-tighter"><AlertCircle className="h-5 w-5"/> Plano de Ação da Mirinha</h4>
+                                        <p className="text-sm whitespace-pre-wrap text-foreground/80 leading-relaxed font-medium">
+                                            {aiReport.strategicAdvice}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex justify-center">
+                                        <Button variant="ghost" size="sm" onClick={() => setAiReport(null)} className="text-muted-foreground">
+                                            Limpar e Gerar Nova Análise
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+
             <AccordionItem value="diario">
                 <Card>
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><CalendarDays className="h-6 w-6 text-primary"/><span>Relatórios Diários</span></div></AccordionTrigger>
