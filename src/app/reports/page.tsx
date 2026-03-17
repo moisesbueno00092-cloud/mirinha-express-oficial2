@@ -55,7 +55,8 @@ import {
     AlertCircle,
     TrendingDown,
     Zap,
-    Save
+    Save,
+    Clock
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -101,6 +102,7 @@ import { Label } from '@/components/ui/label';
 import usePersistentState from '@/hooks/use-persistent-state';
 import BomboniereModal from '@/components/bomboniere-modal';
 import { Calendar } from '@/components/ui/calendar';
+import { DatePicker } from '@/components/ui/date-picker';
 import { PREDEFINED_PRICES } from '@/lib/constants';
 import { generateManagementReport, type ManagementReportOutput } from '@/ai/flows/generate-management-report';
 import { Progress } from '@/components/ui/progress';
@@ -976,13 +978,38 @@ export default function ReportsPage() {
       </AlertDialog>
 
       <Dialog open={!!archivedItemToEdit || !!activeReportDateForAdd} onOpenChange={(open) => { if(!open) { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); } }}>
-        <DialogContent className="max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader><DialogTitle>{archivedItemToEdit ? 'Editar' : 'Novo'} Lançamento</DialogTitle></DialogHeader>
-            <div className="py-4 space-y-4">
-                <div className="space-y-2"><Label>Comando</Label><div className="flex gap-2"><Input value={editArchivedInput} onChange={(e) => setEditArchivedInput(e.target.value)} className="h-12 text-lg" placeholder="Ex: M P coca-lata" /><Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12"><Plus className="h-4 w-4 mr-2"/>Outros</Button></div></div>
-                <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Data</Label><div className="border rounded-md p-2 bg-background flex justify-center"><Calendar mode="single" selected={editArchivedDate} onSelect={setEditArchivedDate} locale={ptBR} /></div></div><div className="space-y-2"><Label>Hora</Label><Input type="time" value={editArchivedTime} onChange={(e) => setEditArchivedTime(e.target.value)} className="h-10 text-lg" /></div></div>
+            <div className="py-4 space-y-6">
+                <div className="space-y-3">
+                    <Label className="flex items-center gap-2 text-primary"><ListOrdered className="h-4 w-4"/> Comando do Pedido</Label>
+                    <div className="flex gap-2">
+                        <Input value={editArchivedInput} onChange={(e) => setEditArchivedInput(e.target.value)} className="h-12 text-lg font-medium" placeholder="Ex: M P coca-lata" />
+                        <Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12 shrink-0">
+                            <Plus className="h-4 w-4 mr-2"/>Outros
+                        </Button>
+                    </div>
+                    <p className="text-[0.65rem] text-muted-foreground italic">Use as siglas (M, P, G) e nomes da bomboniere.</p>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div className="space-y-3">
+                        <Label className="flex items-center gap-2 text-primary"><CalendarIcon className="h-4 w-4"/> Data</Label>
+                        <DatePicker date={editArchivedDate} setDate={setEditArchivedDate} />
+                    </div>
+                    <div className="space-y-3">
+                        <Label className="flex items-center gap-2 text-primary"><Clock className="h-4 w-4"/> Hora do Pedido</Label>
+                        <Input type="time" value={editArchivedTime} onChange={(e) => setEditArchivedTime(e.target.value)} className="h-10 text-lg" />
+                    </div>
+                </div>
             </div>
-            <DialogFooter><Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button><Button onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit)} disabled={isProcessingEdit || !editArchivedInput.trim()}>{isProcessingEdit ? <Loader2 className="animate-spin mr-2"/> : <Save className="h-4 w-4 mr-2"/>}Salvar Alterações</Button></DialogFooter>
+            <DialogFooter className="flex gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button>
+                <Button onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit)} disabled={isProcessingEdit || !editArchivedInput.trim()} className="bg-primary hover:bg-primary/90">
+                    {isProcessingEdit ? <Loader2 className="animate-spin mr-2"/> : <Save className="h-4 w-4 mr-2"/>}
+                    Salvar Alterações
+                </Button>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
 
