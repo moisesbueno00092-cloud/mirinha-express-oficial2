@@ -131,19 +131,9 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     return format(d, formatStr, options);
 };
 
-const PREDEFINED_KEYS = Object.keys(PREDEFINED_PRICES).concat(['KG']);
-
-const mergeCounts = (target: Record<string, number>, source: Record<string, number>) => {
-    if (!source) return target;
-    Object.entries(source).forEach(([name, qty]) => {
-        target[name] = (target[name] || 0) + (qty || 0);
-    });
-    return target;
-};
-
 /**
- * Normalização inteligente de nomes para agrupamento IA.
- * Ignora maiúsculas/minúsculas, acentos, espaços extras e caracteres especiais.
+ * Normalização inteligente e ultra-agressiva para unificação de nomes.
+ * Remove acentos, pontuação, colapsa espaços e garante chaves únicas para o mesmo cliente.
  */
 const smartNormalizeName = (name: string) => {
     if (!name) return "";
@@ -152,8 +142,20 @@ const smartNormalizeName = (name: string) => {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "") // Remove acentos
         .toLowerCase()
-        .replace(/[^\w\s]/gi, '') // Remove pontuação
-        .replace(/\s+/g, ' '); // Colapsa espaços múltiplos
+        .replace(/[^a-z0-9\s]/g, ' ') // Substitui qualquer símbolo por espaço
+        .split(/\s+/) // Divide por espaços
+        .filter(word => word.length > 0) // Remove vazios
+        .join(' '); // Reune com espaço simples
+};
+
+const PREDEFINED_KEYS = Object.keys(PREDEFINED_PRICES).concat(['KG']);
+
+const mergeCounts = (target: Record<string, number>, source: Record<string, number>) => {
+    if (!source) return target;
+    Object.entries(source).forEach(([name, qty]) => {
+        target[name] = (target[name] || 0) + (qty || 0);
+    });
+    return target;
 };
 
 // --- COMPONENTES AUXILIARES ---
@@ -206,7 +208,6 @@ const SummaryDisplay = ({ data, title = "Resumo do Dia - FATURAMENTO" }: { data:
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-[1.2fr_2fr] gap-10 px-4 pb-4">
-                {/* Resumo Financeiro */}
                 <div className="space-y-4">
                     <h3 className="font-bold uppercase text-[0.65rem] tracking-widest text-muted-foreground/70 border-b pb-1">Resumo Financeiro</h3>
                     <div className="space-y-1.5 text-xs">
@@ -230,12 +231,10 @@ const SummaryDisplay = ({ data, title = "Resumo do Dia - FATURAMENTO" }: { data:
                     </div>
                 </div>
 
-                {/* Contagem de Itens */}
                 <div className="space-y-4">
                     <h3 className="font-bold uppercase text-[0.65rem] tracking-widest text-muted-foreground/70 border-b pb-1">Contagem de Itens</h3>
                     
                     <div className="grid grid-cols-2 gap-8">
-                        {/* Coluna Salão */}
                         <div className="space-y-5">
                             <div className="space-y-2">
                                 <h4 className="text-[0.65rem] font-black uppercase text-purple-400 tracking-tighter">Salão</h4>
@@ -250,7 +249,6 @@ const SummaryDisplay = ({ data, title = "Resumo do Dia - FATURAMENTO" }: { data:
                             </div>
                         </div>
 
-                        {/* Coluna Rua */}
                         <div className="space-y-5">
                             <div className="space-y-2">
                                 <h4 className="text-[0.65rem] font-black uppercase text-blue-400 tracking-tighter">Rua</h4>
@@ -310,7 +308,7 @@ const CustomerReportsSection = ({
         items.forEach(item => {
             if (item.customerName) {
                 const rawName = item.customerName.trim();
-                const key = smartNormalizeName(rawName); // Uso da IA de normalização inteligente
+                const key = smartNormalizeName(rawName); // Uso da IA de normalização inteligente agressiva
                 
                 if (!stats[key]) {
                     stats[key] = { name: rawName, total: 0, count: 0, orders: [] };
@@ -444,7 +442,7 @@ const CustomerReportsSection = ({
                 <DialogContent onInteractOutside={(e) => e.preventDefault()}>
                     <DialogHeader><DialogTitle>Alterar Data do Pedido</DialogTitle></DialogHeader>
                     <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md">
-                        <Calendar mode="single" selected={newItemDate} onSelect={setNewItemDate} locale={ptBR} className="border rounded-md bg-background" />
+                        <DatePicker date={newItemDate} setDate={setNewItemDate} />
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setItemToChangeDate(null)}>Cancelar</Button>
@@ -615,7 +613,6 @@ export default function ReportsPage() {
               return;
           }
 
-          // Pre-summarize data for IA
           const consolidatedSales = filteredReports.reduce((acc, r) => {
               acc.total += r.totalGeral;
               acc.rua += r.totalVendasRua + r.totalFiadoRua;
@@ -626,7 +623,6 @@ export default function ReportsPage() {
               return acc;
           }, { total: 0, rua: 0, salao: 0, fiado: 0, taxas: 0, items: {} as Record<string, number> });
 
-          // Filtrar compras também conforme o escopo
           let relevantEntradas = monthlyEntradas || [];
           if (aiScope === 'year') {
               const start = format(startOfYear(globalDate), 'yyyy-MM-dd');
@@ -663,7 +659,6 @@ export default function ReportsPage() {
       }
   };
 
-  // Agregações
   const weeklySummaries = useMemo(() => {
       const year = globalDate.getFullYear();
       const stats: Record<string, { week: number, count: number, start: Date, end: Date, data: any }> = {};
@@ -788,7 +783,7 @@ export default function ReportsPage() {
         let customerName: string | undefined = undefined;
 
         const partsWithExemption = mainInput.split(' ').filter((part) => part.trim() !== '');
-        if (partsWithExemption.map((p) => p.toUpperCase()).includes('E')) {
+        if (partsWithDealerExemption.map((p) => p.toUpperCase()).includes('E')) {
             isTaxExempt = true;
             mainInput = partsWithExemption.filter((p) => p.toUpperCase() !== 'E').join(' ');
         }
@@ -821,7 +816,6 @@ export default function ReportsPage() {
         let customDeliveryFee: number | null = null;
         let addFeeToTotal = true;
 
-        // Bomboniere match logic
         for (let i = 0; i < parts.length; i++) {
             if (consumedParts[i]) continue;
             let bestMatch = null;
@@ -853,7 +847,6 @@ export default function ReportsPage() {
             }
         }
 
-        // Siglas & KG logic
         for (let i = 0; i < parts.length; i++) {
             if (consumedParts[i]) continue;
             const part = parts[i];
@@ -1038,7 +1031,9 @@ export default function ReportsPage() {
       <Dialog open={!!reportToEditDate} onOpenChange={(open) => !open && setReportToEditDate(null)}>
         <DialogContent onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader><DialogTitle>Alterar Data do Relatório</DialogTitle></DialogHeader>
-            <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md"><Calendar mode="single" selected={newReportDate} onSelect={setNewReportDate} locale={ptBR} className="border rounded-md bg-background" /></div>
+            <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md">
+                <DatePicker date={newReportDate} setDate={setNewReportDate} />
+            </div>
             <DialogFooter><Button variant="outline" onClick={() => setReportToEditDate(null)}>Cancelar</Button><Button onClick={confirmEditDate} disabled={isUpdatingDate}>{isUpdatingDate && <Loader2 className="animate-spin mr-2"/>}Confirmar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
