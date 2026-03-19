@@ -51,9 +51,6 @@ import {
   Save,
   Loader2,
   History,
-  Wrench,
-  Star,
-  Trash2,
 } from 'lucide-react';
 
 import ItemForm from '@/components/item-form';
@@ -100,8 +97,8 @@ function LancheTrackerPageContent() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [predefinedPrices, setPredefinedPrices] = usePersistentState('predefinedPrices', PREDEFINED_PRICES);
-  const [deliveryFee, setDeliveryFee] = usePersistentState('deliveryFee', DELIVERY_FEE);
+  const [predefinedPrices] = usePersistentState('predefinedPrices', PREDEFINED_PRICES);
+  const [deliveryFee] = usePersistentState('deliveryFee', DELIVERY_FEE);
 
   const liveItemsQuery = useMemo(() => {
     if (!firestore) return null;
@@ -137,16 +134,9 @@ function LancheTrackerPageContent() {
     () => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null),
     [firestore]
   );
-  const { data: bomboniereItemsFromDB, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(
+  const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(
     bomboniereItemsQuery
   );
-
-  const bomboniereItems = useMemo(() => {
-    if (!isLoadingBomboniere && bomboniereItemsFromDB && bomboniereItemsFromDB.length > 0) {
-      return bomboniereItemsFromDB;
-    }
-    return [];
-  }, [bomboniereItemsFromDB, isLoadingBomboniere]);
   
   const bomboniereItemsByName = useMemo(() => {
     if (!bomboniereItems) return {};
@@ -172,11 +162,6 @@ function LancheTrackerPageContent() {
 
   const [passwordPrompt, setPasswordPrompt] = useState<{ open: boolean; onSuccess: () => void; onCancel?: () => void; } | null>(null);
 
-  const [isSelectionModeActive, setIsSelectionModeActive] = useState(false);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [isDeleteSelectedAlertOpen, setIsDeleteSelectedAlertOpen] = useState(false);
-
-
   const handlePasswordSuccess = () => {
     if (passwordPrompt?.onSuccess) {
       try {
@@ -187,24 +172,6 @@ function LancheTrackerPageContent() {
       passwordPrompt.onSuccess();
     }
     setPasswordPrompt(null);
-  };
-
-  const handleProtectedAction = (callback: () => void) => {
-    try {
-      const sessionAuth = sessionStorage.getItem('admin-authenticated');
-      if (sessionAuth === 'true') {
-        callback();
-        return;
-      }
-    } catch (e) {
-      console.error('Could not read sessionStorage:', e);
-    }
-
-    setPasswordPrompt({
-      open: true,
-      onSuccess: callback,
-      onCancel: () => setPasswordPrompt(null),
-    });
   };
 
   async function handleUpsertItem(rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) {
@@ -651,79 +618,6 @@ function LancheTrackerPageContent() {
     }
   };
 
-  const handleToggleSelectionMode = () => {
-    setIsSelectionModeActive(prev => !prev);
-    setSelectedItems([]);
-  };
-  
-  const handleItemSelect = (itemId: string, isSelected: boolean) => {
-    setSelectedItems(prev => {
-      if (isSelected) {
-        return [...prev, itemId];
-      } else {
-        return prev.filter(id => id !== itemId);
-      }
-    });
-  };
-
-  const handleSelectAll = (isChecked: boolean) => {
-    if (isChecked) {
-      setSelectedItems(items.map(item => item.id));
-    } else {
-      setSelectedItems([]);
-    }
-  };
-  
-  const handleDeleteSelected = async () => {
-    if (!firestore || selectedItems.length === 0 || !items) {
-      setIsDeleteSelectedAlertOpen(false);
-      return;
-    }
-  
-    const liveItemsCollectionRef = collection(firestore, 'live_items');
-    const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
-    const deleteBatch = writeBatch(firestore);
-  
-    try {
-      for (const itemId of selectedItems) {
-        const itemBeingDeleted = items.find((it) => it.id === itemId);
-  
-        if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
-          for (const soldItem of itemBeingDeleted.bomboniereItems) {
-            const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
-            if (itemDef) {
-              const newStock = itemDef.estoque + soldItem.quantity;
-              const docRef = doc(bomboniereCollectionRef, itemDef.id);
-              deleteBatch.update(docRef, { estoque: newStock });
-            }
-          }
-        }
-  
-        const docRef = doc(liveItemsCollectionRef, itemId);
-        deleteBatch.delete(docRef);
-      }
-  
-      await deleteBatch.commit();
-  
-      toast({
-        title: 'Itens Removidos',
-        description: `${selectedItems.length} lançamento(s) foram excluídos com sucesso.`,
-      });
-  
-    } catch (error: any) {
-      console.error('Error deleting selected items:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao Remover',
-        description: 'Não foi possível remover os itens selecionados.',
-      });
-    } finally {
-      setSelectedItems([]);
-      setIsSelectionModeActive(false);
-      setIsDeleteSelectedAlertOpen(false);
-    }
-  };
-
 
   const totals = useMemo(() => {
     if (!items || items.length === 0) {
@@ -876,21 +770,6 @@ function LancheTrackerPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={isDeleteSelectedAlertOpen} onOpenChange={setIsDeleteSelectedAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir {selectedItems.length} Lançamentos?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Os itens serão excluídos permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteSelected}>Confirmar Exclusão</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="relative mb-6 flex h-20 items-center justify-center">
           <div className="flex flex-col items-center">
@@ -903,7 +782,6 @@ function LancheTrackerPageContent() {
               Relatórios
             </Button>
             <Button variant="outline" onClick={() => router.push('/admin')}>
-              <Wrench className="mr-2 h-4 w-4" />
               Admin
             </Button>
           </div>
@@ -920,29 +798,6 @@ function LancheTrackerPageContent() {
           >
             <FavoritesMenu savedFavorites={savedFavorites} onSelect={handleFavoriteSelect} onDelete={handleFavoriteDelete} />
           </ItemForm>
-          
-          {isSelectionModeActive && (
-              <Card>
-                <CardContent className="p-3 flex items-center justify-between">
-                    <div className="text-sm font-medium">
-                        Modo de Seleção Ativo: {selectedItems.length} item(s) selecionado(s).
-                    </div>
-                    <div className="flex items-center gap-2">
-                         <Button variant="outline" onClick={handleToggleSelectionMode}>
-                            Cancelar
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            onClick={() => setIsDeleteSelectedAlertOpen(true)}
-                            disabled={selectedItems.length === 0}
-                        >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir Selecionados
-                        </Button>
-                    </div>
-                </CardContent>
-              </Card>
-          )}
 
           <div className="space-y-4 pt-6">
             <Separator />
@@ -954,10 +809,6 @@ function LancheTrackerPageContent() {
               onFavorite={handleFavoriteSave}
               savedFavorites={savedFavorites}
               isLoading={isLoadingItems || isUserLoading}
-              isSelectionMode={isSelectionModeActive}
-              selectedItems={selectedItems}
-              onItemSelect={handleItemSelect}
-              onSelectAll={handleSelectAll}
             />
           </div>
         </main>

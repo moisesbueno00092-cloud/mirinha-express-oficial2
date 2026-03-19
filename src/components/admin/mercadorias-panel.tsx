@@ -20,7 +20,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import FornecedoresEditModal from './fornecedores-edit-modal';
 import { ScrollArea } from '../ui/scroll-area';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
 import CameraCaptureSheet from './camera-capture-sheet';
 
 

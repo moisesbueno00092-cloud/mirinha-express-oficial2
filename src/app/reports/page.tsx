@@ -74,7 +74,6 @@ import {
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -735,7 +734,7 @@ export default function ReportsPage() {
             for (let j = parts.length; j > i; j--) { const potentialName = parts.slice(i, j).join(' ').toLowerCase(); if (bomboniereItemsByName[potentialName]) { bestMatch = bomboniereItemsByName[potentialName]; bestMatchEndIndex = j; break; } }
             if (bestMatch) {
                 let bomboniereQty = 1; if (i > 0 && !consumedParts[i - 1] && isNumeric(parts[i - 1])) { bomboniereQty = parseInt(parts[i - 1], 10); consumedParts[i - 1] = true; }
-                let priceToUse = bestMatch.price; if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) { priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.')); consumedParts[bestMatchEndIndex] = true; }
+                let priceToUse = bestMatch.price; if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) { priceToUse = parseFloat(bestMatchEndIndex < parts.length ? parts[bestMatchEndIndex].replace(',', '.')); consumedParts[bestMatchEndIndex] = true; }
                 processedBomboniereItems.push({ id: bestMatch.id, name: bestMatch.name, quantity: bomboniereQty, price: priceToUse }); totalPrice += priceToUse * bomboniereQty; totalQuantity += bomboniereQty;
                 for (let k = i; k < bestMatchEndIndex; k++) consumedParts[k] = true; i = bestMatchEndIndex - 1;
             }
