@@ -86,7 +86,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            // Reduz qualidade para 70% para garantir ficheiro leve
+            // Reduz qualidade para 70% para garantir ficheiro leve e envio rápido
             resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.src = dataUri;
@@ -256,7 +256,7 @@ export default function MercadoriasPanel() {
     const handleAddProduto = (e?: React.FormEvent) => {
         e?.preventDefault();
         const input = lancamentoInput.trim();
-        // Se Enter for pressionado com campo vazio e já houver itens, finaliza o registo
+        // Se Enter for pressionado com campo vazio e já houver itens, finaliza o registo instantaneamente
         if (!input) { 
             if (produtosLancados.length > 0 && !isSubmitting) {
                 handleRegisterEntry();
@@ -302,14 +302,12 @@ export default function MercadoriasPanel() {
 
     const resetForm = () => { setFornecedorId(undefined); setDataVencimento(undefined); setProdutosLancados([]); setLancamentoInput(''); setNumParcelas('1'); }
     
-    /**
-     * Aplica compressão antes de enviar para a IA
-     */
     const handleCameraCapture = async (dataUri: string | null) => {
         if (!dataUri) { setIsCameraSheetOpen(false); return; }
         setIsParsingRomaneio(true); setIsCameraSheetOpen(false);
-        toast({ title: 'A processar imagem...', description: 'Comprimindo para envio rápido.' });
+        toast({ title: 'A processar imagem...', description: 'Comprimindo para leitura rápida pela IA.' });
         try {
+            // Nova estratégia de compressão antes do envio
             const compressedUri = await compressImage(dataUri);
             const output = await parseRomaneio({ romaneioPhoto: compressedUri });
             if (output.items && output.items.length > 0) {
@@ -324,12 +322,12 @@ export default function MercadoriasPanel() {
                 }
                 toast({ title: 'Sucesso!', description: `${output.items.length} itens extraídos.` });
             }
-        } catch (error) { toast({ variant: 'destructive', title: 'Erro na análise' }); } finally { setIsParsingRomaneio(false); }
+        } catch (error) { 
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Erro na análise', description: 'Ocorreu um erro ao processar a imagem.' }); 
+        } finally { setIsParsingRomaneio(false); }
     };
 
-    /**
-     * Aplica compressão em ficheiros carregados
-     */
     const handleRomaneioUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files || files.length === 0) return;

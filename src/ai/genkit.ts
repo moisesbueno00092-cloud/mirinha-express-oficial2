@@ -1,13 +1,13 @@
 
 import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/google-genai';
+import {googleAI, gemini15Flash} from '@genkit-ai/google-genai';
 import {config} from 'dotenv';
 
 config();
 
 /**
  * Configuração central do Genkit otimizada para o Restaurante da Mirinha.
- * Utiliza o modelo Gemini 1.5 Flash para máxima velocidade e baixo custo.
+ * Utiliza a referência direta gemini15Flash para evitar erros 404 de endpoint.
  */
 export const ai = genkit({
   plugins: [
@@ -15,5 +15,5 @@ export const ai = genkit({
       apiKey: process.env.GEMINI_API_KEY
     })
   ],
-  model: 'googleai/gemini-1.5-flash',
+  model: gemini15Flash,
 });
