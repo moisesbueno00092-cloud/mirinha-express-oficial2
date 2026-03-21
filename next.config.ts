@@ -2,7 +2,7 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  /* Configuração para permitir payloads grandes (fotos e relatórios densos) */
   serverActions: {
     bodySizeLimit: '50mb',
     executionTimeout: 300,

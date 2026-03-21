@@ -133,6 +133,7 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
 
 /**
  * Algoritmo de Similaridade Inteligente (IA)
+ * Permite fundir nomes como "Lucinea" e "Lucineia" automaticamente.
  */
 function getLevenshteinDistance(a: string, b: string): number {
     const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
@@ -345,6 +346,7 @@ const CustomerReportsSection = ({
                 if (processedKeys.has(nextKey)) continue;
 
                 const distance = getLevenshteinDistance(currentKey, nextKey);
+                // Define um limite de 2 letras de diferença para nomes médios
                 const isVerySimilar = distance <= (currentKey.length > 6 ? 2 : 1);
                 const isSubstring = currentKey.includes(nextKey) || nextKey.includes(currentKey);
 
