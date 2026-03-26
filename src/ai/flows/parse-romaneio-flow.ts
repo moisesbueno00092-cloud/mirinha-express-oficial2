@@ -4,6 +4,7 @@
  * @fileOverview Fluxo de extração de dados de romaneios via IA.
  * 
  * Otimizado para captar produtos, quantidades e valores de fotos de notas fiscais.
+ * Utiliza a API v1 e o modelo gemini-1.5-flash para maior estabilidade.
  */
 
 import { ai } from '@/ai/genkit';
@@ -22,14 +23,13 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Processa a imagem do romaneio usando o modelo gemini-1.5-flash-latest.
- * Esta versão é utilizada para evitar o erro 404 reportado no endpoint v1beta.
+ * Processa a imagem do romaneio usando o modelo gemini-1.5-flash.
+ * A apiVersion v1 é configurada no genkit.ts para evitar o erro 404 do v1beta.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
     const response = await ai.generate({
-      // Utilizando a versão 'latest' para garantir compatibilidade com o endpoint v1/v1beta
-      model: 'googleai/gemini-1.5-flash-latest',
+      model: 'googleai/gemini-1.5-flash',
       prompt: [
         { text: `Você é um especialista em ler romaneios e notas fiscais de mercadorias no Brasil.
         Sua tarefa é extrair:
@@ -51,7 +51,7 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
 
     return response.output;
   } catch (error: any) {
-    // LOG CRÍTICO: Captura detalhada dos metadados do erro para diagnóstico de endpoint/região
+    // LOG CRÍTICO: Captura detalhada dos metadados do erro para diagnóstico no servidor
     console.error("DETALHES DO ERRO GOOGLE AI:");
     console.dir(error, { depth: null });
 
@@ -59,7 +59,7 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     const isRegionError = error.message?.includes('location') || error.message?.includes('region');
 
     if (isNotFoundError || isRegionError) {
-      throw new Error(`Erro de IA: O modelo gemini-1.5-flash-latest não está disponível para sua chave atual ou região. Detalhe: ${error.message}`);
+      throw new Error(`Erro de IA: O modelo gemini-1.5-flash não está disponível para sua chave atual ou região na API v1. Detalhe: ${error.message}`);
     }
     
     throw new Error(`Erro de Processamento: ${error.message}`);
