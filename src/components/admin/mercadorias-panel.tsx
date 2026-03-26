@@ -1,24 +1,20 @@
-
 'use client';
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useCollection, useFirestore } from '@/firebase';
-import { collection, query, orderBy, writeBatch, doc, setDoc, addDoc } from 'firebase/firestore';
+import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import type { ContaAPagar, EntradaMercadoria, Fornecedor, BomboniereItem } from '@/types';
+import type { Fornecedor, BomboniereItem } from '@/types';
 import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings, Camera, Video, ChevronUp, ChevronDown } from 'lucide-react';
-import { Separator } from '../ui/separator';
+import { Loader2, Video, FileImage, Trash2, Save } from 'lucide-react';
+import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn, addDays } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import FornecedoresEditModal from './fornecedores-edit-modal';
-import { ScrollArea } from '../ui/scroll-area';
 import CameraCaptureSheet from './camera-capture-sheet';
 
 interface LancamentoProduto {
@@ -83,16 +79,14 @@ export default function MercadoriasPanel() {
     const [numParcelas, setNumParcelas] = useState('1');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isParsingRomaneio, setIsParsingRomaneio] = useState(false);
-    const [newFornecedorName, setNewFornecedorName] = useState('');
-    const [isAddingFornecedor, setIsAddingFornecedor] = useState(false);
     const [lancamentoInput, setLancamentoInput] = useState('');
-    const [isFornecedoresModalOpen, setIsFornecedoresModalOpen] = useState(false);
     const [isCameraSheetOpen, setIsCameraSheetOpen] = useState(false);
+    
     const lancamentoInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fornecedoresQuery = useMemo(() => firestore ? query(collection(firestore, 'fornecedores'), orderBy('nome', 'asc')) : null, [firestore]);
-    const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
+    const { data: fornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
     const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
     const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
@@ -153,45 +147,179 @@ export default function MercadoriasPanel() {
         }
     };
 
-    const handleCameraCapture = async (dataUri: string | null) => {
-        if (!dataUri) return;
+    const processPhoto = async (dataUri: string) => {
         setIsParsingRomaneio(true);
         try {
             const compressed = await compressImage(dataUri);
             const output = await parseRomaneio({ romaneioPhoto: compressed });
             if (output.items) {
-                setProdutosLancados(prev => [...prev, ...output.items.map((it: any) => ({ id: Math.random(), produtoNome: it.produtoNome, preco: it.valorTotal, quantidade: it.quantidade, precoUnitario: it.valorTotal / it.quantidade }))]);
+                setProdutosLancados(prev => [
+                    ...prev, 
+                    ...output.items.map((it: any) => ({ 
+                        id: Math.random(), 
+                        produtoNome: it.produtoNome, 
+                        preco: it.valorTotal, 
+                        quantidade: it.quantidade, 
+                        precoUnitario: it.valorTotal / it.quantidade 
+                    }))
+                ]);
+                toast({ title: "Leitura Concluída", description: `${output.items.length} produtos identificados.` });
             }
-        } catch (e) { toast({ variant: 'destructive', title: 'Erro na leitura' }); } finally { setIsParsingRomaneio(false); setIsCameraSheetOpen(false); }
+            if (output.fornecedorNome) {
+                const matchedFornecedor = fornecedores?.find(f => f.nome.toLowerCase().includes(output.fornecedorNome!.toLowerCase()));
+                if (matchedFornecedor) setFornecedorId(matchedFornecedor.id);
+            }
+        } catch (e) { 
+            toast({ variant: 'destructive', title: 'Erro na leitura', description: 'Não foi possível extrair os dados da imagem.' }); 
+        } finally { 
+            setIsParsingRomaneio(false); 
+            setIsCameraSheetOpen(false); 
+        }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const dataUri = event.target?.result as string;
+            processPhoto(dataUri);
+        };
+        reader.readAsDataURL(file);
+        // Reset input value to allow the same file to be selected again
+        e.target.value = '';
+    };
+
+    const handleRemoveItem = (id: number) => {
+        setProdutosLancados(prev => prev.filter(p => p.id !== id));
     };
 
     const totalCompra = useMemo(() => produtosLancados.reduce((acc, p) => acc + p.preco, 0), [produtosLancados]);
 
     return (
         <div className="space-y-6">
-            <CameraCaptureSheet isOpen={isCameraSheetOpen} onClose={() => setIsCameraSheetOpen(false)} onCapture={handleCameraCapture} isProcessing={isParsingRomaneio} />
+            <CameraCaptureSheet 
+                isOpen={isCameraSheetOpen} 
+                onClose={() => setIsCameraSheetOpen(false)} 
+                onCapture={(dataUri) => dataUri && processPhoto(dataUri)} 
+                isProcessing={isParsingRomaneio} 
+            />
+            
+            {/* Input de ficheiro escondido */}
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleFileChange}
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label>Fornecedor</Label>
                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>{fornecedores?.map(f => (<SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>))}</SelectContent>
+                        <SelectTrigger><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
+                        <SelectContent>
+                            {fornecedores?.map(f => (
+                                <SelectItem key={f.id} value={f.id} style={{ color: f.color }}>
+                                    {f.nome}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
                     </Select>
                 </div>
-                <div className="space-y-2"><Label>Vencimento (Vazio = Pago)</Label><DatePicker date={dataVencimento} setDate={setDataVencimento} /></div>
+                <div className="space-y-2">
+                    <Label>Vencimento (Vazio = Pago hoje)</Label>
+                    <DatePicker date={dataVencimento} setDate={setDataVencimento} />
+                </div>
             </div>
-            <div className="flex gap-2">
-                <Input ref={lancamentoInputRef} placeholder="produto preço... (Enter vazio para finalizar)" value={lancamentoInput} onChange={(e) => setLancamentoInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddProduto()} />
-                <Button variant="outline" onClick={() => setIsCameraSheetOpen(true)} disabled={isParsingRomaneio}><Video className="h-4 w-4"/></Button>
+
+            <div className="space-y-2">
+                <Label>Lançar Manual ou IA</Label>
+                <div className="flex gap-2">
+                    <div className="relative flex-grow">
+                        <Input 
+                            ref={lancamentoInputRef} 
+                            placeholder="produto preço..." 
+                            value={lancamentoInput} 
+                            onChange={(e) => setLancamentoInput(e.target.value)} 
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddProduto()} 
+                            disabled={isParsingRomaneio}
+                        />
+                        {isParsingRomaneio && (
+                            <div className="absolute inset-y-0 right-3 flex items-center">
+                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                            </div>
+                        )}
+                    </div>
+                    <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => setIsCameraSheetOpen(true)} 
+                        disabled={isParsingRomaneio}
+                        title="Tirar foto"
+                    >
+                        <Video className="h-4 w-4 text-primary"/>
+                    </Button>
+                    <Button 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => fileInputRef.current?.click()} 
+                        disabled={isParsingRomaneio}
+                        title="Carregar imagem do PC"
+                    >
+                        <FileImage className="h-4 w-4 text-blue-500"/>
+                    </Button>
+                </div>
+                <p className="text-[0.65rem] text-muted-foreground italic">Dica: Enter no campo vazio finaliza o registo.</p>
             </div>
+
             {produtosLancados.length > 0 && (
-                <ScrollArea className="h-40 border rounded-md p-2">
-                    {produtosLancados.map(p => (<div key={p.id} className="flex justify-between text-sm py-1 border-b last:border-0"><span>{p.produtoNome}</span><span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span></div>))}
-                </ScrollArea>
+                <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-muted px-3 py-1 text-[0.65rem] font-bold uppercase flex justify-between">
+                        <span>Produtos na Lista</span>
+                        <span>Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
+                    </div>
+                    <ScrollArea className="h-48">
+                        <div className="divide-y">
+                            {produtosLancados.map(p => (
+                                <div key={p.id} className="flex justify-between items-center p-2 text-sm hover:bg-muted/30 group">
+                                    <div className="flex flex-col">
+                                        <span className="font-medium uppercase">{p.produtoNome}</span>
+                                        <span className="text-[0.65rem] text-muted-foreground">{p.quantidade} x {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-mono font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100" 
+                                            onClick={() => handleRemoveItem(p.id)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                </div>
             )}
-            <div className="flex justify-between items-center">
-                <span className="font-bold text-lg">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
-                <Button onClick={handleRegisterEntry} disabled={isSubmitting || produtosLancados.length === 0}>{isSubmitting ? <Loader2 className="animate-spin" /> : "Registar"}</Button>
+
+            <div className="flex justify-between items-center pt-2">
+                <div className="flex flex-col">
+                    <span className="text-[0.65rem] text-muted-foreground uppercase font-bold">Valor do Romaneio</span>
+                    <span className="font-black text-2xl text-primary">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
+                </div>
+                <Button 
+                    onClick={handleRegisterEntry} 
+                    disabled={isSubmitting || produtosLancados.length === 0}
+                    className="h-12 px-8"
+                >
+                    {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />}
+                    Registar no Financeiro
+                </Button>
             </div>
         </div>
     );
