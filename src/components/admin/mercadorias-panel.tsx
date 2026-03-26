@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
@@ -10,12 +11,11 @@ import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Trash2, Save, Upload, FileImage, ClipboardList, AlertCircle } from 'lucide-react';
+import { Loader2, Trash2, Save, Upload, FileImage, ClipboardList } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Alert, AlertDescription } from '../ui/alert';
 
 interface LancamentoProduto {
     id: number | string;
@@ -26,8 +26,9 @@ interface LancamentoProduto {
 }
 
 /**
- * Função de Compressão de Imagem no Cliente
- * Reduz o peso da imagem antes do envio para a IA, evitando erro de limite de payload.
+ * Função de Compressão de Imagem no Cliente (Navegador)
+ * Reduz a imagem para no máximo 1200px de largura e 70% de qualidade JPEG.
+ * Isso elimina o erro de '1 MB limit' e acelera o processamento da IA.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
@@ -47,7 +48,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.7)); // Qualidade 70%
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.src = dataUri;
     });
@@ -80,7 +81,6 @@ export default function MercadoriasPanel() {
     const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isParsingRomaneio, setIsParsingRomaneio] = useState(false);
-    const [lancamentoInput, setLancamentoInput] = useState('');
     
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -142,6 +142,7 @@ export default function MercadoriasPanel() {
     const processPhoto = async (dataUri: string) => {
         setIsParsingRomaneio(true);
         try {
+            // Compressão no navegador antes de enviar para o servidor
             const compressed = await compressImage(dataUri);
             const output = await parseRomaneio({ romaneioPhoto: compressed });
             
@@ -171,7 +172,7 @@ export default function MercadoriasPanel() {
             }
         } catch (e: any) { 
             console.error("Erro ao processar romaneio:", e);
-            toast({ variant: 'destructive', title: 'Erro de Extração', description: 'Não foi possível ler os dados. Tente uma imagem mais nítida.' }); 
+            toast({ variant: 'destructive', title: 'Erro de Extração', description: 'Não foi possível ler os dados. Tente uma imagem mais nítida do JPG.' }); 
         } finally { 
             setIsParsingRomaneio(false); 
         }
@@ -228,8 +229,8 @@ export default function MercadoriasPanel() {
                     <FileImage className="h-8 w-8 text-primary" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-lg">Carregar Romaneio do PC</h3>
-                    <p className="text-sm text-muted-foreground">Escolha um ficheiro JPG ou PNG para extrair produtos e preços.</p>
+                    <h3 className="font-bold text-lg">Enviar Romaneio JPG</h3>
+                    <p className="text-sm text-muted-foreground">Selecione uma imagem da memória do seu PC para extrair produtos e preços automaticamente.</p>
                 </div>
                 <Button 
                     size="lg"
@@ -245,7 +246,7 @@ export default function MercadoriasPanel() {
             {produtosLancados.length > 0 && (
                 <div className="border rounded-xl overflow-hidden shadow-sm">
                     <div className="bg-muted/50 px-4 py-3 text-[0.7rem] font-bold uppercase flex justify-between items-center border-b">
-                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Conferência da Nota</span>
+                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Itens Identificados</span>
                         <span className="text-foreground text-sm">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
                     </div>
                     <ScrollArea className="h-64">
@@ -273,7 +274,7 @@ export default function MercadoriasPanel() {
                 <div className="flex justify-end pt-4 border-t">
                     <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-14 px-10 text-lg font-bold shadow-lg gap-2">
                         {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : <Save className="h-5 w-5" />}
-                        Confirmar e Criar Registo
+                        Confirmar e Gerar Lançamento
                     </Button>
                 </div>
             )}
