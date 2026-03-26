@@ -23,12 +23,15 @@ interface LancamentoProduto {
     precoUnitario: number;
 }
 
+/**
+ * Comprime a imagem de forma agressiva para evitar erros de quota (429) e memória.
+ */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1200; 
+            const MAX_WIDTH = 1000; // Reduzido para economizar tokens
             let width = img.width;
             let height = img.height;
             if (width > MAX_WIDTH) {
@@ -38,8 +41,9 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
+            // Alta compressão (0.6) para garantir que o ficheiro seja minúsculo
             ctx?.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.7));
+            resolve(canvas.toDataURL('image/jpeg', 0.6));
         };
         img.src = dataUri;
     });
@@ -77,7 +81,7 @@ export default function MercadoriasPanel() {
                     precoUnitario: it.quantidade > 0 ? it.valorTotal / it.quantidade : it.valorTotal
                 }));
                 setProdutosLancados(newItems);
-                toast({ title: "Sucesso!", description: `Encontrámos ${output.items.length} itens.` });
+                toast({ title: "Sucesso!", description: `Extraídos ${output.items.length} itens.` });
             }
 
             if (output?.fornecedorNome && fornecedores) {
@@ -94,7 +98,7 @@ export default function MercadoriasPanel() {
                 } catch {}
             }
         } catch (e: any) {
-            toast({ variant: 'destructive', title: 'Erro', description: e.message });
+            toast({ variant: 'destructive', title: 'Erro de Processamento', description: e.message });
         } finally {
             setIsParsingRomaneio(false);
         }
@@ -120,7 +124,7 @@ export default function MercadoriasPanel() {
             const vencimento = dataVencimento || new Date();
 
             batch.set(doc(collection(firestore, 'contas_a_pagar')), {
-                descricao: `Entrada via Romaneio`,
+                descricao: `Romaneio de Mercadorias`,
                 fornecedorId: finalFornecedorId,
                 valor: produtosLancados.reduce((acc, p) => acc + p.preco, 0),
                 dataVencimento: formatDateFn(vencimento, 'yyyy-MM-dd'),
@@ -151,12 +155,12 @@ export default function MercadoriasPanel() {
             }
 
             await batch.commit();
-            toast({ title: 'Lançamento Concluído!' });
+            toast({ title: 'Lançamento Efetuado!' });
             setProdutosLancados([]);
             setFornecedorId(undefined);
             setDataVencimento(undefined);
         } catch (e) {
-            toast({ variant: 'destructive', title: 'Erro ao Gravar' });
+            toast({ variant: 'destructive', title: 'Erro ao Gravar no Banco' });
         } finally {
             setIsSubmitting(false);
         }
@@ -187,8 +191,8 @@ export default function MercadoriasPanel() {
                     <FileImage className="h-12 w-12 text-primary" />
                 </div>
                 <div className="space-y-2">
-                    <h3 className="font-black text-2xl text-foreground">Carregar Romaneio JPG</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Escolha uma imagem do seu computador para extração automática.</p>
+                    <h3 className="font-black text-2xl text-foreground">Enviar Romaneio (JPG)</h3>
+                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Escolha uma foto do seu computador para captar os dados automaticamente.</p>
                 </div>
                 <Button 
                     size="lg" 
@@ -197,14 +201,14 @@ export default function MercadoriasPanel() {
                     disabled={isParsingRomaneio}
                 >
                     {isParsingRomaneio ? <Loader2 className="h-7 w-7 animate-spin"/> : <Upload className="h-7 w-7"/>}
-                    {isParsingRomaneio ? 'Analisando Imagem...' : 'Escolher Ficheiro'}
+                    {isParsingRomaneio ? 'Lendo Imagem...' : 'Escolher Ficheiro'}
                 </Button>
             </div>
 
             {produtosLancados.length > 0 && (
                 <div className="border border-border/50 rounded-3xl overflow-hidden bg-card/50 shadow-2xl backdrop-blur-sm">
                     <div className="bg-muted/30 px-8 py-5 flex justify-between items-center border-b border-border/50">
-                        <span className="flex items-center gap-3 text-primary font-bold uppercase text-sm tracking-widest"><ClipboardList className="h-5 w-5"/> Itens Detetados</span>
+                        <span className="flex items-center gap-3 text-primary font-bold uppercase text-sm tracking-widest"><ClipboardList className="h-5 w-5"/> Conferência de Itens</span>
                         <span className="text-foreground font-black text-lg">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
                     </div>
                     <ScrollArea className="h-80">
@@ -214,7 +218,7 @@ export default function MercadoriasPanel() {
                                     <div className="flex flex-col gap-1">
                                         <span className="font-bold uppercase text-base leading-none">{p.produtoNome}</span>
                                         <span className="text-[0.7rem] text-muted-foreground font-medium uppercase tracking-tight">
-                                            {p.quantidade.toLocaleString('pt-BR')} unidades · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)} cada
+                                            {p.quantidade.toLocaleString('pt-BR')} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)} un
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-6">
