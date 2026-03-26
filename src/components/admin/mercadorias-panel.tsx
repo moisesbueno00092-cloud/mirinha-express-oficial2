@@ -27,14 +27,14 @@ interface LancamentoProduto {
 
 /**
  * Função de Compressão de Imagem no Cliente
- * Reduz o peso da imagem para evitar o erro de 1MB e acelerar a IA.
+ * Reduz o peso da imagem (Max 1600px) e qualidade 0.8 para evitar erro de 1MB e acelerar IA.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1200;
+            const MAX_WIDTH = 1600;
             let width = img.width;
             let height = img.height;
             if (width > MAX_WIDTH) {
@@ -45,7 +45,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.7));
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
         };
         img.src = dataUri;
     });
@@ -151,7 +151,7 @@ export default function MercadoriasPanel() {
         try {
             const compressed = await compressImage(dataUri);
             const output = await parseRomaneio({ romaneioPhoto: compressed });
-            if (output.items) {
+            if (output && output.items) {
                 setProdutosLancados(prev => [
                     ...prev, 
                     ...output.items.map((it: any) => ({ 
@@ -164,12 +164,13 @@ export default function MercadoriasPanel() {
                 ]);
                 toast({ title: "Leitura Concluída", description: `${output.items.length} produtos identificados.` });
             }
-            if (output.fornecedorNome) {
+            if (output && output.fornecedorNome) {
                 const matchedFornecedor = fornecedores?.find(f => f.nome.toLowerCase().includes(output.fornecedorNome!.toLowerCase()));
                 if (matchedFornecedor) setFornecedorId(matchedFornecedor.id);
             }
         } catch (e) { 
-            toast({ variant: 'destructive', title: 'Erro na leitura', description: 'Não foi possível extrair os dados da imagem.' }); 
+            console.error("Erro ao processar romaneio:", e);
+            toast({ variant: 'destructive', title: 'Erro na leitura', description: 'Não foi possível extrair os dados da imagem. Verifique a conexão com a IA.' }); 
         } finally { 
             setIsParsingRomaneio(false); 
         }
@@ -225,8 +226,24 @@ export default function MercadoriasPanel() {
             </div>
 
             <div className="space-y-2">
-                <Label>Lançamento Manual ou por Ficheiro (IA)</Label>
-                <div className="flex flex-col sm:flex-row gap-2">
+                <Label>Carregar Romaneio JPG/PNG do PC (IA)</Label>
+                <div className="flex flex-col gap-3">
+                    <Button 
+                        variant="outline" 
+                        size="lg"
+                        className="w-full h-16 gap-3 border-dashed border-2 border-primary/50 hover:border-primary hover:bg-primary/5 text-lg"
+                        onClick={() => fileInputRef.current?.click()} 
+                        disabled={isParsingRomaneio}
+                    >
+                        {isParsingRomaneio ? <Loader2 className="h-6 w-6 animate-spin text-primary"/> : <Upload className="h-6 w-6 text-primary"/>}
+                        <span>{isParsingRomaneio ? 'A Processar Imagem...' : 'Escolher Foto do Computador'}</span>
+                    </Button>
+                    
+                    <div className="relative">
+                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-muted" /></div>
+                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">ou introdução manual</span></div>
+                    </div>
+
                     <div className="relative flex-grow">
                         <Input 
                             ref={lancamentoInputRef} 
@@ -237,23 +254,9 @@ export default function MercadoriasPanel() {
                             disabled={isParsingRomaneio}
                             className="h-10"
                         />
-                        {isParsingRomaneio && (
-                            <div className="absolute inset-y-0 right-3 flex items-center">
-                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                            </div>
-                        )}
                     </div>
-                    <Button 
-                        variant="outline" 
-                        className="gap-2 h-10 border-blue-500/50 hover:bg-blue-500/10 text-blue-500"
-                        onClick={() => fileInputRef.current?.click()} 
-                        disabled={isParsingRomaneio}
-                    >
-                        {isParsingRomaneio ? <Loader2 className="h-4 w-4 animate-spin"/> : <FileImage className="h-4 w-4"/>}
-                        <span>Carregar Romaneio (PC)</span>
-                    </Button>
                 </div>
-                <p className="text-[0.65rem] text-muted-foreground italic">Dica: Digite "produto valor" e Enter. Enter no campo vazio finaliza o registo.</p>
+                <p className="text-[0.65rem] text-muted-foreground italic">Dica: Digite "produto valor" e Enter para adicionar à lista. Enter vazio finaliza o registo.</p>
             </div>
 
             {produtosLancados.length > 0 && (
