@@ -25,15 +25,15 @@ interface LancamentoProduto {
 }
 
 /**
- * Comprime a imagem no navegador para < 1MB.
- * Isso evita o erro "Body exceeded 1 MB" e acelera a IA.
+ * Comprime a imagem no navegador para garantir que seja menor que 1MB.
+ * Isso resolve o erro "Body exceeded 1 MB" e acelera a IA.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1000; // Resolução suficiente para OCR
+            const MAX_WIDTH = 1200; // Resolução ideal para OCR
             let width = img.width;
             let height = img.height;
             
@@ -46,8 +46,8 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            // Qualidade 0.6 é o equilíbrio ideal entre peso e nitidez
-            resolve(canvas.toDataURL('image/jpeg', 0.6));
+            // Qualidade 0.7 para manter nitidez dos textos
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.src = dataUri;
     });
@@ -73,6 +73,7 @@ export default function MercadoriasPanel() {
     const processPhoto = async (dataUri: string) => {
         setIsParsingRomaneio(true);
         try {
+            // Compressão local antes de enviar para o servidor
             const compressed = await compressImage(dataUri);
             const output = await parseRomaneio({ romaneioPhoto: compressed });
             
@@ -82,10 +83,10 @@ export default function MercadoriasPanel() {
                     produtoNome: it.produtoNome, 
                     preco: it.valorTotal, 
                     quantidade: it.quantidade, 
-                    precoUnitario: it.valorTotal / (it.quantidade || 1) 
+                    precoUnitario: it.quantidade > 0 ? it.valorTotal / it.quantidade : it.valorTotal
                 }));
                 setProdutosLancados(prev => [...prev, ...newItems]);
-                toast({ title: "Dados Extraídos", description: `${output.items.length} produtos identificados.` });
+                toast({ title: "Extração Concluída", description: `${output.items.length} itens encontrados no romaneio.` });
             }
 
             if (output?.fornecedorNome && fornecedores) {
@@ -100,7 +101,7 @@ export default function MercadoriasPanel() {
             }
         } catch (e: any) {
             console.error(e);
-            toast({ variant: 'destructive', title: 'Falha na Extração', description: e.message });
+            toast({ variant: 'destructive', title: 'Erro de Extração', description: e.message });
         } finally {
             setIsParsingRomaneio(false);
         }
@@ -112,7 +113,7 @@ export default function MercadoriasPanel() {
         const reader = new FileReader();
         reader.onload = (event) => processPhoto(event.target?.result as string);
         reader.readAsDataURL(file);
-        e.target.value = ''; // Reset input
+        e.target.value = ''; // Limpar input para permitir nova seleção do mesmo ficheiro
     };
 
     const handleRegisterEntry = async () => {
@@ -125,8 +126,9 @@ export default function MercadoriasPanel() {
             const estaPaga = !dataVencimento;
             const vencimento = dataVencimento || new Date();
 
+            // 1. Criar a Conta a Pagar
             batch.set(doc(collection(firestore, 'contas_a_pagar')), {
-                descricao: `Compra de Mercadorias (via Romaneio JPG)`,
+                descricao: `Compra via Romaneio IA`,
                 fornecedorId: finalFornecedorId,
                 valor: produtosLancados.reduce((acc, p) => acc + p.preco, 0),
                 dataVencimento: formatDateFn(vencimento, 'yyyy-MM-dd'),
@@ -134,6 +136,7 @@ export default function MercadoriasPanel() {
                 romaneioId
             });
 
+            // 2. Criar o histórico de entradas e atualizar estoque
             for (const p of produtosLancados) {
                 batch.set(doc(collection(firestore, 'entradas_mercadorias')), {
                     produtoNome: p.produtoNome,
@@ -146,6 +149,7 @@ export default function MercadoriasPanel() {
                     romaneioId
                 });
                 
+                // Atualizar estoque se for item de bomboniere
                 const matched = bomboniereItems?.find(bi => p.produtoNome.toLowerCase().startsWith(bi.name.toLowerCase().split('(')[0].trim()));
                 if (matched) {
                     batch.update(doc(firestore, 'bomboniere_items', matched.id), { estoque: matched.estoque + p.quantidade });
@@ -168,14 +172,22 @@ export default function MercadoriasPanel() {
 
     return (
         <div className="space-y-6">
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png" onChange={handleFileChange} />
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/jpeg,image/png" 
+                onChange={handleFileChange} 
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold">Fornecedor</Label>
                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
                         <SelectTrigger className="h-12"><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
-                        <SelectContent>{fornecedores?.map(f => (<SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>))}</SelectContent>
+                        <SelectContent>
+                            {fornecedores?.map(f => (<SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>))}
+                        </SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">
@@ -189,8 +201,8 @@ export default function MercadoriasPanel() {
                     <FileImage className="h-10 w-10 text-primary" />
                 </div>
                 <div>
-                    <h3 className="font-black text-xl text-foreground">Carregar Romaneio JPG</h3>
-                    <p className="text-sm text-muted-foreground max-w-sm mx-auto">Escolha uma foto da nota fiscal guardada no seu computador para extrair os produtos automaticamente.</p>
+                    <h3 className="font-black text-xl text-foreground">Entrada por Imagem JPG</h3>
+                    <p className="text-sm text-muted-foreground max-w-sm mx-auto">Carregue uma foto do romaneio do seu computador para que a IA extraia os dados automaticamente.</p>
                 </div>
                 <Button 
                     size="lg" 
@@ -199,14 +211,14 @@ export default function MercadoriasPanel() {
                     disabled={isParsingRomaneio}
                 >
                     {isParsingRomaneio ? <Loader2 className="h-6 w-6 animate-spin"/> : <Upload className="h-6 w-6"/>}
-                    {isParsingRomaneio ? 'Analisando Imagem...' : 'Escolher Imagem (JPG/PNG)'}
+                    {isParsingRomaneio ? 'Analisando Romaneio...' : 'Escolher Imagem (JPG/PNG)'}
                 </Button>
             </div>
 
             {produtosLancados.length > 0 && (
                 <div className="border rounded-2xl overflow-hidden bg-card shadow-xl">
                     <div className="bg-muted/50 px-6 py-4 text-[0.7rem] font-black uppercase flex justify-between items-center border-b">
-                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Conferência de Itens da IA</span>
+                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Itens Identificados pela IA</span>
                         <span className="text-foreground text-base">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
                     </div>
                     <ScrollArea className="h-72">
@@ -230,7 +242,7 @@ export default function MercadoriasPanel() {
                     <div className="p-6 bg-muted/20 border-t flex justify-end">
                         <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-14 px-12 text-lg font-black gap-3 rounded-xl">
                             {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : <CheckCircle2 className="h-6 w-6" />}
-                            Confirmar Tudo e Criar Lançamento
+                            Confirmar e Criar Lançamento
                         </Button>
                     </div>
                 </div>

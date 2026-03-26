@@ -3,7 +3,7 @@
 /**
  * @fileOverview Fluxo de extração de dados de romaneios via IA.
  * 
- * Abordagem ultra-estável para evitar erros 404 e problemas de endpoint.
+ * Otimizado para captar produtos, quantidades e valores de fotos de notas fiscais.
  */
 
 import { ai } from '@/ai/genkit';
@@ -12,30 +12,31 @@ import { z } from 'genkit';
 const ParseRomaneioOutputSchema = z.object({
   items: z.array(z.object({
     produtoNome: z.string().describe("Nome do produto."),
-    quantidade: z.number().describe("Qtd."),
+    quantidade: z.number().describe("Quantidade."),
     valorTotal: z.number().describe("Valor total da linha."),
-  })).describe("Lista de produtos."),
-  fornecedorNome: z.string().optional().describe("Nome do fornecedor."),
-  dataVencimento: z.string().optional().describe("Vencimento YYYY-MM-DD."),
+  })).describe("Lista de produtos encontrados na nota."),
+  fornecedorNome: z.string().optional().describe("Nome do fornecedor (se visível)."),
+  dataVencimento: z.string().optional().describe("Data de vencimento no formato YYYY-MM-DD."),
 });
 
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
  * Processa a imagem do romaneio usando Gemini 1.5 Flash.
- * Utilizamos a referência de modelo mais estável para evitar erros 404.
+ * Referência de modelo estabilizada para evitar erros 404.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
     const response = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: 'gemini-1.5-flash',
       prompt: [
-        { text: `Você é um especialista em ler notas fiscais e romaneios brasileiros de hortifruti e mercadorias.
-        Extraia:
-        1. Nome do fornecedor (se visível).
-        2. Data de vencimento (formato YYYY-MM-DD).
-        3. Lista de itens com Nome, Quantidade e Valor Total da linha.
-        Ignore carimbos ou rasuras. Retorne apenas o JSON solicitado.` },
+        { text: `Você é um especialista em ler romaneios e notas fiscais de hortifruti e mercadorias no Brasil.
+        Sua tarefa é extrair:
+        1. O nome do fornecedor.
+        2. A data de vencimento (formato YYYY-MM-DD).
+        3. A lista de produtos contendo: Nome do Produto, Quantidade e Valor Total daquela linha.
+        Ignore carimbos, assinaturas ou rasuras que não sejam dados de itens.
+        Retorne rigorosamente no formato JSON solicitado.` },
         { media: { url: input.romaneioPhoto } }
       ],
       output: {
@@ -44,15 +45,14 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     });
 
     if (!response.output) {
-      throw new Error("A IA não retornou dados válidos.");
+      throw new Error("A IA não conseguiu identificar os dados na imagem.");
     }
 
     return response.output;
   } catch (error: any) {
     console.error("Erro na extração do romaneio:", error);
-    // Se falhar com 404, tentamos uma variante de nome de modelo
     if (error.message?.includes('404')) {
-       throw new Error("Erro de conexão com a IA (Modelo não encontrado). Por favor, verifique a chave de API.");
+       throw new Error("Erro de conexão com o serviço de IA. O modelo solicitado não foi encontrado.");
     }
     throw new Error(`Erro de Processamento: ${error.message}`);
   }
