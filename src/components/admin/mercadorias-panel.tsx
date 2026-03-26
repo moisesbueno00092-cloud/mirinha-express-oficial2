@@ -8,9 +8,8 @@ import type { Fornecedor, BomboniereItem } from '@/types';
 import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Trash2, Save, Upload, FileImage, ClipboardList, CheckCircle2 } from 'lucide-react';
+import { Loader2, Trash2, Upload, FileImage, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
@@ -24,11 +23,6 @@ interface LancamentoProduto {
     precoUnitario: number;
 }
 
-/**
- * Otimiza a imagem antes do envio para a IA.
- * Reduz dimensões e qualidade para garantir que o ficheiro fique leve,
- * evitando erros de limite de payload, mas mantendo a nitidez necessária.
- */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
@@ -37,17 +31,14 @@ const compressImage = (dataUri: string): Promise<string> => {
             const MAX_WIDTH = 1200; 
             let width = img.width;
             let height = img.height;
-            
             if (width > MAX_WIDTH) {
                 height *= MAX_WIDTH / width;
                 width = MAX_WIDTH;
             }
-            
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            // Qualidade 0.7 é ideal para manter a leitura do texto sem pesar no envio
             resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.src = dataUri;
@@ -71,9 +62,6 @@ export default function MercadoriasPanel() {
     const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
     const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
-    /**
-     * Processa o ficheiro selecionado: comprime no navegador e envia para o Gemini 2.0 Flash.
-     */
     const processPhoto = async (dataUri: string) => {
         setIsParsingRomaneio(true);
         try {
@@ -88,20 +76,17 @@ export default function MercadoriasPanel() {
                     quantidade: it.quantidade, 
                     precoUnitario: it.quantidade > 0 ? it.valorTotal / it.quantidade : it.valorTotal
                 }));
-                setProdutosLancados(prev => [...prev, ...newItems]);
-                toast({ title: "Informações Extraídas", description: `Encontrámos ${output.items.length} itens no documento.` });
+                setProdutosLancados(newItems);
+                toast({ title: "Sucesso!", description: `Encontrámos ${output.items.length} itens.` });
             }
 
-            // Tenta selecionar automaticamente o fornecedor se o nome for parecido
             if (output?.fornecedorNome && fornecedores) {
                 const matched = fornecedores.find(f => 
-                    f.nome.toLowerCase().includes(output.fornecedorNome!.toLowerCase()) ||
-                    output.fornecedorNome!.toLowerCase().includes(f.nome.toLowerCase())
+                    f.nome.toLowerCase().includes(output.fornecedorNome!.toLowerCase())
                 );
                 if (matched) setFornecedorId(matched.id);
             }
 
-            // Tenta captar a data de vencimento automaticamente
             if (output?.dataVencimento) {
                 try {
                     const [y, m, d] = output.dataVencimento.split('-').map(Number);
@@ -109,12 +94,7 @@ export default function MercadoriasPanel() {
                 } catch {}
             }
         } catch (e: any) {
-            console.error("Erro no processamento da imagem:", e);
-            toast({ 
-                variant: 'destructive', 
-                title: 'Erro na Análise', 
-                description: e.message || 'Não foi possível ler os dados da imagem.' 
-            });
+            toast({ variant: 'destructive', title: 'Erro', description: e.message });
         } finally {
             setIsParsingRomaneio(false);
         }
@@ -139,9 +119,8 @@ export default function MercadoriasPanel() {
             const estaPaga = !dataVencimento;
             const vencimento = dataVencimento || new Date();
 
-            // 1. Criar a conta a pagar
             batch.set(doc(collection(firestore, 'contas_a_pagar')), {
-                descricao: `Entrada via Imagem (IA)`,
+                descricao: `Entrada via Romaneio`,
                 fornecedorId: finalFornecedorId,
                 valor: produtosLancados.reduce((acc, p) => acc + p.preco, 0),
                 dataVencimento: formatDateFn(vencimento, 'yyyy-MM-dd'),
@@ -149,7 +128,6 @@ export default function MercadoriasPanel() {
                 romaneioId
             });
 
-            // 2. Registar cada item no histórico e atualizar stock se necessário
             for (const p of produtosLancados) {
                 batch.set(doc(collection(firestore, 'entradas_mercadorias')), {
                     produtoNome: p.produtoNome,
@@ -162,7 +140,6 @@ export default function MercadoriasPanel() {
                     romaneioId
                 });
                 
-                // Tenta encontrar um item correspondente na bomboniere para atualizar stock
                 const matched = bomboniereItems?.find(bi => 
                     p.produtoNome.toLowerCase().startsWith(bi.name.toLowerCase().split('(')[0].trim())
                 );
@@ -174,28 +151,20 @@ export default function MercadoriasPanel() {
             }
 
             await batch.commit();
-            toast({ title: 'Lançamento Concluído!', description: 'Os dados foram gravados no financeiro e histórico.' });
+            toast({ title: 'Lançamento Concluído!' });
             setProdutosLancados([]);
             setFornecedorId(undefined);
             setDataVencimento(undefined);
         } catch (e) {
-            toast({ variant: 'destructive', title: 'Erro ao Gravar', description: 'Ocorreu um erro ao guardar os dados no sistema.' });
+            toast({ variant: 'destructive', title: 'Erro ao Gravar' });
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const totalCompra = produtosLancados.reduce((acc, p) => acc + p.preco, 0);
-
     return (
         <div className="space-y-6">
-            <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/jpeg,image/png" 
-                onChange={handleFileChange} 
-            />
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png" onChange={handleFileChange} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -213,14 +182,13 @@ export default function MercadoriasPanel() {
                 </div>
             </div>
 
-            {/* Upload Area */}
             <div className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-3xl p-12 text-center space-y-6 transition-all hover:bg-primary/10 hover:border-primary/40 group">
                 <div className="bg-primary/10 p-6 rounded-full w-24 h-24 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
                     <FileImage className="h-12 w-12 text-primary" />
                 </div>
                 <div className="space-y-2">
                     <h3 className="font-black text-2xl text-foreground">Carregar Romaneio JPG</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Selecione uma foto nítida do documento para que a IA extraia os dados automaticamente.</p>
+                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Escolha uma imagem do seu computador para extração automática.</p>
                 </div>
                 <Button 
                     size="lg" 
@@ -233,12 +201,11 @@ export default function MercadoriasPanel() {
                 </Button>
             </div>
 
-            {/* Extraction Results */}
             {produtosLancados.length > 0 && (
                 <div className="border border-border/50 rounded-3xl overflow-hidden bg-card/50 shadow-2xl backdrop-blur-sm">
                     <div className="bg-muted/30 px-8 py-5 flex justify-between items-center border-b border-border/50">
                         <span className="flex items-center gap-3 text-primary font-bold uppercase text-sm tracking-widest"><ClipboardList className="h-5 w-5"/> Itens Detetados</span>
-                        <span className="text-foreground font-black text-lg">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
+                        <span className="text-foreground font-black text-lg">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
                     </div>
                     <ScrollArea className="h-80">
                         <div className="divide-y divide-border/30">
@@ -247,19 +214,19 @@ export default function MercadoriasPanel() {
                                     <div className="flex flex-col gap-1">
                                         <span className="font-bold uppercase text-base leading-none">{p.produtoNome}</span>
                                         <span className="text-[0.7rem] text-muted-foreground font-medium uppercase tracking-tight">
-                                            {p.quantidade.toLocaleString('pt-BR')} unidades · unitário {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}
+                                            {p.quantidade.toLocaleString('pt-BR')} unidades · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)} cada
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-6">
                                         <span className="font-mono font-black text-primary text-xl">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
-                                        <Button variant="ghost" size="icon" className="h-12 w-12 text-destructive/30 hover:text-destructive hover:bg-destructive/10 rounded-full" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-6 w-6" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-12 w-12 text-destructive/30 hover:text-destructive" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-6 w-6" /></Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </ScrollArea>
                     <div className="p-8 bg-muted/10 border-t border-border/50 flex justify-end">
-                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-16 px-16 text-xl font-black gap-4 rounded-2xl shadow-lg">
+                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-16 px-16 text-xl font-black gap-4 rounded-2xl">
                             {isSubmitting ? <Loader2 className="animate-spin h-7 w-7" /> : <CheckCircle2 className="h-7 w-7" />}
                             Confirmar Lançamento
                         </Button>

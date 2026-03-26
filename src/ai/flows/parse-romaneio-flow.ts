@@ -1,10 +1,10 @@
 'use server';
 
 /**
- * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 2.0 Flash.
+ * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 1.5 Flash.
  * 
- * Este fluxo utiliza o modelo mais recente para ler imagens de romaneios
- * e extrair dados estruturados (produtos, quantidades e valores).
+ * Este fluxo foi estabilizado para evitar erros 404 e 429, focando na leitura
+ * de imagens JPG para extração de produtos, quantidades e preços.
  */
 
 import { ai } from '@/ai/genkit';
@@ -24,21 +24,20 @@ export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
  * Processa a imagem do romaneio e retorna os dados extraídos.
- * Utiliza o identificador 'googleai/gemini-2.0-flash' para maior precisão e velocidade.
+ * Utiliza o modelo gemini-1.5-flash para maior compatibilidade de quota.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
-    // Chamada direta ao modelo Gemini 2.0 Flash
     const response = await ai.generate({
-      model: 'googleai/gemini-2.0-flash',
+      model: 'googleai/gemini-1.5-flash',
       prompt: [
-        { text: `Você é um especialista em leitura de notas fiscais e romaneios de mercadorias no Brasil.
+        { text: `Você é um especialista em leitura de notas fiscais e romaneios de mercadorias.
         Sua tarefa é extrair:
         1. Nome do fornecedor (empresa vendedora).
         2. Data de vencimento da fatura (se houver, no formato YYYY-MM-DD).
         3. Lista de produtos, com nome, quantidade e valor total da linha.
 
-        IMPORTANTE: Retorne APENAS um objeto JSON puro e válido. Não inclua explicações ou blocos de código.
+        IMPORTANTE: Retorne APENAS um objeto JSON puro e válido.
         
         Formato do JSON:
         {
@@ -51,33 +50,36 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
         { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
       ],
       config: {
-        temperature: 0.1, // Baixa temperatura para maior precisão nos dados numéricos
+        temperature: 0.1,
       }
     });
 
     const text = response.text;
     if (!text) {
-      throw new Error("A IA não retornou nenhum texto de resposta.");
+      throw new Error("A IA não retornou resposta.");
     }
 
-    // Limpeza de possíveis blocos de código markdown na resposta
+    // Limpeza de markdown
     const cleanedJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
     
     try {
       const parsed = JSON.parse(cleanedJson);
       return ParseRomaneioOutputSchema.parse(parsed);
     } catch (parseError) {
-      console.error("Erro ao converter resposta em JSON. Texto recebido:", text);
-      throw new Error("Os dados retornados pela IA não estão num formato válido.");
+      console.error("Erro no JSON da IA:", text);
+      throw new Error("Formato de dados inválido retornado pela IA.");
     }
 
   } catch (error: any) {
-    // Log detalhado no servidor para diagnóstico
-    console.error("DETALHES DO ERRO IA (METADADOS):");
+    console.error("DETALHES DO ERRO IA:");
     console.dir(error, { depth: null });
 
-    if (error.message?.includes('404') || error.message?.includes('NOT_FOUND')) {
-      throw new Error(`O modelo Gemini 2.0 Flash não foi encontrado ou não está disponível na sua região.`);
+    if (error.message?.includes('429')) {
+      throw new Error("Limite de requisições excedido. Por favor, aguarde 30 segundos e tente novamente.");
+    }
+    
+    if (error.message?.includes('404')) {
+      throw new Error("Modelo de IA não encontrado. Verifique se o serviço está disponível na sua região.");
     }
     
     throw new Error(`Falha no processamento: ${error.message}`);
