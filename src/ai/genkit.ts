@@ -6,7 +6,7 @@ config();
 
 /**
  * Configuração central do Genkit otimizada para o Restaurante da Mirinha.
- * Utiliza o modelo gemini-1.5-flash estável para leitura de imagens e OCR.
+ * Foca na estabilidade de conexão com o modelo Gemini 1.5 Flash.
  */
 export const ai = genkit({
   plugins: [

@@ -10,14 +10,15 @@ import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Trash2, Save, Upload, FileImage, ClipboardList } from 'lucide-react';
+import { Loader2, Trash2, Save, Upload, FileImage, ClipboardList, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Alert, AlertDescription } from '../ui/alert';
 
 interface LancamentoProduto {
-    id: number;
+    id: number | string;
     produtoNome: string;
     preco: number;
     quantidade: number;
@@ -26,14 +27,14 @@ interface LancamentoProduto {
 
 /**
  * Função de Compressão de Imagem no Cliente
- * Reduz o peso da imagem antes do envio para a IA, evitando erro de 1MB.
+ * Reduz o peso da imagem antes do envio para a IA, evitando erro de limite de payload.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1600; 
+            const MAX_WIDTH = 1200; 
             let width = img.width;
             let height = img.height;
             
@@ -46,7 +47,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.8));
+            resolve(canvas.toDataURL('image/jpeg', 0.7)); // Qualidade 70%
         };
         img.src = dataUri;
     });
@@ -126,7 +127,7 @@ export default function MercadoriasPanel() {
                 }
             }
             await batch.commit();
-            toast({ title: 'Sucesso!', description: 'Registo financeiro criado com sucesso.' });
+            toast({ title: 'Sucesso!', description: 'Lançamento financeiro criado com sucesso.' });
             setProdutosLancados([]); 
             setFornecedorId(undefined); 
             setDataVencimento(undefined);
@@ -135,27 +136,6 @@ export default function MercadoriasPanel() {
             toast({ variant: 'destructive', title: 'Erro ao salvar' }); 
         } finally { 
             setIsSubmitting(false); 
-        }
-    };
-
-    const handleAddProdutoManual = (e?: React.FormEvent) => {
-        e?.preventDefault();
-        const input = lancamentoInput.trim();
-        if (!input) return;
-        
-        const lastSpace = input.lastIndexOf(' ');
-        if (lastSpace > -1) {
-            const price = parseFloat(input.substring(lastSpace + 1).replace(',', '.'));
-            if (!isNaN(price)) {
-                setProdutosLancados(prev => [...prev, { 
-                    id: Date.now(), 
-                    produtoNome: input.substring(0, lastSpace), 
-                    preco: price, 
-                    quantidade: 1, 
-                    precoUnitario: price 
-                }]);
-                setLancamentoInput('');
-            }
         }
     };
 
@@ -169,7 +149,7 @@ export default function MercadoriasPanel() {
                 setProdutosLancados(prev => [
                     ...prev, 
                     ...output.items.map((it: any) => ({ 
-                        id: Math.random(), 
+                        id: Math.random().toString(36).substr(2, 9), 
                         produtoNome: it.produtoNome, 
                         preco: it.valorTotal, 
                         quantidade: it.quantidade, 
@@ -184,11 +164,14 @@ export default function MercadoriasPanel() {
                 if (matchedFornecedor) setFornecedorId(matchedFornecedor.id);
             }
             if (output && output.dataVencimento) {
-                try { setDataVencimento(new Date(output.dataVencimento)); } catch(e) {}
+                try { 
+                    const [y, m, d] = output.dataVencimento.split('-').map(Number);
+                    setDataVencimento(new Date(y, m - 1, d)); 
+                } catch(e) {}
             }
         } catch (e: any) { 
-            console.error("Erro ao processar imagem:", e);
-            toast({ variant: 'destructive', title: 'Falha na IA', description: 'Não foi possível ler os dados da imagem. Verifique a nitidez.' }); 
+            console.error("Erro ao processar romaneio:", e);
+            toast({ variant: 'destructive', title: 'Erro de Extração', description: 'Não foi possível ler os dados. Tente uma imagem mais nítida.' }); 
         } finally { 
             setIsParsingRomaneio(false); 
         }
@@ -206,7 +189,7 @@ export default function MercadoriasPanel() {
         e.target.value = '';
     };
 
-    const handleRemoveItem = (id: number) => {
+    const handleRemoveItem = (id: string | number) => {
         setProdutosLancados(prev => prev.filter(p => p.id !== id));
     };
 
@@ -245,8 +228,8 @@ export default function MercadoriasPanel() {
                     <FileImage className="h-8 w-8 text-primary" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-lg">Carregar Romaneio JPG do PC</h3>
-                    <p className="text-sm text-muted-foreground">A IA irá ler os produtos e preços automaticamente.</p>
+                    <h3 className="font-bold text-lg">Carregar Romaneio do PC</h3>
+                    <p className="text-sm text-muted-foreground">Escolha um ficheiro JPG ou PNG para extrair produtos e preços.</p>
                 </div>
                 <Button 
                     size="lg"
@@ -255,30 +238,14 @@ export default function MercadoriasPanel() {
                     disabled={isParsingRomaneio}
                 >
                     {isParsingRomaneio ? <Loader2 className="h-6 w-6 animate-spin"/> : <Upload className="h-6 w-6"/>}
-                    {isParsingRomaneio ? 'A Processar...' : 'Escolher Ficheiro'}
+                    {isParsingRomaneio ? 'A Analisar Imagem...' : 'Escolher Imagem (JPG/PNG)'}
                 </Button>
-            </div>
-
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-muted" /></div>
-                <div className="relative flex justify-center text-[0.6rem] uppercase"><span className="bg-card px-2 text-muted-foreground tracking-widest font-bold">Ou introdução manual rápida</span></div>
-            </div>
-
-            <div className="flex gap-2">
-                <Input 
-                    placeholder="Ex: Arroz 25,90 (Enter para adicionar)" 
-                    value={lancamentoInput} 
-                    onChange={(e) => setLancamentoInput(e.target.value)} 
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddProdutoManual()} 
-                    className="h-12"
-                />
-                <Button variant="outline" onClick={() => handleAddProdutoManual()} className="h-12">Adicionar</Button>
             </div>
 
             {produtosLancados.length > 0 && (
                 <div className="border rounded-xl overflow-hidden shadow-sm">
                     <div className="bg-muted/50 px-4 py-3 text-[0.7rem] font-bold uppercase flex justify-between items-center border-b">
-                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Conferência de Itens</span>
+                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Conferência da Nota</span>
                         <span className="text-foreground text-sm">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
                     </div>
                     <ScrollArea className="h-64">

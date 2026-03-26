@@ -1,12 +1,11 @@
 'use server';
 
 /**
- * @fileOverview Parses items from a delivery note (romaneio) image.
+ * @fileOverview Extrai dados de produtos de uma imagem de romaneio (JPG/PNG).
  *
- * This file exports:
- * - `parseRomaneio`: A function that extracts product details from an image of a delivery note.
- * - `ParseRomaneioInput`: The input type for the `parseRomaneio` function.
- * - `ParseRomaneioOutput`: The return type for the `parseRomaneio` function.
+ * - parseRomaneio - Função principal que processa a imagem via IA.
+ * - ParseRomaneioInput - Entrada esperada (Data URI da imagem).
+ * - ParseRomaneioOutput - Dados extraídos (Itens, Fornecedor, Vencimento).
  */
 
 import {ai} from '@/ai/genkit';
@@ -16,25 +15,23 @@ const ParseRomaneioInputSchema = z.object({
   romaneioPhoto: z
     .string()
     .describe(
-      "A photo of a delivery note or invoice, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "A foto de um romaneio ou nota fiscal, como um Data URI Base64. Formato esperado: 'data:<mimetype>;base64,<encoded_data>'."
     ),
 });
 export type ParseRomaneioInput = z.infer<typeof ParseRomaneioInputSchema>;
 
-
 const ParsedItemSchema = z.object({
-    produtoNome: z.string().describe("The full name of the product."),
-    quantidade: z.number().describe("The quantity of the product."),
-    valorTotal: z.number().describe("The total price for the line item (quantity * unit price)."),
+    produtoNome: z.string().describe("O nome completo e descritivo do produto."),
+    quantidade: z.number().describe("A quantidade comprada."),
+    valorTotal: z.number().describe("O valor total desta linha (quantidade * preço unitário). Procure pela coluna 'Total' ou 'Valor Total'."),
 });
 
 const ParseRomaneioOutputSchema = z.object({
-  items: z.array(ParsedItemSchema).describe("An array of items found in the delivery note."),
-  fornecedorNome: z.string().optional().describe("The name of the supplier/issuer of the note if clearly visible."),
-  dataVencimento: z.string().optional().describe("The due date (vencimento) of the note if found, in YYYY-MM-DD format."),
+  items: z.array(ParsedItemSchema).describe("Lista de produtos encontrados."),
+  fornecedorNome: z.string().optional().describe("Nome do fornecedor/emitente se visível."),
+  dataVencimento: z.string().optional().describe("Data de vencimento da nota em formato YYYY-MM-DD."),
 });
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
-
 
 export async function parseRomaneio(input: ParseRomaneioInput): Promise<ParseRomaneioOutput> {
   return parseRomaneioFlow(input);
@@ -44,27 +41,22 @@ const parseRomaneioPrompt = ai.definePrompt({
   name: 'parseRomaneioPrompt',
   input: {schema: ParseRomaneioInputSchema},
   output: {schema: ParseRomaneioOutputSchema},
-  prompt: `You are an expert OCR assistant specialized in reading Brazilian invoices and delivery notes (romaneios).
-Your task is to analyze the provided image and extract a list of all products, their quantities, and their total prices for each line.
+  prompt: `Você é um assistente especializado em ler romaneios e notas fiscais brasileiras.
+Sua tarefa é analisar a imagem e extrair os produtos, quantidades e valores totais de cada item.
 
-Additionally, try to identify:
-1. The Supplier Name (Fornecedor/Emitente): Usually found at the very top, next to a CNPJ or logo.
-2. The Due Date (Data de Vencimento): Look for labels like 'Vencimento', 'Pagar em', 'Data Vcto'. If multiple installments exist, pick the first one.
+Identifique:
+1. Nome do Fornecedor (Emitente).
+2. Data de Vencimento (YYYY-MM-DD). Se houver várias parcelas, pegue a primeira.
+3. Lista de Itens:
+   - Extraia o nome do produto.
+   - Extraia a quantidade.
+   - Extraia o VALOR TOTAL da linha (não use o preço unitário como total). Procure pela coluna 'Valor Total', 'Custo Total' ou 'Total'.
 
-- Identify each product line item.
-- For each item, extract the product name, the quantity, and the total value for that line.
-- CRITICAL: You must look for a column named 'valor total', 'custo total', or simply 'total' to get the final price for the line. Do NOT use the unit price column for the final value.
-- The product name should be as descriptive as possible from the note.
-- Quantity is often abbreviated as 'Qtd' or 'Qtde'.
-- Ignore overall taxes, totals for the entire note, subtotals, and any other information that is not a product line item.
-- Ensure all extracted values are converted to the correct numeric types.
-- If you find a due date, return it in YYYY-MM-DD format.
+Importante: Ignore impostos gerais, totais da nota inteira ou rodapés. Foque apenas nas linhas de produtos.
 
-Analyze the following delivery note:
-{{media url=romaneioPhoto}}
-  `,
+Imagem para análise:
+{{media url=romaneioPhoto}}`,
 });
-
 
 const parseRomaneioFlow = ai.defineFlow(
   {
@@ -73,19 +65,13 @@ const parseRomaneioFlow = ai.defineFlow(
     outputSchema: ParseRomaneioOutputSchema,
   },
   async (input) => {
-    const MAX_RETRIES = 3;
-    for (let i = 0; i < MAX_RETRIES; i++) {
-      try {
-        const { output } = await parseRomaneioPrompt(input);
-        if (!output) throw new Error("No output returned from AI");
-        return output;
-      } catch (error: any) {
-        console.error(`Attempt ${i + 1} failed:`, error.message);
-        if (i === MAX_RETRIES - 1) throw error;
-        // Wait 2s before retry
-        await new Promise(r => setTimeout(r, 2000));
-      }
+    try {
+      const { output } = await parseRomaneioPrompt(input);
+      if (!output) throw new Error("A IA não retornou dados válidos.");
+      return output;
+    } catch (error: any) {
+      console.error("Erro no processamento do romaneio:", error.message);
+      throw new Error(`Falha ao ler romaneio: ${error.message}`);
     }
-    throw new Error('Flow failed to produce an output after all retries.');
   }
 );
