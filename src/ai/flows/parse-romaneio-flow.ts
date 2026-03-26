@@ -22,13 +22,14 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Processa a imagem do romaneio usando o modelo estável gemini-1.5-flash.
+ * Processa a imagem do romaneio usando o modelo gemini-1.5-flash-latest.
+ * Esta versão é utilizada para evitar o erro 404 reportado no endpoint v1beta.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
     const response = await ai.generate({
-      // Utilizando o identificador completo para garantir que o provedor localize o modelo corretamente
-      model: 'googleai/gemini-1.5-flash',
+      // Utilizando a versão 'latest' para garantir compatibilidade com o endpoint v1/v1beta
+      model: 'googleai/gemini-1.5-flash-latest',
       prompt: [
         { text: `Você é um especialista em ler romaneios e notas fiscais de mercadorias no Brasil.
         Sua tarefa é extrair:
@@ -50,14 +51,15 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
 
     return response.output;
   } catch (error: any) {
-    // LOG CRÍTICO: Abre o console do terminal para ver o motivo real (Region? Billing? Key?)
-    console.error("DETALHES DO ERRO GOOGLE AI:", error);
+    // LOG CRÍTICO: Captura detalhada dos metadados do erro para diagnóstico de endpoint/região
+    console.error("DETALHES DO ERRO GOOGLE AI:");
+    console.dir(error, { depth: null });
 
     const isNotFoundError = error.message?.includes('404') || error.message?.includes('NOT_FOUND');
     const isRegionError = error.message?.includes('location') || error.message?.includes('region');
 
     if (isNotFoundError || isRegionError) {
-      throw new Error(`Erro de IA: O modelo gemini-1.5-flash não está disponível para sua chave atual ou região. Detalhe: ${error.message}`);
+      throw new Error(`Erro de IA: O modelo gemini-1.5-flash-latest não está disponível para sua chave atual ou região. Detalhe: ${error.message}`);
     }
     
     throw new Error(`Erro de Processamento: ${error.message}`);

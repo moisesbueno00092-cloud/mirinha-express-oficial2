@@ -5,7 +5,8 @@ import {config} from 'dotenv';
 config();
 
 /**
- * Configuração simplificada do Genkit para evitar erros de resolução de endpoint.
+ * Configuração simplificada do Genkit.
+ * Não passamos apiVersion para permitir que o plugin gerencie a rota mais estável (v1).
  */
 export const ai = genkit({
   plugins: [
