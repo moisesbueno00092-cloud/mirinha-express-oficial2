@@ -10,9 +10,9 @@ import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Trash2, Save, Upload, FileJson } from 'lucide-react';
+import { Loader2, Trash2, Save, Upload, FileImage, ClipboardList } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
-import { format as formatDateFn, addDays } from 'date-fns';
+import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
@@ -25,15 +25,15 @@ interface LancamentoProduto {
 }
 
 /**
- * Função de Compressão de Imagem no Cliente (Ultra Otimizada)
- * Reduz o peso da imagem (Max 1200px) e qualidade 0.7 para garantir envio rápido e evitar erro de 1MB.
+ * Função de Compressão de Imagem no Cliente
+ * Reduz o peso da imagem antes do envio para a IA, evitando erro de 1MB.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1200; // Suficiente para OCR sem exceder limites
+            const MAX_WIDTH = 1600; 
             let width = img.width;
             let height = img.height;
             
@@ -46,9 +46,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            
-            // Qualidade 0.7 gera um JPG muito leve mas nítido para IA
-            resolve(canvas.toDataURL('image/jpeg', 0.7));
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
         };
         img.src = dataUri;
     });
@@ -83,7 +81,6 @@ export default function MercadoriasPanel() {
     const [isParsingRomaneio, setIsParsingRomaneio] = useState(false);
     const [lancamentoInput, setLancamentoInput] = useState('');
     
-    const lancamentoInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fornecedoresQuery = useMemo(() => firestore ? query(collection(firestore, 'fornecedores'), orderBy('nome', 'asc')) : null, [firestore]);
@@ -104,7 +101,7 @@ export default function MercadoriasPanel() {
             const totalCompra = produtosLancados.reduce((acc, p) => acc + p.preco, 0);
 
             batch.set(doc(collection(firestore, 'contas_a_pagar')), {
-                descricao: `Compra Mercadorias (via OCR)`.trim(),
+                descricao: `Compra Mercadorias (via IA)`.trim(),
                 fornecedorId: finalFornecedorId, 
                 valor: totalCompra,
                 dataVencimento: formatDateFn(vencimentoParcela, 'yyyy-MM-dd'),
@@ -129,7 +126,7 @@ export default function MercadoriasPanel() {
                 }
             }
             await batch.commit();
-            toast({ title: 'Sucesso!', description: 'Lançamento realizado no financeiro.' });
+            toast({ title: 'Sucesso!', description: 'Registo financeiro criado com sucesso.' });
             setProdutosLancados([]); 
             setFornecedorId(undefined); 
             setDataVencimento(undefined);
@@ -141,18 +138,22 @@ export default function MercadoriasPanel() {
         }
     };
 
-    const handleAddProduto = (e?: React.FormEvent) => {
+    const handleAddProdutoManual = (e?: React.FormEvent) => {
         e?.preventDefault();
         const input = lancamentoInput.trim();
-        if (!input) {
-            if (produtosLancados.length > 0 && !isSubmitting) handleRegisterEntry();
-            return;
-        }
+        if (!input) return;
+        
         const lastSpace = input.lastIndexOf(' ');
         if (lastSpace > -1) {
             const price = parseFloat(input.substring(lastSpace + 1).replace(',', '.'));
             if (!isNaN(price)) {
-                setProdutosLancados(prev => [...prev, { id: Date.now(), produtoNome: input.substring(0, lastSpace), preco: price, quantidade: 1, precoUnitario: price }]);
+                setProdutosLancados(prev => [...prev, { 
+                    id: Date.now(), 
+                    produtoNome: input.substring(0, lastSpace), 
+                    preco: price, 
+                    quantidade: 1, 
+                    precoUnitario: price 
+                }]);
                 setLancamentoInput('');
             }
         }
@@ -161,7 +162,6 @@ export default function MercadoriasPanel() {
     const processPhoto = async (dataUri: string) => {
         setIsParsingRomaneio(true);
         try {
-            // COMPRESSÃO NO CLIENTE: Garante que o payload seja pequeno e rápido
             const compressed = await compressImage(dataUri);
             const output = await parseRomaneio({ romaneioPhoto: compressed });
             
@@ -176,9 +176,7 @@ export default function MercadoriasPanel() {
                         precoUnitario: it.valorTotal / it.quantidade 
                     }))
                 ]);
-                toast({ title: "Leitura Concluída", description: `${output.items.length} produtos identificados pelo romaneio.` });
-            } else {
-                throw new Error("Nenhum item detectado na imagem.");
+                toast({ title: "Leitura Concluída", description: `${output.items.length} produtos identificados.` });
             }
 
             if (output && output.fornecedorNome) {
@@ -189,8 +187,8 @@ export default function MercadoriasPanel() {
                 try { setDataVencimento(new Date(output.dataVencimento)); } catch(e) {}
             }
         } catch (e: any) { 
-            console.error("Erro ao processar romaneio:", e);
-            toast({ variant: 'destructive', title: 'Falha na Leitura', description: 'Não foi possível extrair dados da imagem. Verifique se o texto está nítido.' }); 
+            console.error("Erro ao processar imagem:", e);
+            toast({ variant: 'destructive', title: 'Falha na IA', description: 'Não foi possível ler os dados da imagem. Verifique a nitidez.' }); 
         } finally { 
             setIsParsingRomaneio(false); 
         }
@@ -199,14 +197,13 @@ export default function MercadoriasPanel() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (event) => {
             const dataUri = event.target?.result as string;
             processPhoto(dataUri);
         };
         reader.readAsDataURL(file);
-        e.target.value = ''; // Limpar input para permitir re-upload do mesmo arquivo
+        e.target.value = '';
     };
 
     const handleRemoveItem = (id: number) => {
@@ -229,12 +226,10 @@ export default function MercadoriasPanel() {
                 <div className="space-y-2">
                     <Label>Fornecedor</Label>
                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                        <SelectTrigger className="h-10"><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
                         <SelectContent>
                             {fornecedores?.map(f => (
-                                <SelectItem key={f.id} value={f.id} style={{ color: f.color }}>
-                                    {f.nome}
-                                </SelectItem>
+                                <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -245,72 +240,60 @@ export default function MercadoriasPanel() {
                 </div>
             </div>
 
-            <div className="space-y-4">
-                <div className="bg-primary/5 border-2 border-dashed border-primary/30 rounded-xl p-6 text-center space-y-4">
-                    <div className="flex justify-center">
-                        <div className="bg-primary/10 p-4 rounded-full">
-                            <Upload className="h-10 w-10 text-primary" />
-                        </div>
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-lg">Carregar Romaneio JPG</h3>
-                        <p className="text-sm text-muted-foreground">O sistema usará IA para ler produtos e preços automaticamente.</p>
-                    </div>
-                    <Button 
-                        size="lg"
-                        className="w-full sm:w-auto px-10 h-12 gap-3"
-                        onClick={() => fileInputRef.current?.click()} 
-                        disabled={isParsingRomaneio}
-                    >
-                        {isParsingRomaneio ? <Loader2 className="h-5 w-5 animate-spin"/> : <FileJson className="h-5 w-5"/>}
-                        {isParsingRomaneio ? 'A Analisar Imagem...' : 'Escolher Ficheiro do PC'}
-                    </Button>
+            <div className="bg-primary/5 border-2 border-dashed border-primary/30 rounded-xl p-8 text-center space-y-4">
+                <div className="bg-primary/10 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto">
+                    <FileImage className="h-8 w-8 text-primary" />
                 </div>
-                
-                <div className="relative">
-                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-muted" /></div>
-                    <div className="relative flex justify-center text-[0.6rem] uppercase"><span className="bg-card px-2 text-muted-foreground tracking-widest font-bold">Ou introdução manual rápida</span></div>
+                <div>
+                    <h3 className="font-bold text-lg">Carregar Romaneio JPG do PC</h3>
+                    <p className="text-sm text-muted-foreground">A IA irá ler os produtos e preços automaticamente.</p>
                 </div>
+                <Button 
+                    size="lg"
+                    className="w-full sm:w-auto px-10 h-14 gap-3 text-lg font-bold"
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={isParsingRomaneio}
+                >
+                    {isParsingRomaneio ? <Loader2 className="h-6 w-6 animate-spin"/> : <Upload className="h-6 w-6"/>}
+                    {isParsingRomaneio ? 'A Processar...' : 'Escolher Ficheiro'}
+                </Button>
+            </div>
 
-                <div className="relative">
-                    <Input 
-                        ref={lancamentoInputRef} 
-                        placeholder="Ex: Tomate 15,50 (Enter para adicionar)" 
-                        value={lancamentoInput} 
-                        onChange={(e) => setLancamentoInput(e.target.value)} 
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddProduto()} 
-                        disabled={isParsingRomaneio}
-                        className="h-12 text-base border-primary/20 focus:border-primary"
-                    />
-                </div>
+            <div className="relative">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-muted" /></div>
+                <div className="relative flex justify-center text-[0.6rem] uppercase"><span className="bg-card px-2 text-muted-foreground tracking-widest font-bold">Ou introdução manual rápida</span></div>
+            </div>
+
+            <div className="flex gap-2">
+                <Input 
+                    placeholder="Ex: Arroz 25,90 (Enter para adicionar)" 
+                    value={lancamentoInput} 
+                    onChange={(e) => setLancamentoInput(e.target.value)} 
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddProdutoManual()} 
+                    className="h-12"
+                />
+                <Button variant="outline" onClick={() => handleAddProdutoManual()} className="h-12">Adicionar</Button>
             </div>
 
             {produtosLancados.length > 0 && (
                 <div className="border rounded-xl overflow-hidden shadow-sm">
-                    <div className="bg-muted/50 px-4 py-2 text-[0.7rem] font-bold uppercase flex justify-between items-center border-b">
-                        <span className="flex items-center gap-2 text-primary"><FileJson className="h-3 w-3"/> Itens para Conferência</span>
-                        <span className="text-foreground">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
+                    <div className="bg-muted/50 px-4 py-3 text-[0.7rem] font-bold uppercase flex justify-between items-center border-b">
+                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Conferência de Itens</span>
+                        <span className="text-foreground text-sm">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
                     </div>
-                    <ScrollArea className="h-56">
+                    <ScrollArea className="h-64">
                         <div className="divide-y">
                             {produtosLancados.map(p => (
-                                <div key={p.id} className="flex justify-between items-center p-3 text-sm hover:bg-muted/30 group transition-colors">
+                                <div key={p.id} className="flex justify-between items-center p-4 hover:bg-muted/30 group">
                                     <div className="flex flex-col">
-                                        <span className="font-semibold uppercase tracking-tight">{p.produtoNome}</span>
-                                        <span className="text-[0.65rem] text-muted-foreground font-medium">
+                                        <span className="font-semibold uppercase text-sm">{p.produtoNome}</span>
+                                        <span className="text-[0.65rem] text-muted-foreground">
                                             {p.quantidade} un x {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <span className="font-mono font-black text-primary">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="h-8 w-8 text-destructive/50 hover:text-destructive hover:bg-destructive/10" 
-                                            onClick={() => handleRemoveItem(p.id)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        <span className="font-mono font-bold text-primary">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
+                                        <Button variant="ghost" size="icon" className="text-destructive/50 hover:text-destructive" onClick={() => handleRemoveItem(p.id)}><Trash2 className="h-4 w-4" /></Button>
                                     </div>
                                 </div>
                             ))}
@@ -319,20 +302,14 @@ export default function MercadoriasPanel() {
                 </div>
             )}
 
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t">
-                <div className="text-center sm:text-left">
-                    <span className="text-[0.65rem] text-muted-foreground uppercase font-black tracking-widest">Valor Total do Lançamento</span>
-                    <div className="font-black text-3xl text-primary">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</div>
+            {produtosLancados.length > 0 && (
+                <div className="flex justify-end pt-4 border-t">
+                    <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-14 px-10 text-lg font-bold shadow-lg gap-2">
+                        {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : <Save className="h-5 w-5" />}
+                        Confirmar e Criar Registo
+                    </Button>
                 </div>
-                <Button 
-                    onClick={handleRegisterEntry} 
-                    disabled={isSubmitting || produtosLancados.length === 0}
-                    className="h-14 px-10 text-lg font-bold shadow-lg w-full sm:w-auto"
-                >
-                    {isSubmitting ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Save className="mr-2 h-5 w-5" />}
-                    Confirmar e Gerar Conta
-                </Button>
-            </div>
+            )}
         </div>
     );
 }

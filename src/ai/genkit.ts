@@ -6,7 +6,7 @@ config();
 
 /**
  * Configuração central do Genkit otimizada para o Restaurante da Mirinha.
- * Utiliza o identificador estável para o modelo gemini-1.5-flash-latest para evitar erros 404.
+ * Utiliza o modelo gemini-1.5-flash estável para leitura de imagens e OCR.
  */
 export const ai = genkit({
   plugins: [
@@ -14,5 +14,5 @@ export const ai = genkit({
       apiKey: process.env.GEMINI_API_KEY
     })
   ],
-  model: 'googleai/gemini-1.5-flash-latest',
+  model: 'googleai/gemini-1.5-flash',
 });
