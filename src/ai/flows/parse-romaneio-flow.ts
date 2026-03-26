@@ -27,7 +27,9 @@ export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
     const response = await ai.generate({
-      model: 'gemini-1.5-flash',
+      // Utilizando o identificador completo 'googleai/gemini-1.5-flash' para garantir 
+      // que o provedor resolva corretamente o modelo na API v1beta.
+      model: 'googleai/gemini-1.5-flash',
       prompt: [
         { text: `Você é um especialista em ler romaneios e notas fiscais de mercadorias no Brasil.
         Sua tarefa é extrair:
@@ -52,9 +54,11 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     // Exibe o erro original completo no console conforme solicitado para diagnóstico
     console.error("DEBUG - Erro original completo capturado no catch:", error);
     
-    if (error.message?.includes('404')) {
-       throw new Error("Erro de conexão com a IA (Modelo não encontrado ou região não suportada).");
+    // Tratamento de erros de modelo não encontrado ou região
+    if (error.message?.includes('404') || error.message?.includes('NOT_FOUND')) {
+       throw new Error("Erro de conexão com a IA (Modelo não encontrado ou região não suportada). Verifique se a sua chave de API tem acesso ao modelo gemini-1.5-flash.");
     }
+    
     throw new Error(`Erro de Processamento: ${error.message}`);
   }
 }
