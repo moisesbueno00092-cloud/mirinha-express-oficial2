@@ -26,8 +26,8 @@ interface LancamentoProduto {
 
 /**
  * Otimiza a imagem antes do envio para a IA.
- * Reduz dimensões e qualidade para garantir que o ficheiro fique leve (evitando o erro de 1MB),
- * mas mantém a nitidez necessária para o OCR.
+ * Reduz dimensões e qualidade para garantir que o ficheiro fique leve,
+ * evitando erros de limite de payload, mas mantendo a nitidez necessária.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
@@ -47,7 +47,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            // Qualidade 0.7 é o equilíbrio ideal entre peso e leitura de texto
+            // Qualidade 0.7 é ideal para manter a leitura do texto sem pesar no envio
             resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.src = dataUri;
@@ -72,7 +72,7 @@ export default function MercadoriasPanel() {
     const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
     /**
-     * Processa a foto selecionada: comprime localmente e envia para a IA.
+     * Processa o ficheiro selecionado: comprime no navegador e envia para o Gemini 2.0 Flash.
      */
     const processPhoto = async (dataUri: string) => {
         setIsParsingRomaneio(true);
@@ -89,10 +89,10 @@ export default function MercadoriasPanel() {
                     precoUnitario: it.quantidade > 0 ? it.valorTotal / it.quantidade : it.valorTotal
                 }));
                 setProdutosLancados(prev => [...prev, ...newItems]);
-                toast({ title: "Extração Concluída", description: `${output.items.length} itens encontrados no romaneio.` });
+                toast({ title: "Informações Extraídas", description: `Encontrámos ${output.items.length} itens no documento.` });
             }
 
-            // Tenta associar automaticamente o fornecedor pelo nome extraído
+            // Tenta selecionar automaticamente o fornecedor se o nome for parecido
             if (output?.fornecedorNome && fornecedores) {
                 const matched = fornecedores.find(f => 
                     f.nome.toLowerCase().includes(output.fornecedorNome!.toLowerCase()) ||
@@ -101,7 +101,7 @@ export default function MercadoriasPanel() {
                 if (matched) setFornecedorId(matched.id);
             }
 
-            // Tenta associar automaticamente a data de vencimento
+            // Tenta captar a data de vencimento automaticamente
             if (output?.dataVencimento) {
                 try {
                     const [y, m, d] = output.dataVencimento.split('-').map(Number);
@@ -109,11 +109,11 @@ export default function MercadoriasPanel() {
                 } catch {}
             }
         } catch (e: any) {
-            console.error("Erro no processamento:", e);
+            console.error("Erro no processamento da imagem:", e);
             toast({ 
                 variant: 'destructive', 
-                title: 'Falha na Extração', 
-                description: e.message || 'Verifique a sua conexão ou imagem.' 
+                title: 'Erro na Análise', 
+                description: e.message || 'Não foi possível ler os dados da imagem.' 
             });
         } finally {
             setIsParsingRomaneio(false);
@@ -139,8 +139,9 @@ export default function MercadoriasPanel() {
             const estaPaga = !dataVencimento;
             const vencimento = dataVencimento || new Date();
 
+            // 1. Criar a conta a pagar
             batch.set(doc(collection(firestore, 'contas_a_pagar')), {
-                descricao: `Compra via Romaneio IA`,
+                descricao: `Entrada via Imagem (IA)`,
                 fornecedorId: finalFornecedorId,
                 valor: produtosLancados.reduce((acc, p) => acc + p.preco, 0),
                 dataVencimento: formatDateFn(vencimento, 'yyyy-MM-dd'),
@@ -148,6 +149,7 @@ export default function MercadoriasPanel() {
                 romaneioId
             });
 
+            // 2. Registar cada item no histórico e atualizar stock se necessário
             for (const p of produtosLancados) {
                 batch.set(doc(collection(firestore, 'entradas_mercadorias')), {
                     produtoNome: p.produtoNome,
@@ -160,7 +162,7 @@ export default function MercadoriasPanel() {
                     romaneioId
                 });
                 
-                // Atualização automática de stock se o nome for similar
+                // Tenta encontrar um item correspondente na bomboniere para atualizar stock
                 const matched = bomboniereItems?.find(bi => 
                     p.produtoNome.toLowerCase().startsWith(bi.name.toLowerCase().split('(')[0].trim())
                 );
@@ -172,12 +174,12 @@ export default function MercadoriasPanel() {
             }
 
             await batch.commit();
-            toast({ title: 'Sucesso!', description: 'Lançamento financeiro e histórico criados.' });
+            toast({ title: 'Lançamento Concluído!', description: 'Os dados foram gravados no financeiro e histórico.' });
             setProdutosLancados([]);
             setFornecedorId(undefined);
             setDataVencimento(undefined);
         } catch (e) {
-            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível gravar os dados.' });
+            toast({ variant: 'destructive', title: 'Erro ao Gravar', description: 'Ocorreu um erro ao guardar os dados no sistema.' });
         } finally {
             setIsSubmitting(false);
         }
@@ -206,60 +208,60 @@ export default function MercadoriasPanel() {
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold">Vencimento (Vazio = Pago Hoje)</Label>
+                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold">Data de Vencimento</Label>
                     <DatePicker date={dataVencimento} setDate={setDataVencimento} />
                 </div>
             </div>
 
-            {/* Área de Seleção de Ficheiro */}
-            <div className="bg-primary/5 border-2 border-dashed border-primary/30 rounded-2xl p-10 text-center space-y-5">
-                <div className="bg-primary/10 p-5 rounded-full w-20 h-20 flex items-center justify-center mx-auto">
-                    <FileImage className="h-10 w-10 text-primary" />
+            {/* Upload Area */}
+            <div className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-3xl p-12 text-center space-y-6 transition-all hover:bg-primary/10 hover:border-primary/40 group">
+                <div className="bg-primary/10 p-6 rounded-full w-24 h-24 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                    <FileImage className="h-12 w-12 text-primary" />
                 </div>
-                <div>
-                    <h3 className="font-black text-xl text-foreground">Entrada por Imagem JPG</h3>
-                    <p className="text-sm text-muted-foreground max-w-sm mx-auto">Escolha uma foto do romaneio guardada no seu computador para extração automática.</p>
+                <div className="space-y-2">
+                    <h3 className="font-black text-2xl text-foreground">Carregar Romaneio JPG</h3>
+                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Selecione uma foto nítida do documento para que a IA extraia os dados automaticamente.</p>
                 </div>
                 <Button 
                     size="lg" 
-                    className="w-full sm:w-auto h-16 gap-3 text-lg font-black px-12 rounded-xl shadow-lg" 
+                    className="w-full sm:w-auto h-16 gap-4 text-xl font-black px-16 rounded-2xl shadow-2xl hover:translate-y-[-2px] transition-all" 
                     onClick={() => fileInputRef.current?.click()} 
                     disabled={isParsingRomaneio}
                 >
-                    {isParsingRomaneio ? <Loader2 className="h-6 w-6 animate-spin"/> : <Upload className="h-6 w-6"/>}
-                    {isParsingRomaneio ? 'A Analisar Nota...' : 'Escolher Imagem (JPG/PNG)'}
+                    {isParsingRomaneio ? <Loader2 className="h-7 w-7 animate-spin"/> : <Upload className="h-7 w-7"/>}
+                    {isParsingRomaneio ? 'Analisando Imagem...' : 'Escolher Ficheiro'}
                 </Button>
             </div>
 
-            {/* Lista de Resultados da IA */}
+            {/* Extraction Results */}
             {produtosLancados.length > 0 && (
-                <div className="border rounded-2xl overflow-hidden bg-card shadow-xl">
-                    <div className="bg-muted/50 px-6 py-4 text-[0.7rem] font-black uppercase flex justify-between items-center border-b">
-                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Itens Identificados pela IA</span>
-                        <span className="text-foreground text-base">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
+                <div className="border border-border/50 rounded-3xl overflow-hidden bg-card/50 shadow-2xl backdrop-blur-sm">
+                    <div className="bg-muted/30 px-8 py-5 flex justify-between items-center border-b border-border/50">
+                        <span className="flex items-center gap-3 text-primary font-bold uppercase text-sm tracking-widest"><ClipboardList className="h-5 w-5"/> Itens Detetados</span>
+                        <span className="text-foreground font-black text-lg">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
                     </div>
-                    <ScrollArea className="h-72">
-                        <div className="divide-y">
+                    <ScrollArea className="h-80">
+                        <div className="divide-y divide-border/30">
                             {produtosLancados.map(p => (
-                                <div key={p.id} className="flex justify-between items-center p-5 hover:bg-muted/30 transition-colors">
-                                    <div className="flex flex-col">
-                                        <span className="font-bold uppercase text-sm leading-tight">{p.produtoNome}</span>
-                                        <span className="text-[0.65rem] text-muted-foreground mt-1">
-                                            {p.quantidade.toLocaleString('pt-BR')} un x {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}
+                                <div key={p.id} className="flex justify-between items-center px-8 py-6 hover:bg-primary/5 transition-colors">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="font-bold uppercase text-base leading-none">{p.produtoNome}</span>
+                                        <span className="text-[0.7rem] text-muted-foreground font-medium uppercase tracking-tight">
+                                            {p.quantidade.toLocaleString('pt-BR')} unidades · unitário {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-5">
-                                        <span className="font-mono font-black text-primary text-base">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
-                                        <Button variant="ghost" size="icon" className="h-10 w-10 text-destructive/40 hover:text-destructive hover:bg-destructive/10 rounded-full" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-5 w-5" /></Button>
+                                    <div className="flex items-center gap-6">
+                                        <span className="font-mono font-black text-primary text-xl">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
+                                        <Button variant="ghost" size="icon" className="h-12 w-12 text-destructive/30 hover:text-destructive hover:bg-destructive/10 rounded-full" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-6 w-6" /></Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </ScrollArea>
-                    <div className="p-6 bg-muted/20 border-t flex justify-end">
-                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-14 px-12 text-lg font-black gap-3 rounded-xl">
-                            {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : <CheckCircle2 className="h-6 w-6" />}
-                            Confirmar e Criar Lançamento
+                    <div className="p-8 bg-muted/10 border-t border-border/50 flex justify-end">
+                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-16 px-16 text-xl font-black gap-4 rounded-2xl shadow-lg">
+                            {isSubmitting ? <Loader2 className="animate-spin h-7 w-7" /> : <CheckCircle2 className="h-7 w-7" />}
+                            Confirmar Lançamento
                         </Button>
                     </div>
                 </div>

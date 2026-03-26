@@ -1,9 +1,9 @@
 'use server';
 
 /**
- * @fileOverview Fluxo de extração de dados de romaneios via IA.
+ * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 2.0 Flash.
  * 
- * Este fluxo utiliza o modelo Gemini 1.5 Flash para ler imagens de romaneios
+ * Este fluxo utiliza o modelo mais recente para ler imagens de romaneios
  * e extrair dados estruturados (produtos, quantidades e valores).
  */
 
@@ -24,20 +24,23 @@ export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
  * Processa a imagem do romaneio e retorna os dados extraídos.
- * Utiliza o identificador de modelo 'googleai/gemini-1.5-flash' para garantir a resolução correta.
+ * Utiliza o identificador 'googleai/gemini-2.0-flash' para maior precisão e velocidade.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
-    // A chamada utiliza o identificador canónico do modelo no Genkit 1.x
+    // Chamada direta ao modelo Gemini 2.0 Flash
     const response = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-2.0-flash',
       prompt: [
-        { text: `Você é um especialista em ler romaneios e notas fiscais de mercadorias no Brasil.
-        Sua tarefa é extrair o nome do fornecedor, a data de vencimento e a lista de produtos (nome, quantidade e valor total).
+        { text: `Você é um especialista em leitura de notas fiscais e romaneios de mercadorias no Brasil.
+        Sua tarefa é extrair:
+        1. Nome do fornecedor (empresa vendedora).
+        2. Data de vencimento da fatura (se houver, no formato YYYY-MM-DD).
+        3. Lista de produtos, com nome, quantidade e valor total da linha.
+
+        IMPORTANTE: Retorne APENAS um objeto JSON puro e válido. Não inclua explicações ou blocos de código.
         
-        IMPORTANTE: Retorne APENAS um objeto JSON puro e válido.
-        
-        Formato esperado:
+        Formato do JSON:
         {
           "items": [
             { "produtoNome": "NOME DO ITEM", "quantidade": 10, "valorTotal": 150.50 }
@@ -48,7 +51,7 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
         { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
       ],
       config: {
-        temperature: 0.1,
+        temperature: 0.1, // Baixa temperatura para maior precisão nos dados numéricos
       }
     });
 
@@ -57,29 +60,26 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
       throw new Error("A IA não retornou nenhum texto de resposta.");
     }
 
-    // Limpeza de blocos de código markdown se a IA os incluir
+    // Limpeza de possíveis blocos de código markdown na resposta
     const cleanedJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
     
     try {
       const parsed = JSON.parse(cleanedJson);
       return ParseRomaneioOutputSchema.parse(parsed);
     } catch (parseError) {
-      console.error("Erro ao converter resposta em JSON. Resposta original:", text);
-      throw new Error("A resposta da IA não está num formato de dados válido.");
+      console.error("Erro ao converter resposta em JSON. Texto recebido:", text);
+      throw new Error("Os dados retornados pela IA não estão num formato válido.");
     }
 
   } catch (error: any) {
-    // LOG CRÍTICO para diagnóstico detalhado no terminal do servidor
-    console.error("DETALHES DO ERRO GOOGLE AI (METADADOS COMPLETOS):");
+    // Log detalhado no servidor para diagnóstico
+    console.error("DETALHES DO ERRO IA (METADADOS):");
     console.dir(error, { depth: null });
 
-    const isNotFoundError = error.message?.includes('404') || error.message?.includes('NOT_FOUND');
-    const isRegionError = error.message?.includes('location') || error.message?.includes('region');
-
-    if (isNotFoundError || isRegionError) {
-      throw new Error(`Erro de IA: O modelo gemini-1.5-flash não foi encontrado ou não está disponível na sua região/chave. Detalhe: ${error.message}`);
+    if (error.message?.includes('404') || error.message?.includes('NOT_FOUND')) {
+      throw new Error(`O modelo Gemini 2.0 Flash não foi encontrado ou não está disponível na sua região.`);
     }
     
-    throw new Error(`Erro de Processamento: ${error.message}`);
+    throw new Error(`Falha no processamento: ${error.message}`);
   }
 }

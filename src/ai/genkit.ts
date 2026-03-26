@@ -6,8 +6,8 @@ config();
 
 /**
  * Configuração do Genkit utilizando o plugin Google AI.
- * Removida a versão fixa para permitir que o plugin utilize a rota v1beta estável por defeito,
- * que é onde o modelo Gemini 1.5 Flash reside com suporte completo a media.
+ * Configuração simplificada para permitir que o plugin utilize os endpoints
+ * mais adequados para os modelos da família Gemini 2.0 e 1.5.
  */
 export const ai = genkit({
   plugins: [
