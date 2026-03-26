@@ -27,8 +27,7 @@ export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
     const response = await ai.generate({
-      // Utilizando o identificador completo 'googleai/gemini-1.5-flash' para garantir 
-      // que o provedor resolva corretamente o modelo na API v1beta.
+      // Utilizando o identificador completo para garantir que o provedor localize o modelo corretamente
       model: 'googleai/gemini-1.5-flash',
       prompt: [
         { text: `Você é um especialista em ler romaneios e notas fiscais de mercadorias no Brasil.
@@ -51,12 +50,14 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
 
     return response.output;
   } catch (error: any) {
-    // Exibe o erro original completo no console conforme solicitado para diagnóstico
-    console.error("DEBUG - Erro original completo capturado no catch:", error);
-    
-    // Tratamento de erros de modelo não encontrado ou região
-    if (error.message?.includes('404') || error.message?.includes('NOT_FOUND')) {
-       throw new Error("Erro de conexão com a IA (Modelo não encontrado ou região não suportada). Verifique se a sua chave de API tem acesso ao modelo gemini-1.5-flash.");
+    // LOG CRÍTICO: Abre o console do terminal para ver o motivo real (Region? Billing? Key?)
+    console.error("DETALHES DO ERRO GOOGLE AI:", error);
+
+    const isNotFoundError = error.message?.includes('404') || error.message?.includes('NOT_FOUND');
+    const isRegionError = error.message?.includes('location') || error.message?.includes('region');
+
+    if (isNotFoundError || isRegionError) {
+      throw new Error(`Erro de IA: O modelo gemini-1.5-flash não está disponível para sua chave atual ou região. Detalhe: ${error.message}`);
     }
     
     throw new Error(`Erro de Processamento: ${error.message}`);
