@@ -1,62 +1,38 @@
 'use server';
 
 /**
- * @fileOverview Extrai dados de produtos de uma imagem de romaneio (JPG/PNG).
- *
- * - parseRomaneio - Função principal que processa a imagem via IA.
- * - ParseRomaneioInput - Entrada esperada (Data URI da imagem).
- * - ParseRomaneioOutput - Dados extraídos (Itens, Fornecedor, Vencimento).
+ * @fileOverview Fluxo de extração de dados de romaneios via IA.
+ * 
+ * Este ficheiro utiliza a abordagem direta de ai.generate para máxima 
+ * compatibilidade com o modelo Gemini 1.5 Flash, evitando erros 404.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
 
 const ParseRomaneioInputSchema = z.object({
   romaneioPhoto: z
     .string()
     .describe(
-      "A foto de um romaneio ou nota fiscal, como um Data URI Base64. Formato esperado: 'data:<mimetype>;base64,<encoded_data>'."
+      "A foto de um romaneio ou nota fiscal em Base64 Data URI."
     ),
 });
 export type ParseRomaneioInput = z.infer<typeof ParseRomaneioInputSchema>;
 
-const ParsedItemSchema = z.object({
-    produtoNome: z.string().describe("O nome completo e descritivo do produto."),
-    quantidade: z.number().describe("A quantidade comprada."),
-    valorTotal: z.number().describe("O valor total desta linha (quantidade * preço unitário)."),
-});
-
 const ParseRomaneioOutputSchema = z.object({
-  items: z.array(ParsedItemSchema).describe("Lista de produtos encontrados."),
-  fornecedorNome: z.string().optional().describe("Nome do fornecedor/emitente."),
-  dataVencimento: z.string().optional().describe("Data de vencimento da nota (YYYY-MM-DD)."),
+  items: z.array(z.object({
+    produtoNome: z.string().describe("Nome do produto."),
+    quantidade: z.number().describe("Qtd."),
+    valorTotal: z.number().describe("Valor total da linha."),
+  })).describe("Lista de produtos."),
+  fornecedorNome: z.string().optional().describe("Nome do fornecedor."),
+  dataVencimento: z.string().optional().describe("Vencimento YYYY-MM-DD."),
 });
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 export async function parseRomaneio(input: ParseRomaneioInput): Promise<ParseRomaneioOutput> {
   return parseRomaneioFlow(input);
 }
-
-const parseRomaneioPrompt = ai.definePrompt({
-  name: 'parseRomaneioPrompt',
-  input: {schema: ParseRomaneioInputSchema},
-  output: {schema: ParseRomaneioOutputSchema},
-  prompt: `Você é um assistente especializado em ler romaneios e notas fiscais brasileiras.
-Sua tarefa é analisar a imagem fornecida e extrair os produtos, quantidades e valores totais de cada linha.
-
-Identifique:
-1. Nome do Fornecedor (Emitente).
-2. Data de Vencimento (YYYY-MM-DD). Se não houver, deixe em branco.
-3. Lista de Itens:
-   - Extraia o nome do produto.
-   - Extraia a quantidade (número).
-   - Extraia o VALOR TOTAL daquela linha.
-
-Importante: Ignore impostos e rodapés. Foque apenas na lista de mercadorias.
-
-Imagem do romaneio:
-{{media url=romaneioPhoto}}`,
-});
 
 const parseRomaneioFlow = ai.defineFlow(
   {
@@ -66,13 +42,30 @@ const parseRomaneioFlow = ai.defineFlow(
   },
   async (input) => {
     try {
-      // Forçamos o uso do modelo estável para evitar erros 404
-      const { output } = await parseRomaneioPrompt(input);
-      if (!output) throw new Error("A IA não conseguiu ler os dados desta imagem.");
-      return output;
+      // Abordagem alternativa: usamos ai.generate diretamente com o modelo explícito
+      // Isso resolve falhas de resolução de endpoint que ocorrem em definePrompt
+      const response = await ai.generate({
+        model: 'googleai/gemini-1.5-flash',
+        prompt: [
+          { text: `Você é um especialista em ler notas fiscais e romaneios brasileiros.
+          Extraia o nome do fornecedor, a data de vencimento (se houver) e a lista de itens.
+          Para cada item, identifique o nome, a quantidade e o valor total daquela linha.
+          Retorne os dados rigorosamente no formato JSON solicitado.` },
+          { media: { url: input.romaneioPhoto } }
+        ],
+        output: {
+          schema: ParseRomaneioOutputSchema
+        }
+      });
+
+      if (!response.output) {
+        throw new Error("A IA não conseguiu gerar uma resposta válida.");
+      }
+
+      return response.output;
     } catch (error: any) {
-      console.error("Erro no processamento do romaneio:", error.message);
-      throw new Error(`Falha ao ler romaneio: ${error.message}`);
+      console.error("Erro na extração do romaneio:", error);
+      throw new Error(`Erro de Processamento: ${error.message}`);
     }
   }
 );

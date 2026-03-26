@@ -5,8 +5,9 @@ import {config} from 'dotenv';
 config();
 
 /**
- * Configuração central do Genkit otimizada para o Restaurante da Mirinha.
- * Utiliza o modelo gemini-1.5-flash de forma estável para leitura de documentos.
+ * Configuração centralizada do Genkit.
+ * Removemos o modelo padrão global para evitar erros de resolução de endpoint
+ * e garantir que cada fluxo use a referência mais estável.
  */
 export const ai = genkit({
   plugins: [
@@ -14,5 +15,4 @@ export const ai = genkit({
       apiKey: process.env.GEMINI_API_KEY
     })
   ],
-  model: 'googleai/gemini-1.5-flash',
 });
