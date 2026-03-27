@@ -25,15 +25,15 @@ interface LancamentoProduto {
 }
 
 /**
- * Comprime a imagem de forma agressiva para evitar erros de pré-condição e limite de memória.
- * Reduz a largura para 800px e a qualidade para 50%.
+ * Comprime a imagem no cliente para evitar erros de limite de memória no servidor.
+ * Otimizado para manter a legibilidade do texto para a IA.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 800; 
+            const MAX_WIDTH = 1000; // Tamanho ideal para OCR
             let width = img.width;
             let height = img.height;
             if (width > MAX_WIDTH) {
@@ -43,8 +43,12 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.5));
+            if (ctx) {
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, width, height);
+            }
+            resolve(canvas.toDataURL('image/jpeg', 0.7)); // Qualidade balanceada
         };
         img.src = dataUri;
     });
@@ -76,10 +80,10 @@ export default function MercadoriasPanel() {
         
         if (result.success) {
             setAiStatus('online');
-            toast({ title: 'IA Conectada', description: result.message });
+            toast({ title: 'IA Ativa', description: result.message });
         } else {
             setAiStatus('offline');
-            toast({ variant: 'destructive', title: 'Erro na IA', description: result.message });
+            toast({ variant: 'destructive', title: 'Falha na IA', description: result.message });
         }
     };
 
@@ -98,7 +102,7 @@ export default function MercadoriasPanel() {
                     precoUnitario: it.quantidade > 0 ? it.valorTotal / it.quantidade : it.valorTotal
                 }));
                 setProdutosLancados(newItems);
-                toast({ title: "Sucesso!", description: `Extraídos ${output.items.length} itens do romaneio.` });
+                toast({ title: "Sucesso!", description: `Lidos ${output.items.length} itens do romaneio.` });
             }
 
             if (output?.fornecedorNome && fornecedores) {
@@ -116,7 +120,7 @@ export default function MercadoriasPanel() {
             }
         } catch (e: any) {
             console.error("Erro no processamento:", e);
-            toast({ variant: 'destructive', title: 'Erro de Processamento', description: e.message });
+            toast({ variant: 'destructive', title: 'Erro de Análise', description: e.message });
         } finally {
             setIsParsingRomaneio(false);
         }
@@ -173,12 +177,12 @@ export default function MercadoriasPanel() {
             }
 
             await batch.commit();
-            toast({ title: 'Lançamento Efetuado!' });
+            toast({ title: 'Lançamento Concluído!' });
             setProdutosLancados([]);
             setFornecedorId(undefined);
             setDataVencimento(undefined);
         } catch (e) {
-            toast({ variant: 'destructive', title: 'Erro ao Gravar no Banco' });
+            toast({ variant: 'destructive', title: 'Erro ao Gravar' });
         } finally {
             setIsSubmitting(false);
         }
@@ -190,22 +194,22 @@ export default function MercadoriasPanel() {
 
             <div className="flex justify-between items-center bg-muted/20 p-3 rounded-xl border border-border/50">
                 <div className="flex items-center gap-2">
-                    <div className={cn("w-2 h-2 rounded-full animate-pulse", 
-                        aiStatus === 'online' ? 'bg-green-500' : aiStatus === 'offline' ? 'bg-red-500' : 'bg-gray-500'
+                    <div className={cn("w-2 h-2 rounded-full", 
+                        aiStatus === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : aiStatus === 'offline' ? 'bg-red-500' : 'bg-gray-500'
                     )} />
                     <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        Status da IA: {aiStatus === 'online' ? 'Online' : aiStatus === 'offline' ? 'Indisponível' : 'Pronto'}
+                        IA: {aiStatus === 'online' ? 'LIGADA' : aiStatus === 'offline' ? 'DESLIGADA' : 'PRONTA'}
                     </span>
                 </div>
                 <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="h-8 gap-2 text-[0.65rem] font-bold" 
+                    className="h-8 gap-2 text-[0.65rem] font-bold hover:bg-primary/10" 
                     onClick={handleCheckStatus}
                     disabled={isTestingConnection}
                 >
-                    {isTestingConnection ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                    VERIFICAR CONEXÃO NO SERVIDOR
+                    {isTestingConnection ? <Loader2 className="h-3 w-3 animate-spin text-primary" /> : <Zap className="h-3 w-3 text-primary" />}
+                    TESTAR CONEXÃO VERCEL
                 </Button>
             </div>
 
@@ -230,8 +234,8 @@ export default function MercadoriasPanel() {
                     <FileImage className="h-12 w-12 text-primary" />
                 </div>
                 <div className="space-y-2">
-                    <h3 className="font-black text-2xl text-foreground">Enviar Romaneio (JPG)</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Carregue a foto do romaneio da memória do seu dispositivo para extração automática.</p>
+                    <h3 className="font-black text-2xl text-foreground">Carregar Romaneio</h3>
+                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Selecione a foto do romaneio do seu dispositivo para análise automática pela IA.</p>
                 </div>
                 <Button 
                     size="lg" 
@@ -240,14 +244,14 @@ export default function MercadoriasPanel() {
                     disabled={isParsingRomaneio}
                 >
                     {isParsingRomaneio ? <Loader2 className="h-7 w-7 animate-spin"/> : <Upload className="h-7 w-7"/>}
-                    {isParsingRomaneio ? 'Analisando...' : 'Escolher Ficheiro'}
+                    {isParsingRomaneio ? 'Analisando Imagem...' : 'Escolher Ficheiro'}
                 </Button>
             </div>
 
             {produtosLancados.length > 0 && (
                 <div className="border border-border/50 rounded-3xl overflow-hidden bg-card/50 shadow-2xl backdrop-blur-sm">
                     <div className="bg-muted/30 px-8 py-5 flex justify-between items-center border-b border-border/50">
-                        <span className="flex items-center gap-3 text-primary font-bold uppercase text-sm tracking-widest"><ClipboardList className="h-5 w-5"/> Conferência de Itens</span>
+                        <span className="flex items-center gap-3 text-primary font-bold uppercase text-sm tracking-widest"><ClipboardList className="h-5 w-5"/> Itens Extraídos</span>
                         <span className="text-foreground font-black text-lg">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
                     </div>
                     <ScrollArea className="h-80">
@@ -271,7 +275,7 @@ export default function MercadoriasPanel() {
                     <div className="p-8 bg-muted/10 border-t border-border/50 flex justify-end">
                         <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-16 px-16 text-xl font-black gap-4 rounded-2xl">
                             {isSubmitting ? <Loader2 className="animate-spin h-7 w-7" /> : <CheckCircle2 className="h-7 w-7" />}
-                            Confirmar Lançamento
+                            Salvar Lançamento
                         </Button>
                     </div>
                 </div>

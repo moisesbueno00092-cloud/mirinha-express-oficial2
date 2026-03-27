@@ -1,8 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Fluxo de extração de dados de romaneios utilizando o modelo 1.5 Flash.
- * Otimizado para estabilidade em ambientes Vercel e tratamento de erros de precondição.
+ * @fileOverview Fluxo de extração de dados de romaneios otimizado para Vercel.
  */
 
 import { ai } from '@/ai/genkit';
@@ -21,13 +20,13 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Verifica se a chave de API está a funcionar corretamente no servidor.
+ * Testa a conexão com a IA utilizando o modelo estável.
  */
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
   try {
     const response = await ai.generate({
       model: 'googleai/gemini-1.5-flash',
-      prompt: 'Responda apenas OK.',
+      prompt: 'Responda apenas "OK".',
     });
 
     if (response.text?.includes('OK')) {
@@ -36,13 +35,13 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
     return { success: false, message: 'A IA respondeu, mas o formato foi inesperado.' };
   } catch (error: any) {
     console.error("ERRO TESTE CONEXÃO:", error);
-    return { success: false, message: `Erro de conexão: ${error.message}` };
+    return { success: false, message: `Erro: ${error.message}` };
   }
 }
 
 /**
- * Processa a imagem do romaneio e retorna os dados extraídos.
- * Utiliza o modelo estável 1.5 Flash para máxima compatibilidade.
+ * Extrai dados do romaneio via IA.
+ * Utiliza o identificador canónico para evitar erros 404.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
@@ -52,10 +51,10 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
         { text: `Você é um assistente especializado em romaneios de restaurante. 
         Analise a imagem e extraia:
         1. Nome do Fornecedor (se legível).
-        2. Data de Vencimento (YYYY-MM-DD).
-        3. Itens: nome, quantidade e valor total da linha.
+        2. Data de Vencimento (formato YYYY-MM-DD).
+        3. Itens: nome do produto, quantidade e valor total da linha.
 
-        Retorne os dados rigorosamente no formato JSON solicitado.` },
+        Retorne os dados estritamente no formato JSON solicitado.` },
         { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
       ],
       output: {
@@ -66,25 +65,25 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
       }
     });
 
-    if (!output) throw new Error("A IA não retornou dados estruturados.");
+    if (!output) throw new Error("A IA não conseguiu extrair dados estruturados.");
     return output;
 
   } catch (error: any) {
-    // LOG DE DIAGNÓSTICO PARA VERCEL
-    console.error("DETALHES DO ERRO NA IA (VERCEL/LOCAL):", error);
+    console.error("DETALHES DO ERRO NA VERCEL:", error);
+    
+    // Tratamento de erros comuns de configuração
+    if (error.message?.includes('404') || error.message?.includes('not found')) {
+        throw new Error("Erro 404: O modelo não foi encontrado. Verifique se a sua chave de API tem acesso ao Gemini 1.5 Flash e se o plugin está na versão correta.");
+    }
     
     if (error.message?.includes('FAILED_PRECONDITION')) {
-        throw new Error("Erro de Configuração (FAILED_PRECONDITION): A sua chave de API pode estar restrita a uma região diferente da Vercel ou o faturamento não está ativo na Google Cloud Console.");
-    }
-    
-    if (error.message?.includes('429')) {
-        throw new Error("Quota excedida. Por favor, aguarde 1 minuto antes de tentar novamente.");
+        throw new Error("Erro de Configuração (FAILED_PRECONDITION): A API do Gemini pode não estar ativada no seu projeto do Google Cloud ou a sua região não é suportada.");
     }
 
-    if (error.message?.includes('404')) {
-        throw new Error("Modelo não encontrado. Verifique se a sua chave de API tem acesso ao Gemini 1.5 Flash.");
+    if (error.message?.includes('429')) {
+        throw new Error("Quota excedida. Por favor, aguarde alguns segundos antes de tentar novamente.");
     }
     
-    throw new Error(`Falha ao ler imagem: ${error.message}`);
+    throw new Error(`Falha ao processar imagem: ${error.message}`);
   }
 }
