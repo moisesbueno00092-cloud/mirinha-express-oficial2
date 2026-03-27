@@ -9,7 +9,7 @@ import { parseRomaneio, testAiConnection } from '@/ai/flows/parse-romaneio-flow'
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, Trash2, Upload, FileImage, ClipboardList, CheckCircle2, Zap } from 'lucide-react';
+import { Loader2, Trash2, Upload, FileImage, ClipboardList, CheckCircle2, Zap, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
@@ -25,15 +25,14 @@ interface LancamentoProduto {
 }
 
 /**
- * Comprime a imagem no cliente para evitar erros de limite de memória no servidor.
- * Otimizado para manter a legibilidade do texto para a IA.
+ * Otimiza a imagem no cliente para garantir que o envio à Vercel seja rápido.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1000; // Tamanho ideal para OCR
+            const MAX_WIDTH = 1000;
             let width = img.width;
             let height = img.height;
             if (width > MAX_WIDTH) {
@@ -48,7 +47,7 @@ const compressImage = (dataUri: string): Promise<string> => {
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, width, height);
             }
-            resolve(canvas.toDataURL('image/jpeg', 0.7)); // Qualidade balanceada
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.src = dataUri;
     });
@@ -80,10 +79,10 @@ export default function MercadoriasPanel() {
         
         if (result.success) {
             setAiStatus('online');
-            toast({ title: 'IA Ativa', description: result.message });
+            toast({ title: 'Ligação Ativa', description: result.message });
         } else {
             setAiStatus('offline');
-            toast({ variant: 'destructive', title: 'Falha na IA', description: result.message });
+            toast({ variant: 'destructive', title: 'Falha na Ligação', description: result.message, duration: 10000 });
         }
     };
 
@@ -102,7 +101,7 @@ export default function MercadoriasPanel() {
                     precoUnitario: it.quantidade > 0 ? it.valorTotal / it.quantidade : it.valorTotal
                 }));
                 setProdutosLancados(newItems);
-                toast({ title: "Sucesso!", description: `Lidos ${output.items.length} itens do romaneio.` });
+                toast({ title: "Sucesso!", description: `Foram lidos ${output.items.length} produtos do romaneio.` });
             }
 
             if (output?.fornecedorNome && fornecedores) {
@@ -177,12 +176,12 @@ export default function MercadoriasPanel() {
             }
 
             await batch.commit();
-            toast({ title: 'Lançamento Concluído!' });
+            toast({ title: 'Lançamento Gravado!' });
             setProdutosLancados([]);
             setFornecedorId(undefined);
             setDataVencimento(undefined);
         } catch (e) {
-            toast({ variant: 'destructive', title: 'Erro ao Gravar' });
+            toast({ variant: 'destructive', title: 'Erro ao Gravar Lançamento' });
         } finally {
             setIsSubmitting(false);
         }
@@ -195,63 +194,74 @@ export default function MercadoriasPanel() {
             <div className="flex justify-between items-center bg-muted/20 p-3 rounded-xl border border-border/50">
                 <div className="flex items-center gap-2">
                     <div className={cn("w-2 h-2 rounded-full", 
-                        aiStatus === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : aiStatus === 'offline' ? 'bg-red-500' : 'bg-gray-500'
+                        aiStatus === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : aiStatus === 'offline' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'bg-gray-500'
                     )} />
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        IA: {aiStatus === 'online' ? 'LIGADA' : aiStatus === 'offline' ? 'DESLIGADA' : 'PRONTA'}
+                    <span className="text-[0.65rem] font-black uppercase tracking-widest text-muted-foreground">
+                        IA: {aiStatus === 'online' ? 'LIGADA' : aiStatus === 'offline' ? 'DESLIGADA' : 'EM ESPERA'}
                     </span>
                 </div>
                 <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="h-8 gap-2 text-[0.65rem] font-bold hover:bg-primary/10" 
+                    className="h-8 gap-2 text-[0.65rem] font-bold hover:bg-primary/10 transition-all" 
                     onClick={handleCheckStatus}
                     disabled={isTestingConnection}
                 >
                     {isTestingConnection ? <Loader2 className="h-3 w-3 animate-spin text-primary" /> : <Zap className="h-3 w-3 text-primary" />}
-                    TESTAR CONEXÃO VERCEL
+                    TESTAR LIGAÇÃO VERCEL
                 </Button>
             </div>
 
+            {aiStatus === 'offline' && (
+                <div className="bg-destructive/10 border border-destructive/20 p-3 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                        <p className="text-xs font-bold text-destructive">A IA não está a responder.</p>
+                        <p className="text-[0.65rem] text-muted-foreground leading-relaxed">
+                            Certifique-se de que a variável <code className="bg-background px-1 rounded">NEXT_PUBLIC_GEMINI_API_KEY</code> está configurada corretamente na Vercel e que o seu projeto Google Cloud tem a API ativada.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold">Fornecedor (Opcional)</Label>
+                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold tracking-widest">Fornecedor (Opcional)</Label>
                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                        <SelectTrigger className="h-12"><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
+                        <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
                         <SelectContent>
                             {fornecedores?.map(f => (<SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>))}
                         </SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold">Data de Vencimento</Label>
+                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold tracking-widest">Data de Vencimento</Label>
                     <DatePicker date={dataVencimento} setDate={setDataVencimento} />
                 </div>
             </div>
 
-            <div className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-3xl p-12 text-center space-y-6 transition-all hover:bg-primary/10 hover:border-primary/40 group">
+            <div className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-[2rem] p-12 text-center space-y-6 transition-all hover:bg-primary/10 hover:border-primary/40 group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                 <div className="bg-primary/10 p-6 rounded-full w-24 h-24 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
                     <FileImage className="h-12 w-12 text-primary" />
                 </div>
                 <div className="space-y-2">
                     <h3 className="font-black text-2xl text-foreground">Carregar Romaneio</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Selecione a foto do romaneio do seu dispositivo para análise automática pela IA.</p>
+                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Selecione uma imagem JPG/PNG para que a IA preencha os itens automaticamente.</p>
                 </div>
                 <Button 
                     size="lg" 
-                    className="w-full sm:w-auto h-16 gap-4 text-xl font-black px-16 rounded-2xl shadow-2xl hover:translate-y-[-2px] transition-all" 
-                    onClick={() => fileInputRef.current?.click()} 
+                    className="w-full sm:w-auto h-16 gap-4 text-xl font-black px-16 rounded-2xl shadow-xl hover:translate-y-[-2px] transition-all" 
                     disabled={isParsingRomaneio}
                 >
                     {isParsingRomaneio ? <Loader2 className="h-7 w-7 animate-spin"/> : <Upload className="h-7 w-7"/>}
-                    {isParsingRomaneio ? 'Analisando Imagem...' : 'Escolher Ficheiro'}
+                    {isParsingRomaneio ? 'A Analisar...' : 'Escolher Imagem'}
                 </Button>
             </div>
 
             {produtosLancados.length > 0 && (
-                <div className="border border-border/50 rounded-3xl overflow-hidden bg-card/50 shadow-2xl backdrop-blur-sm">
+                <div className="border border-border/50 rounded-[2rem] overflow-hidden bg-card/50 shadow-2xl backdrop-blur-sm">
                     <div className="bg-muted/30 px-8 py-5 flex justify-between items-center border-b border-border/50">
-                        <span className="flex items-center gap-3 text-primary font-bold uppercase text-sm tracking-widest"><ClipboardList className="h-5 w-5"/> Itens Extraídos</span>
+                        <span className="flex items-center gap-3 text-primary font-black uppercase text-sm tracking-widest"><ClipboardList className="h-5 w-5"/> Itens Extraídos</span>
                         <span className="text-foreground font-black text-lg">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
                     </div>
                     <ScrollArea className="h-80">
@@ -261,7 +271,7 @@ export default function MercadoriasPanel() {
                                     <div className="flex flex-col gap-1">
                                         <span className="font-bold uppercase text-base leading-none">{p.produtoNome}</span>
                                         <span className="text-[0.7rem] text-muted-foreground font-medium uppercase tracking-tight">
-                                            {p.quantidade.toLocaleString('pt-BR')} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)} un
+                                            {p.quantidade.toLocaleString('pt-BR')} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)} cada
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-6">
@@ -273,9 +283,9 @@ export default function MercadoriasPanel() {
                         </div>
                     </ScrollArea>
                     <div className="p-8 bg-muted/10 border-t border-border/50 flex justify-end">
-                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-16 px-16 text-xl font-black gap-4 rounded-2xl">
+                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-16 px-16 text-xl font-black gap-4 rounded-2xl shadow-xl">
                             {isSubmitting ? <Loader2 className="animate-spin h-7 w-7" /> : <CheckCircle2 className="h-7 w-7" />}
-                            Salvar Lançamento
+                            Confirmar Lançamento
                         </Button>
                     </div>
                 </div>

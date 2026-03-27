@@ -20,41 +20,52 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Testa a conexão com a IA utilizando o modelo estável.
+ * Testa a conexão com a IA utilizando o alias de modelo mais recente e estável.
  */
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
   try {
     const response = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
-      prompt: 'Responda apenas "OK".',
+      model: 'googleai/gemini-1.5-flash-latest',
+      prompt: 'Responda apenas "IA ATIVA".',
     });
 
-    if (response.text?.includes('OK')) {
-      return { success: true, message: 'IA Conectada com sucesso via Gemini 1.5 Flash!' };
+    if (response.text?.includes('IA ATIVA')) {
+      return { success: true, message: 'Conexão estabelecida com sucesso via Gemini 1.5 Flash!' };
     }
-    return { success: false, message: 'A IA respondeu, mas o formato foi inesperado.' };
+    return { success: false, message: 'A IA respondeu, mas o conteúdo foi inesperado.' };
   } catch (error: any) {
-    console.error("ERRO TESTE CONEXÃO:", error);
-    return { success: false, message: `Erro: ${error.message}` };
+    console.error("ERRO TESTE CONEXÃO VERCEL:", error);
+    
+    if (error.message?.includes('404') || error.message?.includes('not found')) {
+        return { 
+            success: false, 
+            message: 'Erro 404: Modelo não encontrado. Verifique se ativou a "Generative Language API" no Google Cloud ou se a sua chave de API tem permissões para o modelo Flash 1.5.' 
+        };
+    }
+    
+    if (error.message?.includes('429')) {
+        return { success: false, message: 'Limite de quota excedido. Aguarde alguns segundos.' };
+    }
+
+    return { success: false, message: `Erro de ligação: ${error.message}` };
   }
 }
 
 /**
- * Extrai dados do romaneio via IA.
- * Utiliza o identificador canónico para evitar erros 404.
+ * Extrai dados do romaneio via IA utilizando o modelo Flash estável.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
     const { output } = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-1.5-flash-latest',
       prompt: [
         { text: `Você é um assistente especializado em romaneios de restaurante. 
-        Analise a imagem e extraia:
-        1. Nome do Fornecedor (se legível).
-        2. Data de Vencimento (formato YYYY-MM-DD).
-        3. Itens: nome do produto, quantidade e valor total da linha.
+        Analise a imagem e extraia os seguintes dados em JSON:
+        1. fornecedorNome: Nome da empresa vendedora.
+        2. dataVencimento: Data de pagamento (formato YYYY-MM-DD).
+        3. items: lista com produtoNome, quantidade e valorTotal.
 
-        Retorne os dados estritamente no formato JSON solicitado.` },
+        Ignore carimbos ou rasuras ilegíveis.` },
         { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
       ],
       output: {
@@ -65,25 +76,16 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
       }
     });
 
-    if (!output) throw new Error("A IA não conseguiu extrair dados estruturados.");
+    if (!output) throw new Error("A IA não conseguiu extrair dados da imagem.");
     return output;
 
   } catch (error: any) {
-    console.error("DETALHES DO ERRO NA VERCEL:", error);
+    console.error("ERRO PROCESSAMENTO IMAGEM:", error);
     
-    // Tratamento de erros comuns de configuração
-    if (error.message?.includes('404') || error.message?.includes('not found')) {
-        throw new Error("Erro 404: O modelo não foi encontrado. Verifique se a sua chave de API tem acesso ao Gemini 1.5 Flash e se o plugin está na versão correta.");
+    if (error.message?.includes('404')) {
+        throw new Error("Modelo não encontrado. Certifique-se que a sua chave de API suporta o Gemini 1.5 Flash.");
     }
     
-    if (error.message?.includes('FAILED_PRECONDITION')) {
-        throw new Error("Erro de Configuração (FAILED_PRECONDITION): A API do Gemini pode não estar ativada no seu projeto do Google Cloud ou a sua região não é suportada.");
-    }
-
-    if (error.message?.includes('429')) {
-        throw new Error("Quota excedida. Por favor, aguarde alguns segundos antes de tentar novamente.");
-    }
-    
-    throw new Error(`Falha ao processar imagem: ${error.message}`);
+    throw new Error(`Falha ao ler imagem: ${error.message}`);
   }
 }

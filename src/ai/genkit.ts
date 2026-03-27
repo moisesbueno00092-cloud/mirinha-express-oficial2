@@ -3,8 +3,7 @@ import {googleAI} from '@genkit-ai/google-genai';
 
 /**
  * Configuração central do Genkit.
- * Utiliza o plugin Google AI com suporte a variáveis de ambiente da Vercel.
- * Não força versão de API para evitar erros 404 de endpoint.
+ * Suporta chaves de ambiente padrão e da Vercel (NEXT_PUBLIC).
  */
 export const ai = genkit({
   plugins: [
