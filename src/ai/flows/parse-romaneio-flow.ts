@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 1.5 Flash.
- * Implementa fallback automático para evitar erros 404 de modelo não encontrado.
+ * Implementa estratégia de fallback e identificadores estáveis para evitar erros 404.
  */
 
 import { ai } from '@/ai/genkit';
@@ -41,10 +41,15 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
 
 /**
  * Analisa a foto de um romaneio e extrai os dados estruturados.
- * Tenta múltiplos modelos caso um falhe com 404.
+ * Utiliza múltiplos modelos em fallback para garantir disponibilidade.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
-  const modelsToTry = ['googleai/gemini-1.5-flash', 'googleai/gemini-1.5-flash-8b'];
+  const modelsToTry = [
+    'googleai/gemini-1.5-flash',
+    'gemini-1.5-flash',
+    'googleai/gemini-1.5-flash-latest'
+  ];
+  
   let lastError: any = null;
 
   for (const modelId of modelsToTry) {
@@ -68,10 +73,10 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     } catch (error: any) {
       console.error(`Falha ao tentar modelo ${modelId}:`, error.message);
       lastError = error;
-      // Se não for erro de modelo não encontrado (404), não adianta tentar o próximo
-      if (!error.message?.includes('404')) break;
+      // Se não for um erro de modelo não encontrado (404), interrompe o loop
+      if (!error.message?.includes('404') && !error.message?.includes('not found')) break;
     }
   }
 
-  throw new Error(`IA Indisponível: O modelo Gemini 1.5 Flash não está disponível ou ativo na sua região. Detalhe: ${lastError?.message || 'Erro desconhecido'}`);
+  throw new Error(`IA Indisponível: O modelo Gemini 1.5 Flash não está respondendo na sua região. Detalhe: ${lastError?.message || 'Erro desconhecido'}`);
 }
