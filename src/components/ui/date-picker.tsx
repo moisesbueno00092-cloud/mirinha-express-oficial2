@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -22,7 +21,7 @@ interface DatePickerProps {
 
 /**
  * Componente DatePicker robusto que garante a propagação imediata da data selecionada.
- * Utiliza popover para não quebrar o layout de diálogos.
+ * Utiliza popover com alto Z-index para não quebrar o layout de diálogos.
  */
 export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
@@ -49,9 +48,12 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-auto p-0 z-[150]" 
+        className="w-auto p-0 z-[200]" 
         align="start"
-        onInteractOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => {
+            // Permite fechar ao clicar fora, mas evita problemas em modais
+            setOpen(false);
+        }}
       >
         <Calendar
           mode="single"

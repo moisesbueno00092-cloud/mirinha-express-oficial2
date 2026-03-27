@@ -408,7 +408,7 @@ const CustomerReportsSection = ({
                             onClick={handleWhatsAppShare}
                         >
                             <WhatsAppIcon className="mr-2 h-4 w-4" />
-                            WhatsApp
+                            Partilhar WhatsApp
                         </Button>
                         <Button variant="outline" className="w-full sm:w-auto" onClick={() => setSelectedCustomerName(null)}>Fechar</Button>
                     </DialogFooter>
@@ -572,7 +572,7 @@ export default function ReportsPage() {
             for (let j = parts.length; j > i; j--) { const potentialName = parts.slice(i, j).join(' ').toLowerCase(); if (bomboniereItemsByName[potentialName]) { bestMatch = bomboniereItemsByName[potentialName]; bestMatchEndIndex = j; break; } }
             if (bestMatch) {
                 let bomboniereQty = 1; if (i > 0 && !consumedParts[i - 1] && !isNaN(parseFloat(parts[i-1]))) { bomboniereQty = parseInt(parts[i - 1], 10); consumedParts[i - 1] = true; }
-                let priceToUse = bestMatch.price; if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && !isNaN(parseFloat(parts[bestMatchEndIndex]))) { priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.')); consumedParts[bestMatchEndIndex] = true; }
+                let priceToUse = bestMatch.price; if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && !isNaN(parseFloat(parts[bestMatchEndIndex]))) { priceToUse = parseFloat(bestMatchEndIndex < parts.length ? parts[bestMatchEndIndex].replace(',', '.') : '0'); consumedParts[bestMatchEndIndex] = true; }
                 processedBomboniereItems.push({ id: bestMatch.id, name: bestMatch.name, quantity: bomboniereQty, price: priceToUse }); totalPrice += priceToUse * bomboniereQty; totalQuantity += bomboniereQty;
                 for (let k = i; k < bestMatchEndIndex; k++) consumedParts[k] = true; i = bestMatchEndIndex - 1;
             }
@@ -660,18 +660,40 @@ export default function ReportsPage() {
           <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><History className="h-3 w-3"/>Ano</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.year)}</p></CardContent></Card>
       </div>
 
-      <Card className="mb-8">
+      <Card className="mb-8 shadow-sm">
           <CardHeader className="pb-4"><CardTitle className="text-lg flex items-center gap-2"><CalendarIcon className="h-5 w-5 text-primary"/>Período de Referência</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
-                  <Select value={String(globalDate.getMonth())} onValueChange={(v) => setGlobalDate(setMonth(new Date(globalDate), parseInt(v)))}><SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger><SelectContent>{Array.from({length: 12}, (_, i) => <SelectItem key={i} value={String(i)}>{format(new Date(2000, i), 'MMMM', { locale: ptBR })}</SelectItem>)}</SelectContent></Select>
-                  <Select value={String(globalDate.getFullYear())} onValueChange={(v) => setGlobalDate(setYear(new Date(globalDate), parseInt(v)))}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent>{[2024, 2025].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
+                  <Select 
+                    value={String(globalDate.getMonth())} 
+                    onValueChange={(v) => {
+                        const d = new Date(globalDate);
+                        d.setDate(1); // Evita rollover (ex: 31 Jan -> 31 Fev -> 2 Mar)
+                        d.setMonth(parseInt(v));
+                        setGlobalDate(d);
+                    }}
+                  >
+                    <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>{Array.from({length: 12}, (_, i) => <SelectItem key={i} value={String(i)}>{format(new Date(2000, i), 'MMMM', { locale: ptBR })}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <Select 
+                    value={String(globalDate.getFullYear())} 
+                    onValueChange={(v) => {
+                        const d = new Date(globalDate);
+                        d.setDate(1);
+                        d.setFullYear(parseInt(v));
+                        setGlobalDate(d);
+                    }}
+                  >
+                    <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>{[2024, 2025].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+                  </Select>
               </div>
-              <p className="text-sm text-muted-foreground capitalize">{safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR })}</p>
+              <p className="text-sm font-semibold text-muted-foreground capitalize">{safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR })}</p>
           </CardContent>
       </Card>
       
-      <main className="space-y-6 pb-24">
+      <main className="space-y-6 pb-32">
         <Accordion type="multiple" className="w-full space-y-4">
             <AccordionItem value="ai-insight">
                 <Card className="border-primary/30 bg-primary/5">
@@ -710,21 +732,21 @@ export default function ReportsPage() {
         </Accordion>
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm shadow-lg">
+      <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm shadow-xl">
         <div className="container mx-auto max-w-5xl flex items-center justify-between p-4">
             <div className="flex flex-col">
-                <span className="text-[0.6rem] font-black uppercase text-muted-foreground tracking-widest">Faturamento {safeFormat(globalDate, 'MMM/yy', { locale: ptBR })}</span>
-                <span className="text-2xl font-black text-primary leading-none">{formatCurrency(monthTotal)}</span>
+                <span className="text-[0.65rem] font-black uppercase text-muted-foreground tracking-widest">Faturamento Total em {safeFormat(globalDate, 'MMMM', { locale: ptBR })}</span>
+                <span className="text-3xl font-black text-primary leading-none tabular-nums">{formatCurrency(monthTotal)}</span>
             </div>
-            <div className="flex gap-4 text-xs">
-                <div className="text-right">
-                    <p className="text-muted-foreground">Relatórios</p>
-                    <p className="font-bold">{monthlyReports.length} dias</p>
+            <div className="flex gap-6 text-xs">
+                <div className="text-right flex flex-col justify-center">
+                    <p className="text-muted-foreground uppercase font-bold text-[0.6rem]">Relatórios</p>
+                    <p className="font-bold text-lg leading-tight">{monthlyReports.length} <span className="text-[0.6rem] font-medium text-muted-foreground">dias</span></p>
                 </div>
-                <Separator orientation="vertical" className="h-8" />
-                <div className="text-right">
-                    <p className="text-muted-foreground">Média/Dia</p>
-                    <p className="font-bold">{formatCurrency(monthlyReports.length ? monthTotal / monthlyReports.length : 0)}</p>
+                <Separator orientation="vertical" className="h-10 bg-primary/20" />
+                <div className="text-right flex flex-col justify-center">
+                    <p className="text-muted-foreground uppercase font-bold text-[0.6rem]">Média Diária</p>
+                    <p className="font-bold text-lg leading-tight text-foreground">{formatCurrency(monthlyReports.length ? monthTotal / monthlyReports.length : 0)}</p>
                 </div>
             </div>
         </div>
