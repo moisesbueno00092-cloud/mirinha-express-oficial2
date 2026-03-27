@@ -20,7 +20,7 @@ const ParseRomaneioOutputSchema = z.object({
 
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
-// Identificador oficial e mais estável do modelo Flash 1.5
+// Identificador universal e mais estável do modelo Gemini 1.5 Flash
 const STABLE_MODEL = 'googleai/gemini-1.5-flash';
 
 /**
@@ -80,20 +80,24 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
       }
     });
 
-    if (!output) throw new Error("A IA não conseguiu extrair dados.");
+    if (!output) throw new Error("A IA não conseguiu extrair dados da imagem.");
     return output;
 
   } catch (error: any) {
-    console.error("ERRO PROCESSAMENTO:", error);
+    console.error("ERRO PROCESSAMENTO IA:", error);
     
     if (error.message?.includes('404')) {
-        throw new Error("Modelo não encontrado. Certifique-se que a API 'Generative Language' está ativa na sua chave de API.");
+        throw new Error("Modelo Gemini 1.5 Flash não encontrado. Verifique se a API 'Generative Language' está ativa no seu painel Google Cloud/AI Studio.");
     }
 
     if (error.message?.includes('429')) {
-        throw new Error("Quota excedida. Tente novamente em um minuto.");
+        throw new Error("Quota da IA excedida. Tente novamente em um minuto.");
     }
     
-    throw new Error(`Falha ao ler imagem: ${error.message}`);
+    if (error.message?.includes('403') || error.message?.includes('PERMISSION_DENIED')) {
+        throw new Error("Acesso Negado: Verifique se a sua Chave de API é válida e tem permissões para o modelo Flash.");
+    }
+    
+    throw new Error(`Falha na IA: ${error.message}`);
   }
 }
