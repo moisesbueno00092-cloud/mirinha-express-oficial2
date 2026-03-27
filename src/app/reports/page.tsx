@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -375,9 +374,15 @@ const CustomerReportsSection = ({
             <Dialog open={!!selectedCustomerName} onOpenChange={(open) => !open && setSelectedCustomerName(null)}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2"><User className="h-5 w-5 text-primary" /> Histórico de {selectedCustomer?.name}</DialogTitle>
+                        <DialogTitle className="flex items-center gap-2">
+                            <User className="h-5 w-5 text-primary" /> Histórico de {selectedCustomer?.name}
+                        </DialogTitle>
                     </DialogHeader>
-                    <ScrollArea className="max-h-[60vh] pr-4 mt-4">
+                    <div className="bg-primary/10 p-4 rounded-lg flex justify-between items-center my-2">
+                        <span className="text-xs font-black uppercase text-primary tracking-widest">Total Acumulado</span>
+                        <span className="text-2xl font-black text-primary">{formatCurrency(selectedCustomer?.total)}</span>
+                    </div>
+                    <ScrollArea className="max-h-[50vh] pr-4">
                         <div className="space-y-3">
                             {selectedCustomer?.orders.map((order, idx) => (
                                 <div key={order.id || idx} className="flex justify-between items-center p-3 rounded-lg border bg-muted/30">
@@ -386,7 +391,7 @@ const CustomerReportsSection = ({
                                         <p className="text-sm font-semibold">{order.name}</p>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <p className="text-sm font-mono font-bold text-primary">{formatCurrency(order.total)}</p>
+                                        <p className="text-sm font-mono font-bold text-foreground">{formatCurrency(order.total)}</p>
                                         <div className="flex gap-1">
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500" onClick={() => onEditItem(order)}><Pencil className="h-4 w-4" /></Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeleteItem(order)}><Trash2 className="h-4 w-4" /></Button>
@@ -396,21 +401,16 @@ const CustomerReportsSection = ({
                             ))}
                         </div>
                     </ScrollArea>
-                    <DialogFooter className="flex flex-col sm:flex-row justify-between items-center gap-4 border-t pt-4">
-                        <div className="text-lg font-black text-primary">
-                            Total: {formatCurrency(selectedCustomer?.total)}
-                        </div>
-                        <div className="flex gap-2 w-full sm:w-auto">
-                            <Button 
-                                variant="outline" 
-                                className="flex-1 sm:flex-none border-green-500 text-green-500 hover:bg-green-500/10 font-bold" 
-                                onClick={handleWhatsAppShare}
-                            >
-                                <WhatsAppIcon className="mr-2 h-4 w-4" />
-                                WhatsApp
-                            </Button>
-                            <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setSelectedCustomerName(null)}>Fechar</Button>
-                        </div>
+                    <DialogFooter className="flex flex-col sm:flex-row justify-end items-center gap-4 border-t pt-4">
+                        <Button 
+                            variant="outline" 
+                            className="w-full sm:w-auto border-green-500 text-green-500 hover:bg-green-500/10 font-bold" 
+                            onClick={handleWhatsAppShare}
+                        >
+                            <WhatsAppIcon className="mr-2 h-4 w-4" />
+                            WhatsApp
+                        </Button>
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setSelectedCustomerName(null)}>Fechar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -484,10 +484,13 @@ export default function ReportsPage() {
   const reportsQ = useMemo(() => firestore ? query(collection(firestore, 'daily_reports')) : null, [firestore]);
   const { data: allReportsRaw, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQ);
   const allReports = useMemo(() => (allReportsRaw || []).filter(r => r.reportDate).sort((a, b) => b.reportDate.localeCompare(a.reportDate)), [allReportsRaw]);
+  
   const monthlyReports = useMemo(() => allReports.filter(r => { 
       const d = parseISO(r.reportDate); 
       return d.getFullYear() === globalDate.getFullYear() && d.getMonth() === globalDate.getMonth(); 
   }), [allReports, globalDate]);
+
+  const monthTotal = useMemo(() => monthlyReports.reduce((acc, r) => acc + r.totalGeral, 0), [monthlyReports]);
 
   const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
   const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
@@ -640,7 +643,7 @@ export default function ReportsPage() {
         <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>{archivedItemToEdit ? 'Editar' : 'Novo'} Lançamento</DialogTitle></DialogHeader>
             <div className="py-4 space-y-6">
-                <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><ListOrdered className="h-4 w-4"/> Comando do Pedido</Label><div className="flex gap-2"><Input value={editArchivedInput} onChange={(e) => editArchivedInput(e.target.value)} className="h-12 text-lg font-medium" placeholder="Ex: M P coca-lata" /><Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12 shrink-0"><Plus className="h-4 w-4 mr-2"/>Outros</Button></div></div>
+                <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><ListOrdered className="h-4 w-4"/> Comando do Pedido</Label><div className="flex gap-2"><Input value={editArchivedInput} onChange={(e) => setEditArchivedInput(e.target.value)} className="h-12 text-lg font-medium" placeholder="Ex: M P coca-lata" /><Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12 shrink-0"><Plus className="h-4 w-4 mr-2"/>Outros</Button></div></div>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><CalendarIcon className="h-4 w-4"/> Data</Label><DatePicker date={editArchivedDate} setDate={setEditArchivedDate} /></div>
                     <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><Clock className="h-4 w-4"/> Hora</Label><Input type="time" value={editArchivedTime} onChange={(e) => setEditArchivedTime(e.target.value)} className="h-10 text-lg" /></div>
@@ -668,7 +671,7 @@ export default function ReportsPage() {
           </CardContent>
       </Card>
       
-      <main className="space-y-6">
+      <main className="space-y-6 pb-24">
         <Accordion type="multiple" className="w-full space-y-4">
             <AccordionItem value="ai-insight">
                 <Card className="border-primary/30 bg-primary/5">
@@ -706,6 +709,26 @@ export default function ReportsPage() {
             <AccordionItem value="clientes"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><User className="h-6 w-6 text-primary"/><span>Consumo por Cliente (IA)</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0"><CustomerReportsSection globalDate={globalDate} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} recalculateFn={recalculateReport}/></AccordionContent></Card></AccordionItem>
         </Accordion>
       </main>
+
+      <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm shadow-lg">
+        <div className="container mx-auto max-w-5xl flex items-center justify-between p-4">
+            <div className="flex flex-col">
+                <span className="text-[0.6rem] font-black uppercase text-muted-foreground tracking-widest">Faturamento {safeFormat(globalDate, 'MMM/yy', { locale: ptBR })}</span>
+                <span className="text-2xl font-black text-primary leading-none">{formatCurrency(monthTotal)}</span>
+            </div>
+            <div className="flex gap-4 text-xs">
+                <div className="text-right">
+                    <p className="text-muted-foreground">Relatórios</p>
+                    <p className="font-bold">{monthlyReports.length} dias</p>
+                </div>
+                <Separator orientation="vertical" className="h-8" />
+                <div className="text-right">
+                    <p className="text-muted-foreground">Média/Dia</p>
+                    <p className="font-bold">{formatCurrency(monthlyReports.length ? monthTotal / monthlyReports.length : 0)}</p>
+                </div>
+            </div>
+        </div>
+      </footer>
     </>
   );
 }

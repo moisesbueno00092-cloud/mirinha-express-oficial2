@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
@@ -9,11 +8,13 @@ import type { Fornecedor, BomboniereItem } from '@/types';
 import { parseRomaneio, testAiConnection } from '@/ai/flows/parse-romaneio-flow';
 
 import { Button } from '@/components/ui/button';
-import { Loader2, Trash2, ClipboardList, CheckCircle2, Zap, Upload } from 'lucide-react';
+import { Loader2, Trash2, ClipboardList, CheckCircle2, Zap, Upload, FileText, X, ImageIcon } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import Image from 'next/image';
 
 interface LancamentoProduto {
     id: string;
@@ -25,10 +26,10 @@ interface LancamentoProduto {
 
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
-        const img = new Image();
+        const img = new window.Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_SIZE = 800; 
+            const MAX_SIZE = 1024; 
             let width = img.width;
             let height = img.height;
             if (width > height) {
@@ -40,7 +41,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             if (ctx) { ctx.drawImage(img, 0, 0, width, height); }
-            resolve(canvas.toDataURL('image/jpeg', 0.5));
+            resolve(canvas.toDataURL('image/jpeg', 0.6));
         };
         img.src = dataUri;
     });
@@ -50,12 +51,14 @@ export default function MercadoriasPanel() {
     const firestore = useFirestore();
     const { toast } = useToast();
 
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [previewUri, setPreviewUri] = useState<string | null>(null);
     const [fornecedorId, setFornecedorId] = useState<string | undefined>(undefined);
     const [dataVencimento, setDataVencimento] = useState<Date | undefined>(undefined);
     const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isParsingRomaneio, setIsParsingRomaneio] = useState(false);
-    const [isTestingConnection, setIsTestingConnection] = useState(false);
+    const [isParsing, setIsParsing] = useState(false);
+    const [isTesting, setIsTesting] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,21 +67,28 @@ export default function MercadoriasPanel() {
     const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
     const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
-    const handleCheckStatus = async () => {
-        setIsTestingConnection(true);
-        const result = await testAiConnection();
-        setIsTestingConnection(false);
-        toast({ 
-            variant: result.success ? 'default' : 'destructive',
-            title: result.success ? 'IA Pronta' : 'Falha na IA', 
-            description: result.message 
-        });
+    const reset = () => {
+        setPreviewUri(null);
+        setProdutosLancados([]);
+        setFornecedorId(undefined);
+        setDataVencimento(undefined);
+        setIsParsing(false);
     };
 
-    const processPhoto = async (dataUri: string) => {
-        setIsParsingRomaneio(true);
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => setPreviewUri(event.target?.result as string);
+        reader.readAsDataURL(file);
+        e.target.value = ''; 
+    };
+
+    const runAnalysis = async () => {
+        if (!previewUri) return;
+        setIsParsing(true);
         try {
-            const compressed = await compressImage(dataUri);
+            const compressed = await compressImage(previewUri);
             const output = await parseRomaneio({ romaneioPhoto: compressed });
             
             if (output?.items?.length > 0) {
@@ -90,7 +100,6 @@ export default function MercadoriasPanel() {
                     precoUnitario: it.quantidade > 0 ? it.valorTotal / it.quantidade : it.valorTotal
                 }));
                 setProdutosLancados(newItems);
-                toast({ title: "Extração Concluída", description: `${output.items.length} produtos detetados.` });
             }
 
             if (output?.fornecedorNome && fornecedores) {
@@ -102,24 +111,16 @@ export default function MercadoriasPanel() {
                 const [y, m, d] = output.dataVencimento.split('-').map(Number);
                 setDataVencimento(new Date(y, m - 1, d));
             }
+            toast({ title: "Análise concluída!" });
         } catch (e: any) {
-            toast({ variant: 'destructive', title: 'Erro IA', description: e.message });
+            toast({ variant: 'destructive', title: 'Erro na IA', description: e.message });
         } finally {
-            setIsParsingRomaneio(false);
+            setIsParsing(false);
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => processPhoto(event.target?.result as string);
-        reader.readAsDataURL(file);
-        e.target.value = ''; 
-    };
-
-    const handleRegisterEntry = async () => {
-        if (!firestore || produtosLancados.length === 0 || isSubmitting) return;
+    const handleConfirmAll = async () => {
+        if (!firestore || produtosLancados.length === 0) return;
         setIsSubmitting(true);
         try {
             const batch = writeBatch(firestore);
@@ -156,89 +157,125 @@ export default function MercadoriasPanel() {
             }
 
             await batch.commit();
-            toast({ title: 'Sucesso', description: 'Entrada registada e estoque atualizado.' });
-            setProdutosLancados([]);
-            setFornecedorId(undefined);
-            setDataVencimento(undefined);
+            toast({ title: 'Sucesso!', description: 'Todos os itens foram registados.' });
+            setIsModalOpen(false);
+            reset();
         } catch (e) {
-            toast({ variant: 'destructive', title: 'Erro ao Gravar' });
+            toast({ variant: 'destructive', title: 'Erro ao gravar dados' });
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <div className="space-y-3">
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png" onChange={handleFileChange} />
-
-            <div className="flex items-center gap-2 bg-muted/20 p-1 rounded-lg border border-border/50 h-10">
-                <Button 
-                    variant="default" 
-                    size="sm" 
-                    className="h-8 text-[0.6rem] font-black uppercase shrink-0 px-2 bg-primary/90 hover:bg-primary"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isParsingRomaneio}
-                >
-                    {isParsingRomaneio ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3 mr-1" />}
-                    JPG
+        <>
+            <div className="flex items-center gap-2">
+                <Button onClick={() => setIsModalOpen(true)} className="gap-2 bg-primary/90">
+                    <FileText className="h-4 w-4" />
+                    Romaneio IA
                 </Button>
-
-                <div className="flex-grow min-w-0">
-                    <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                        <SelectTrigger className="h-8 text-[0.65rem] bg-transparent border-none shadow-none focus:ring-0 px-1 truncate"><SelectValue placeholder="Fornecedor..." /></SelectTrigger>
-                        <SelectContent>{fornecedores?.map(f => (<SelectItem key={f.id} value={f.id} className="text-xs">{f.nome}</SelectItem>))}</SelectContent>
-                    </Select>
-                </div>
-
-                <div className="w-[100px] shrink-0 h-8 flex items-center bg-transparent rounded-md px-1 hover:bg-background transition-colors">
-                    <DatePicker date={dataVencimento} setDate={setDataVencimento} />
-                </div>
-
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 hover:bg-primary/10 text-primary shrink-0 transition-all active:scale-95" 
-                    onClick={handleCheckStatus} 
-                    disabled={isTestingConnection || isParsingRomaneio}
-                >
-                    {isTestingConnection ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                <Button variant="ghost" size="icon" onClick={async () => {
+                    setIsTesting(true);
+                    const res = await testAiConnection();
+                    setIsTesting(false);
+                    toast({ title: res.success ? "Conexão OK" : "Falha na IA", description: res.message });
+                }}>
+                    {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 text-primary" />}
                 </Button>
             </div>
 
-            {produtosLancados.length > 0 && (
-                <div className="border border-primary/30 rounded-lg overflow-hidden bg-card/40 animate-in fade-in zoom-in-95 duration-200 shadow-sm">
-                    <div className="bg-primary/10 px-3 py-1 flex justify-between items-center border-b border-primary/20">
-                        <span className="flex items-center gap-2 text-primary font-black uppercase text-[0.55rem] tracking-wider">
-                            <ClipboardList className="h-3 w-3"/> IA DETETOU
-                        </span>
-                        <span className="text-foreground font-black text-xs tabular-nums">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}
-                        </span>
-                    </div>
-                    <ScrollArea className="h-28">
-                        <div className="divide-y divide-border/30">
-                            {produtosLancados.map(p => (
-                                <div key={p.id} className="flex justify-between items-center px-3 py-1 hover:bg-primary/5 transition-colors">
-                                    <div className="flex flex-col min-w-0">
-                                        <span className="font-bold uppercase text-[0.6rem] truncate leading-tight">{p.produtoNome}</span>
-                                        <span className="text-[0.5rem] text-muted-foreground font-semibold uppercase">{p.quantidade} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-mono font-bold text-primary text-[0.65rem] tabular-nums">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
-                                        <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive/40 hover:text-destructive hover:bg-destructive/10" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-3 w-3" /></Button>
-                                    </div>
+            <Dialog open={isModalOpen} onOpenChange={(open) => { if(!open) reset(); setIsModalOpen(open); }}>
+                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+                    <DialogHeader className="p-6 border-b">
+                        <DialogTitle className="flex items-center gap-2"><ClipboardList className="text-primary"/> Assistente de Importação de Romaneio</DialogTitle>
+                        <DialogDescription>Carregue uma foto da nota fiscal ou romaneio para extração automática.</DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex-grow overflow-hidden flex flex-col md:flex-row">
+                        {/* Lado Esquerdo: Imagem */}
+                        <div className="w-full md:w-1/2 bg-muted/30 p-4 flex flex-col items-center justify-center border-r border-border/50">
+                            {previewUri ? (
+                                <div className="relative w-full h-full min-h-[300px] rounded-lg overflow-hidden border shadow-inner bg-black/5">
+                                    <Image src={previewUri} alt="Preview" fill className="object-contain" />
+                                    <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full" onClick={() => setPreviewUri(null)}>
+                                        <X className="h-4 w-4" />
+                                    </Button>
                                 </div>
-                            ))}
+                            ) : (
+                                <div 
+                                    className="w-full h-full min-h-[300px] border-2 border-dashed border-primary/20 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-primary/5 transition-colors"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <ImageIcon className="h-12 w-12 text-muted-foreground/50 mb-2" />
+                                    <p className="text-sm font-medium text-muted-foreground">Clique para carregar JPG</p>
+                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                                </div>
+                            )}
+                            {previewUri && !produtosLancados.length && (
+                                <Button onClick={runAnalysis} disabled={isParsing} className="mt-4 w-full h-12 text-lg">
+                                    {isParsing ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Analisando...</> : <><Zap className="mr-2 h-5 w-5" /> Iniciar Extração IA</>}
+                                </Button>
+                            )}
                         </div>
-                    </ScrollArea>
-                    <div className="p-1.5 bg-primary/5 border-t border-primary/10 flex justify-end">
-                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} size="sm" className="h-7 px-4 text-[0.6rem] font-black gap-2 shadow-lg active:scale-95 transition-all">
-                            {isSubmitting ? <Loader2 className="animate-spin h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
-                            CONFIRMAR TUDO
-                        </Button>
+
+                        {/* Lado Direito: Dados Extraídos */}
+                        <div className="w-full md:w-1/2 p-6 flex flex-col gap-6 bg-background">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <span className="text-[0.65rem] font-bold uppercase text-muted-foreground">Fornecedor</span>
+                                    <Select value={fornecedorId} onValueChange={setFornecedorId}>
+                                        <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                        <SelectContent>{fornecedores?.map(f => (<SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>))}</SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <span className="text-[0.65rem] font-bold uppercase text-muted-foreground">Vencimento</span>
+                                    <DatePicker date={dataVencimento} setDate={setDataVencimento} />
+                                </div>
+                            </div>
+
+                            <div className="flex-grow flex flex-col min-h-0 border rounded-lg bg-card/50">
+                                <div className="px-4 py-2 border-b bg-muted/20 flex justify-between items-center">
+                                    <span className="text-xs font-black uppercase text-primary">Itens Detetados</span>
+                                    <span className="text-sm font-bold tabular-nums">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
+                                </div>
+                                <ScrollArea className="flex-grow">
+                                    {produtosLancados.length > 0 ? (
+                                        <div className="divide-y">
+                                            {produtosLancados.map(p => (
+                                                <div key={p.id} className="p-3 flex justify-between items-center hover:bg-accent/50 transition-colors">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold uppercase leading-tight truncate max-w-[180px]">{p.produtoNome}</span>
+                                                        <span className="text-[0.65rem] text-muted-foreground">{p.quantidade} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-sm font-mono font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/50 hover:text-destructive" onClick={() => setProdutosLancados(prev => prev.filter(it => it.id !== p.id))}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="h-40 flex items-center justify-center text-muted-foreground/50 text-xs italic">
+                                            {isParsing ? "Extraindo dados..." : "Nenhum dado extraído ainda."}
+                                        </div>
+                                    )}
+                                </ScrollArea>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+
+                    <DialogFooter className="p-6 border-t bg-muted/10 gap-3">
+                        <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleConfirmAll} disabled={isSubmitting || !produtosLancados.length} className="h-12 px-8 font-black text-lg gap-2">
+                            {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+                            Confirmar e Gravar Entrada
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
