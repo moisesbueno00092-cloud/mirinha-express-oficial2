@@ -1,8 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 1.5 Flash.
- * Implementa estratégia de fallback e identificadores estáveis para evitar erros 404.
+ * @fileOverview Fluxo de extração de dados de romaneios utilizando o modelo estável Gemini 1.5 Flash.
  */
 
 import { ai } from '@/ai/genkit';
@@ -41,42 +40,39 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
 
 /**
  * Analisa a foto de um romaneio e extrai os dados estruturados.
- * Utiliza múltiplos modelos em fallback para garantir disponibilidade.
+ * Utiliza o identificador qualificado estável para evitar erros 404 na Vercel.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
-  const modelsToTry = [
-    'googleai/gemini-1.5-flash',
-    'gemini-1.5-flash',
-    'googleai/gemini-1.5-flash-latest'
-  ];
-  
-  let lastError: any = null;
+  try {
+    const { output } = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
+      prompt: [
+        { text: `Você é um assistente especializado em romaneios de restaurante. 
+        Extraia os dados da imagem para JSON:
+        1. fornecedorNome: Nome da empresa.
+        2. dataVencimento: Data de pagamento (formato YYYY-MM-DD). Se não encontrar, deixe vazio.
+        3. items: lista com produtoNome, quantidade e valorTotal.
+        Ignore carimbos, assinaturas ou rasuras.` },
+        { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
+      ],
+      output: { schema: ParseRomaneioOutputSchema },
+      config: { temperature: 0.1 }
+    });
 
-  for (const modelId of modelsToTry) {
-    try {
-      const { output } = await ai.generate({
-        model: modelId,
-        prompt: [
-          { text: `Você é um assistente especializado em romaneios de restaurante. 
-          Extraia os dados da imagem para JSON:
-          1. fornecedorNome: Nome da empresa.
-          2. dataVencimento: Data de pagamento (formato YYYY-MM-DD). Se não encontrar, deixe vazio.
-          3. items: lista com produtoNome, quantidade e valorTotal.
-          Ignore carimbos, assinaturas ou rasuras.` },
-          { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
-        ],
-        output: { schema: ParseRomaneioOutputSchema },
-        config: { temperature: 0.1 }
-      });
-
-      if (output) return output;
-    } catch (error: any) {
-      console.error(`Falha ao tentar modelo ${modelId}:`, error.message);
-      lastError = error;
-      // Se não for um erro de modelo não encontrado (404), interrompe o loop
-      if (!error.message?.includes('404') && !error.message?.includes('not found')) break;
+    if (output) return output;
+    throw new Error('A IA não retornou dados estruturados.');
+  } catch (error: any) {
+    console.error('Erro na extração do romaneio:', error.message);
+    
+    let userMessage = "Erro desconhecido.";
+    if (error.message?.includes('404') || error.message?.includes('not found')) {
+      userMessage = "Modelo Gemini 1.5 Flash não encontrado ou desativado na sua região. Tente novamente ou use o teste de conexão.";
+    } else if (error.message?.includes('API_KEY')) {
+      userMessage = "Chave de API inválida ou expirada.";
+    } else {
+      userMessage = error.message;
     }
-  }
 
-  throw new Error(`IA Indisponível: O modelo Gemini 1.5 Flash não está respondendo na sua região. Detalhe: ${lastError?.message || 'Erro desconhecido'}`);
+    throw new Error(`IA Indisponível: ${userMessage}`);
+  }
 }
