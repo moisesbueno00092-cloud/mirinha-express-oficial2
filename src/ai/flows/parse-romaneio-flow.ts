@@ -4,7 +4,7 @@
  * @fileOverview Fluxo de extração de dados de romaneios otimizado para Vercel.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai, googleAIPlugin } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const ParseRomaneioOutputSchema = z.object({
@@ -20,12 +20,12 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Testa a conexão com a IA utilizando o alias de modelo mais recente e estável.
+ * Testa a conexão com a IA utilizando a referência direta do plugin.
  */
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
   try {
     const response = await ai.generate({
-      model: 'googleai/gemini-1.5-flash-latest',
+      model: googleAIPlugin.model('gemini-1.5-flash'),
       prompt: 'Responda apenas "IA ATIVA".',
     });
 
@@ -52,12 +52,12 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
 }
 
 /**
- * Extrai dados do romaneio via IA utilizando o modelo Flash estável.
+ * Extrai dados do romaneio via IA utilizando a referência estável do modelo Flash.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
     const { output } = await ai.generate({
-      model: 'googleai/gemini-1.5-flash-latest',
+      model: googleAIPlugin.model('gemini-1.5-flash'),
       prompt: [
         { text: `Você é um assistente especializado em romaneios de restaurante. 
         Analise a imagem e extraia os seguintes dados em JSON:
