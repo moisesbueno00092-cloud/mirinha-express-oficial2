@@ -6,13 +6,12 @@ config();
 
 /**
  * Configuração do Genkit utilizando o plugin Google AI.
- * Configuração simplificada para permitir que o plugin utilize os endpoints
- * mais adequados para os modelos da família Gemini 2.0 e 1.5.
+ * Suporta tanto a variável padrão como a versão pública da Vercel.
  */
 export const ai = genkit({
   plugins: [
     googleAI({
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY,
     })
   ],
 });

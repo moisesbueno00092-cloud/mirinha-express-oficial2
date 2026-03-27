@@ -1,7 +1,8 @@
 'use server';
 
 /**
- * @fileOverview Fluxo de extração de dados de romaneios e verificação de conexão.
+ * @fileOverview Fluxo de extração de dados de romaneios utilizando o modelo 1.5 Flash 8B.
+ * Otimizado para estabilidade em ambientes Vercel.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,7 +21,7 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Verifica se a chave de API está a funcionar corretamente com um teste simples.
+ * Verifica se a chave de API está a funcionar corretamente.
  */
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
   try {
@@ -35,27 +36,29 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
     return { success: false, message: 'A IA respondeu, mas o formato foi inesperado.' };
   } catch (error: any) {
     console.error("ERRO TESTE CONEXÃO:", error);
-    if (error.message?.includes('429')) return { success: false, message: 'Chave ativa, mas sem quota disponível (Erro 429).' };
-    if (error.message?.includes('API_KEY_INVALID')) return { success: false, message: 'Chave de API inválida ou desativada.' };
-    return { success: false, message: `Erro: ${error.message}` };
+    if (error.message?.includes('FAILED_PRECONDITION')) {
+        return { success: false, message: 'Erro de Precondição: Verifique se a sua chave de API tem permissão para esta região ou modelo.' };
+    }
+    return { success: false, message: `Erro de conexão: ${error.message}` };
   }
 }
 
 /**
  * Processa a imagem do romaneio e retorna os dados extraídos.
+ * Utiliza o modelo 8B para máxima economia de recursos e estabilidade.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
     const response = await ai.generate({
       model: 'googleai/gemini-1.5-flash-8b',
       prompt: [
-        { text: `Você é um assistente de entrada de mercadorias. 
-        Analise a imagem deste romaneio e extraia:
-        1. Nome do Fornecedor.
+        { text: `Você é um assistente especializado em romaneios de restaurante. 
+        Analise a imagem e extraia:
+        1. Nome do Fornecedor (se legível).
         2. Data de Vencimento (YYYY-MM-DD).
-        3. Lista de produtos: nome, quantidade e valor total da linha.
+        3. Itens: nome, quantidade e valor total da linha.
 
-        Responda APENAS com um JSON puro no formato abaixo, sem blocos de código markdown:
+        Responda APENAS com um JSON puro no formato:
         {
           "items": [
             { "produtoNome": "Exemplo", "quantidade": 1, "valorTotal": 10.0 }
@@ -80,12 +83,17 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
       return ParseRomaneioOutputSchema.parse(parsed);
     } catch (parseError) {
       console.error("JSON inválido da IA:", text);
-      throw new Error("Não foi possível processar a resposta da IA. Tente uma foto mais legível.");
+      throw new Error("Resposta da IA ilegível. Tente uma foto mais nítida.");
     }
 
   } catch (error: any) {
-    console.error("DETALHES DO ERRO IA:", error);
+    console.error("ERRO CRÍTICO NA IA:", error);
+    
     if (error.message?.includes('429')) throw new Error("Quota excedida. Aguarde 1 minuto.");
+    if (error.message?.includes('FAILED_PRECONDITION')) {
+        throw new Error("Erro de Configuração (FAILED_PRECONDITION): A sua chave de API ou região pode estar restrita. Verifique as configurações na Google AI Studio.");
+    }
+    
     throw new Error(`Falha ao ler imagem: ${error.message}`);
   }
 }
