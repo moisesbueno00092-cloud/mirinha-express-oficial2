@@ -450,7 +450,7 @@ const ReportDetail = ({ report, onEditItem, onDeleteItem, onAddItem }: { report:
             <SummaryDisplay data={report} />
             <div className="border-t pt-4">
                 <div className="flex justify-between items-center mb-4"><h4 className="font-bold flex items-center gap-2 text-xs uppercase text-muted-foreground tracking-widest"><ListOrdered className="h-4 w-4"/>Pedidos do Dia</h4><Button variant="outline" size="sm" onClick={() => onAddItem(report.reportDate)}><Plus className="h-4 w-4 mr-1"/>Novo</Button></div>
-                {isLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : <div className="rounded-md border"><ItemList items={sortedItems} isLoading={false} onEdit={onEditItem} onDelete={(id) => { const it = sortedItems.find(i => id === i.id); if(it) onDeleteItem(it); }} /></div>}
+                {isLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : <div className="rounded-md border"><ItemList items={sortedItems} isLoading={false} onEdit={onEditItem} onDelete={(id) => { const it = sortedItems.find(id === i.id); if(it) onDeleteItem(it); }} /></div>}
             </div>
         </div>
     );

@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Fluxo de extração de dados de romaneios com lógica de resiliência.
- * Tenta identificadores de modelo estáveis para evitar o erro 404 na Vercel.
+ * Utiliza identificadores de modelo altamente estáveis para evitar o erro 404 na Vercel.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,18 +20,18 @@ const ParseRomaneioOutputSchema = z.object({
 
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
-// Lista de modelos estáveis. O Gemini 1.5 Flash é o mais disponível globalmente.
+// Lista de modelos estáveis em ordem de preferência.
 const MODELS_TO_TRY = [
   'googleai/gemini-1.5-flash',
-  'gemini-1.5-flash',
-  'googleai/gemini-1.5-flash-latest'
+  'googleai/gemini-1.5-flash-latest',
+  'gemini-1.5-flash'
 ];
 
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
   for (const modelId of MODELS_TO_TRY) {
     try {
       const response = await ai.generate({
-        model: modelId,
+        model: modelId as any,
         prompt: 'Responda apenas "OK".',
       });
       if (response.text?.includes('OK')) {
@@ -41,7 +41,7 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
       console.warn(`Tentativa com ${modelId} falhou:`, e.message);
     }
   }
-  return { success: false, message: 'Nenhum modelo Flash respondeu. Verifique a API Key no Google AI Studio.' };
+  return { success: false, message: 'Nenhum modelo Flash respondeu. Verifique a API Key.' };
 }
 
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
@@ -50,7 +50,7 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
   for (const modelId of MODELS_TO_TRY) {
     try {
       const { output } = await ai.generate({
-        model: modelId,
+        model: modelId as any,
         prompt: [
           { text: `Você é um assistente especializado em romaneios de restaurante. 
           Extraia os dados da imagem para JSON:
@@ -69,14 +69,13 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
       lastError = error;
       console.error(`Erro ao processar com ${modelId}:`, error.message);
       
-      // Se o erro for 404 ou não encontrado, tentamos o próximo modelo
+      // Se o erro for 404, tentamos o próximo modelo da lista
       if (error.message?.includes('404') || error.message?.toLowerCase().includes('not found')) {
           continue;
       }
-      
       break;
     }
   }
 
-  throw new Error(`IA Indisponível: ${lastError?.message || 'Erro de conexão com o modelo Flash.'}`);
+  throw new Error(`IA Indisponível (404): ${lastError?.message || 'Erro de conexão.'}`);
 }

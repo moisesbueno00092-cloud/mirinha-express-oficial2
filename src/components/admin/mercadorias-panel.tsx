@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -25,8 +25,9 @@ interface LancamentoProduto {
 }
 
 const compressImage = (dataUri: string): Promise<string> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const img = new window.Image();
+        img.onerror = () => reject(new Error('Falha ao carregar imagem para compressão'));
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const MAX_SIZE = 1024; 
@@ -101,9 +102,10 @@ export default function MercadoriasPanel() {
                 const [y, m, d] = output.dataVencimento.split('-').map(Number);
                 setDataVencimento(new Date(y, m - 1, d));
             }
-            toast({ title: "Extração concluída com sucesso!" });
+            toast({ title: "Extração concluída!" });
         } catch (e: any) {
-            toast({ variant: 'destructive', title: 'Falha na IA', description: e.message });
+            console.error("Analysis Error:", e);
+            toast({ variant: 'destructive', title: 'Falha na IA', description: e.message || 'Verifique se a chave da API está ativa.' });
         } finally {
             setIsParsing(false);
         }
@@ -116,7 +118,6 @@ export default function MercadoriasPanel() {
         reader.onload = (event) => {
             const uri = event.target?.result as string;
             setPreviewUri(uri);
-            // Inicia análise automática assim que o preview estiver pronto
             runAnalysis(uri);
         };
         reader.readAsDataURL(file);
@@ -161,7 +162,7 @@ export default function MercadoriasPanel() {
             }
 
             await batch.commit();
-            toast({ title: 'Sucesso!', description: 'Todos os itens foram registados.' });
+            toast({ title: 'Sucesso!', description: 'Entrada gravada com sucesso.' });
             setIsModalOpen(false);
             reset();
         } catch (e) {
@@ -172,7 +173,7 @@ export default function MercadoriasPanel() {
     };
 
     return (
-        <>
+        <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
                 <Button onClick={() => setIsModalOpen(true)} className="gap-2 bg-primary/90">
                     <FileText className="h-4 w-4" />
@@ -189,10 +190,10 @@ export default function MercadoriasPanel() {
             </div>
 
             <Dialog open={isModalOpen} onOpenChange={(open) => { if(!open) reset(); setIsModalOpen(open); }}>
-                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-                    <DialogHeader className="p-6 border-b">
-                        <DialogTitle className="flex items-center gap-2"><ClipboardList className="text-primary"/> Assistente de Importação de Romaneio</DialogTitle>
-                        <DialogDescription>Selecione um romaneio e a IA extrairá os dados automaticamente.</DialogDescription>
+                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden shadow-2xl border-primary/20">
+                    <DialogHeader className="p-6 border-b bg-muted/10">
+                        <DialogTitle className="flex items-center gap-2"><ClipboardList className="text-primary"/> Assistente de Importação IA</DialogTitle>
+                        <DialogDescription>A extração começará automaticamente após selecionar a foto.</DialogDescription>
                     </DialogHeader>
 
                     <div className="flex-grow overflow-hidden flex flex-col md:flex-row">
@@ -202,24 +203,26 @@ export default function MercadoriasPanel() {
                                 <div className="relative w-full h-full min-h-[300px] rounded-lg overflow-hidden border shadow-inner bg-black/5">
                                     <Image src={previewUri} alt="Preview" fill className="object-contain" />
                                     {isParsing && (
-                                        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-3 backdrop-blur-[2px]">
-                                            <Loader2 className="h-10 w-10 animate-spin text-white" />
-                                            <span className="text-white font-bold text-sm">IA Analisando...</span>
+                                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-3 backdrop-blur-[3px] z-20">
+                                            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                                            <span className="text-white font-black text-sm uppercase tracking-widest">IA Analisando...</span>
                                         </div>
                                     )}
                                     {!isParsing && (
-                                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full" onClick={() => setPreviewUri(null)}>
+                                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full shadow-lg" onClick={() => setPreviewUri(null)}>
                                             <X className="h-4 w-4" />
                                         </Button>
                                     )}
                                 </div>
                             ) : (
                                 <div 
-                                    className="w-full h-full min-h-[300px] border-2 border-dashed border-primary/20 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-primary/5 transition-colors"
+                                    className="w-full h-full min-h-[300px] border-2 border-dashed border-primary/20 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-primary/5 transition-all group"
                                     onClick={() => fileInputRef.current?.click()}
                                 >
-                                    <ImageIcon className="h-12 w-12 text-muted-foreground/50 mb-2" />
-                                    <p className="text-sm font-medium text-muted-foreground">Clique para selecionar foto</p>
+                                    <div className="bg-primary/10 p-4 rounded-full group-hover:scale-110 transition-transform">
+                                        <ImageIcon className="h-10 w-10 text-primary/60" />
+                                    </div>
+                                    <p className="mt-4 text-sm font-bold text-muted-foreground uppercase tracking-tighter">Clique para selecionar foto do Romaneio</p>
                                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                                 </div>
                             )}
@@ -229,35 +232,35 @@ export default function MercadoriasPanel() {
                         <div className="w-full md:w-1/2 p-6 flex flex-col gap-6 bg-background">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <span className="text-[0.65rem] font-bold uppercase text-muted-foreground">Fornecedor</span>
+                                    <span className="text-[0.65rem] font-black uppercase text-primary tracking-widest">Fornecedor</span>
                                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                                        <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                        <SelectTrigger className="h-10 font-bold"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                                         <SelectContent>{fornecedores?.map(f => (<SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>))}</SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <span className="text-[0.65rem] font-bold uppercase text-muted-foreground">Data Vencimento</span>
+                                    <span className="text-[0.65rem] font-black uppercase text-primary tracking-widest">Vencimento</span>
                                     <DatePicker date={dataVencimento} setDate={setDataVencimento} />
                                 </div>
                             </div>
 
-                            <div className="flex-grow flex flex-col min-h-0 border rounded-lg bg-card/50">
-                                <div className="px-4 py-2 border-b bg-muted/20 flex justify-between items-center">
-                                    <span className="text-xs font-black uppercase text-primary">Itens Detetados</span>
-                                    <span className="text-sm font-bold tabular-nums">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
+                            <div className="flex-grow flex flex-col min-h-0 border rounded-lg bg-card/50 overflow-hidden">
+                                <div className="px-4 py-3 border-b bg-primary/5 flex justify-between items-center">
+                                    <span className="text-[0.65rem] font-black uppercase text-primary tracking-widest">Itens Detetados</span>
+                                    <span className="text-lg font-black tabular-nums text-primary">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
                                 </div>
                                 <ScrollArea className="flex-grow">
                                     {produtosLancados.length > 0 ? (
-                                        <div className="divide-y">
+                                        <div className="divide-y divide-border/50">
                                             {produtosLancados.map(p => (
-                                                <div key={p.id} className="p-3 flex justify-between items-center hover:bg-accent/50 transition-colors">
+                                                <div key={p.id} className="p-3 flex justify-between items-center hover:bg-accent/30 transition-colors">
                                                     <div className="flex flex-col">
-                                                        <span className="text-xs font-bold uppercase leading-tight truncate max-w-[180px]">{p.produtoNome}</span>
-                                                        <span className="text-[0.65rem] text-muted-foreground">{p.quantidade} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}</span>
+                                                        <span className="text-[0.7rem] font-black uppercase leading-tight truncate max-w-[180px]">{p.produtoNome}</span>
+                                                        <span className="text-[0.6rem] text-muted-foreground font-bold">{p.quantidade} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}</span>
                                                     </div>
                                                     <div className="flex items-center gap-3">
-                                                        <span className="text-sm font-mono font-bold">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/50 hover:text-destructive" onClick={() => setProdutosLancados(prev => prev.filter(it => it.id !== p.id))}>
+                                                        <span className="text-sm font-mono font-black text-foreground">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/40 hover:text-destructive hover:bg-destructive/10" onClick={() => setProdutosLancados(prev => prev.filter(it => it.id !== p.id))}>
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </div>
@@ -265,8 +268,13 @@ export default function MercadoriasPanel() {
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="h-40 flex items-center justify-center text-muted-foreground/50 text-xs italic p-4 text-center">
-                                            {isParsing ? "Extraindo dados da imagem..." : "Aguardando seleção de imagem para extração."}
+                                        <div className="h-40 flex flex-col items-center justify-center text-muted-foreground/40 text-[0.6rem] uppercase font-black p-4 text-center gap-2">
+                                            {isParsing ? (
+                                                <>
+                                                    <Loader2 className="h-6 w-6 animate-spin" />
+                                                    IA está a ler os dados...
+                                                </>
+                                            ) : "Aguardando imagem para processar..."}
                                         </div>
                                     )}
                                 </ScrollArea>
@@ -274,15 +282,15 @@ export default function MercadoriasPanel() {
                         </div>
                     </div>
 
-                    <DialogFooter className="p-6 border-t bg-muted/10 gap-3">
-                        <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-                        <Button onClick={handleConfirmAll} disabled={isSubmitting || !produtosLancados.length} className="h-12 px-8 font-black text-lg gap-2">
+                    <DialogFooter className="p-6 border-t bg-muted/5 gap-3">
+                        <Button variant="outline" onClick={() => setIsModalOpen(false)} className="h-12 font-bold uppercase tracking-widest text-xs">Cancelar</Button>
+                        <Button onClick={handleConfirmAll} disabled={isSubmitting || !produtosLancados.length || isParsing} className="h-12 px-10 font-black text-lg gap-2 shadow-xl shadow-primary/20">
                             {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
-                            Confirmar e Gravar Entrada
+                            Confirmar Entrada
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </>
+        </div>
     );
 }

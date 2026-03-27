@@ -21,7 +21,7 @@ interface DatePickerProps {
 
 /**
  * Componente DatePicker otimizado para funcionar dentro de Dialogs e Modais.
- * Utiliza o estado modal do Popover para garantir prioridade de clique.
+ * Utiliza o estado modal do Popover para garantir prioridade de clique e z-index elevado.
  */
 export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
@@ -39,7 +39,7 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
         <Button
           variant={"outline"}
           className={cn(
-            "w-full justify-start text-left font-normal h-10 bg-background border-input",
+            "w-full justify-start text-left font-normal h-10 bg-background border-input relative z-10",
             !date && "text-muted-foreground"
           )}
         >
@@ -52,10 +52,10 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-auto p-0 z-[1000]" 
+        className="w-auto p-0 z-[9999]" 
         align="start"
         side="bottom"
-        onInteractOutside={(e) => e.preventDefault()}
+        sideOffset={4}
       >
         <Calendar
           mode="single"
