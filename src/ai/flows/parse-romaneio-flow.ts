@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 1.5 Flash.
- * Otimizado para estabilidade e rapidez, utilizando identificadores de modelo estáveis.
+ * Otimizado para estabilidade utilizando identificadores de modelo qualificados.
  */
 
 import { ai } from '@/ai/genkit';
@@ -44,7 +44,6 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
-    // Usamos o identificador estável 'googleai/gemini-1.5-flash' para evitar erro 404 na Vercel
     const { output } = await ai.generate({
       model: 'googleai/gemini-1.5-flash',
       prompt: [
@@ -67,7 +66,7 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     
     let userMessage = error.message;
     if (error.message?.includes('404')) {
-      userMessage = 'Modelo Gemini 1.5 Flash não encontrado ou desativado na sua região.';
+      userMessage = 'Modelo Gemini 1.5 Flash não encontrado ou desativado na sua região. Tente novamente ou use o teste de conexão.';
     } else if (error.message?.includes('429')) {
       userMessage = 'Limite de requisições excedido. Tente novamente em alguns segundos.';
     }

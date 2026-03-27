@@ -519,7 +519,10 @@ export default function ReportsPage() {
     if (archivedItemToEdit) {
         setEditArchivedInput(archivedItemToEdit.originalCommand || '');
         const d = archivedItemToEdit.timestamp?.toDate ? archivedItemToEdit.timestamp.toDate() : new Date(archivedItemToEdit.timestamp);
-        if (isValid(d)) { setEditArchivedDate(d); setEditArchivedTime(format(d, 'HH:mm')); }
+        if (isValid(d)) { 
+            setEditArchivedDate(d); 
+            setEditArchivedTime(format(d, 'HH:mm')); 
+        }
     }
   }, [archivedItemToEdit]);
 
@@ -594,7 +597,8 @@ export default function ReportsPage() {
             if (qtyMatch) { qty = parseInt(qtyMatch[1], 10); itemNamePart = qtyMatch[2]; }
             const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
             if (isPredefined) {
-                consumedParts[i] = true; let priceToUse = isPredefined; if (i + 1 < parts.length && !consumedParts[i + 1] && !isNaN(parseFloat(parts[i+1]))) { priceToUse = parseFloat(input.price).replace(',', '.'); consumedParts[i + 1] = true; i++; }
+                consumedParts[i] = true; let priceToUse = isPredefined; 
+                // Note: editArchivedInput doesn't have currentItem.price available directly here in this simplified logic, using standard price.
                 for (let j = 0; j < qty; j++) { predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse }); totalPrice += priceToUse; }
                 totalQuantity += qty; continue;
             }
