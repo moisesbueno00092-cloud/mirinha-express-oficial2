@@ -191,24 +191,24 @@ export default function MercadoriasPanel() {
         <div className="space-y-6">
             <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png" onChange={handleFileChange} />
 
-            <div className="flex justify-between items-center bg-muted/20 p-3 rounded-xl border border-border/50">
+            <div className="flex justify-between items-center bg-muted/20 p-2 rounded-lg border border-border/50">
                 <div className="flex items-center gap-2">
                     <div className={cn("w-2 h-2 rounded-full", 
                         aiStatus === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : aiStatus === 'offline' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'bg-gray-500'
                     )} />
-                    <span className="text-[0.65rem] font-black uppercase tracking-widest text-muted-foreground">
+                    <span className="text-[0.6rem] font-black uppercase tracking-widest text-muted-foreground">
                         IA: {aiStatus === 'online' ? 'LIGADA' : aiStatus === 'offline' ? 'DESLIGADA' : 'EM ESPERA'}
                     </span>
                 </div>
                 <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="h-8 gap-2 text-[0.65rem] font-bold hover:bg-primary/10 transition-all" 
+                    className="h-7 gap-2 text-[0.6rem] font-bold hover:bg-primary/10 transition-all" 
                     onClick={handleCheckStatus}
                     disabled={isTestingConnection}
                 >
                     {isTestingConnection ? <Loader2 className="h-3 w-3 animate-spin text-primary" /> : <Zap className="h-3 w-3 text-primary" />}
-                    TESTAR LIGAÇÃO VERCEL
+                    TESTAR LIGAÇÃO
                 </Button>
             </div>
 
@@ -218,73 +218,76 @@ export default function MercadoriasPanel() {
                     <div className="space-y-1">
                         <p className="text-xs font-bold text-destructive">A IA não está a responder.</p>
                         <p className="text-[0.65rem] text-muted-foreground leading-relaxed">
-                            Certifique-se de que a variável <code className="bg-background px-1 rounded">NEXT_PUBLIC_GEMINI_API_KEY</code> está configurada corretamente na Vercel e que o seu projeto Google Cloud tem a API ativada.
+                            Certifique-se de que a variável <code className="bg-background px-1 rounded">NEXT_PUBLIC_GEMINI_API_KEY</code> está configurada corretamente na Vercel.
                         </p>
                     </div>
                 </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold tracking-widest">Fornecedor (Opcional)</Label>
+                <div className="space-y-1.5">
+                    <Label className="text-muted-foreground uppercase text-[0.6rem] font-bold tracking-widest">Fornecedor</Label>
                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                        <SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
+                        <SelectTrigger className="h-10 rounded-lg"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>
                             {fornecedores?.map(f => (<SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>))}
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="space-y-2">
-                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold tracking-widest">Data de Vencimento</Label>
+                <div className="space-y-1.5">
+                    <Label className="text-muted-foreground uppercase text-[0.6rem] font-bold tracking-widest">Data de Vencimento</Label>
                     <DatePicker date={dataVencimento} setDate={setDataVencimento} />
                 </div>
             </div>
 
-            <div className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-[2rem] p-12 text-center space-y-6 transition-all hover:bg-primary/10 hover:border-primary/40 group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                <div className="bg-primary/10 p-6 rounded-full w-24 h-24 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                    <FileImage className="h-12 w-12 text-primary" />
+            <div 
+                className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-2xl p-6 text-center space-y-4 transition-all hover:bg-primary/10 hover:border-primary/40 group cursor-pointer" 
+                onClick={() => fileInputRef.current?.click()}
+            >
+                <div className="bg-primary/10 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                    <FileImage className="h-6 w-6 text-primary" />
                 </div>
-                <div className="space-y-2">
-                    <h3 className="font-black text-2xl text-foreground">Carregar Romaneio</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Selecione uma imagem JPG/PNG para que a IA preencha os itens automaticamente.</p>
+                <div className="space-y-1">
+                    <h3 className="font-bold text-lg text-foreground">Carregar Romaneio</h3>
+                    <p className="text-muted-foreground max-w-sm mx-auto text-[0.7rem] uppercase tracking-tight font-medium">Selecione uma imagem JPG ou PNG</p>
                 </div>
                 <Button 
-                    size="lg" 
-                    className="w-full sm:w-auto h-16 gap-4 text-xl font-black px-16 rounded-2xl shadow-xl hover:translate-y-[-2px] transition-all" 
+                    size="sm" 
+                    className="w-full sm:w-auto h-10 gap-2 text-sm font-black px-8 rounded-lg shadow-lg hover:translate-y-[-1px] transition-all" 
                     disabled={isParsingRomaneio}
                 >
-                    {isParsingRomaneio ? <Loader2 className="h-7 w-7 animate-spin"/> : <Upload className="h-7 w-7"/>}
-                    {isParsingRomaneio ? 'A Analisar...' : 'Escolher Imagem'}
+                    {isParsingRomaneio ? <Loader2 className="h-4 w-4 animate-spin"/> : <Upload className="h-4 w-4"/>}
+                    {isParsingRomaneio ? 'Analisando...' : 'Escolher Ficheiro'}
                 </Button>
             </div>
 
             {produtosLancados.length > 0 && (
-                <div className="border border-border/50 rounded-[2rem] overflow-hidden bg-card/50 shadow-2xl backdrop-blur-sm">
-                    <div className="bg-muted/30 px-8 py-5 flex justify-between items-center border-b border-border/50">
-                        <span className="flex items-center gap-3 text-primary font-black uppercase text-sm tracking-widest"><ClipboardList className="h-5 w-5"/> Itens Extraídos</span>
-                        <span className="text-foreground font-black text-lg">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
+                <div className="border border-border/50 rounded-2xl overflow-hidden bg-card/50 shadow-xl backdrop-blur-sm">
+                    <div className="bg-muted/30 px-6 py-3 flex justify-between items-center border-b border-border/50">
+                        <span className="flex items-center gap-2 text-primary font-black uppercase text-[0.65rem] tracking-widest"><ClipboardList className="h-4 w-4"/> Itens Extraídos</span>
+                        <span className="text-foreground font-black text-sm">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
                     </div>
-                    <ScrollArea className="h-80">
+                    <ScrollArea className="h-60">
                         <div className="divide-y divide-border/30">
                             {produtosLancados.map(p => (
-                                <div key={p.id} className="flex justify-between items-center px-8 py-6 hover:bg-primary/5 transition-colors">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="font-bold uppercase text-base leading-none">{p.produtoNome}</span>
-                                        <span className="text-[0.7rem] text-muted-foreground font-medium uppercase tracking-tight">
-                                            {p.quantidade.toLocaleString('pt-BR')} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)} cada
+                                <div key={p.id} className="flex justify-between items-center px-6 py-4 hover:bg-primary/5 transition-colors">
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="font-bold uppercase text-xs leading-none">{p.produtoNome}</span>
+                                        <span className="text-[0.6rem] text-muted-foreground font-medium uppercase tracking-tight">
+                                            {p.quantidade.toLocaleString('pt-BR')} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-6">
-                                        <span className="font-mono font-black text-primary text-xl">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
-                                        <Button variant="ghost" size="icon" className="h-12 w-12 text-destructive/30 hover:text-destructive" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-6 w-6" /></Button>
+                                    <div className="flex items-center gap-4">
+                                        <span className="font-mono font-black text-primary text-sm">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/30 hover:text-destructive" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-4 w-4" /></Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </ScrollArea>
-                    <div className="p-8 bg-muted/10 border-t border-border/50 flex justify-end">
-                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-16 px-16 text-xl font-black gap-4 rounded-2xl shadow-xl">
-                            {isSubmitting ? <Loader2 className="animate-spin h-7 w-7" /> : <CheckCircle2 className="h-7 w-7" />}
+                    <div className="p-4 bg-muted/10 border-t border-border/50 flex justify-end">
+                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-10 px-8 text-sm font-black gap-2 rounded-lg shadow-lg">
+                            {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                             Confirmar Lançamento
                         </Button>
                     </div>
