@@ -9,7 +9,7 @@ import { parseRomaneio, testAiConnection } from '@/ai/flows/parse-romaneio-flow'
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, Trash2, Upload, FileImage, ClipboardList, CheckCircle2, Zap, ZapOff } from 'lucide-react';
+import { Loader2, Trash2, Upload, FileImage, ClipboardList, CheckCircle2, Zap } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
@@ -24,12 +24,16 @@ interface LancamentoProduto {
     precoUnitario: number;
 }
 
+/**
+ * Comprime a imagem de forma agressiva para evitar erros de pré-condição e limite de memória.
+ * Reduz a largura para 800px e a qualidade para 50%.
+ */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1000; 
+            const MAX_WIDTH = 800; 
             let width = img.width;
             let height = img.height;
             if (width > MAX_WIDTH) {
@@ -40,7 +44,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.6));
+            resolve(canvas.toDataURL('image/jpeg', 0.5));
         };
         img.src = dataUri;
     });
@@ -94,7 +98,7 @@ export default function MercadoriasPanel() {
                     precoUnitario: it.quantidade > 0 ? it.valorTotal / it.quantidade : it.valorTotal
                 }));
                 setProdutosLancados(newItems);
-                toast({ title: "Sucesso!", description: `Extraídos ${output.items.length} itens.` });
+                toast({ title: "Sucesso!", description: `Extraídos ${output.items.length} itens do romaneio.` });
             }
 
             if (output?.fornecedorNome && fornecedores) {
@@ -111,6 +115,7 @@ export default function MercadoriasPanel() {
                 } catch {}
             }
         } catch (e: any) {
+            console.error("Erro no processamento:", e);
             toast({ variant: 'destructive', title: 'Erro de Processamento', description: e.message });
         } finally {
             setIsParsingRomaneio(false);
@@ -200,13 +205,13 @@ export default function MercadoriasPanel() {
                     disabled={isTestingConnection}
                 >
                     {isTestingConnection ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                    VERIFICAR CONEXÃO
+                    VERIFICAR CONEXÃO NO SERVIDOR
                 </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold">Fornecedor</Label>
+                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold">Fornecedor (Opcional)</Label>
                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
                         <SelectTrigger className="h-12"><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
                         <SelectContent>
@@ -226,7 +231,7 @@ export default function MercadoriasPanel() {
                 </div>
                 <div className="space-y-2">
                     <h3 className="font-black text-2xl text-foreground">Enviar Romaneio (JPG)</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">A IA usará o modelo 8B para captar os dados com rapidez.</p>
+                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Carregue a foto do romaneio da memória do seu dispositivo para extração automática.</p>
                 </div>
                 <Button 
                     size="lg" 
@@ -235,7 +240,7 @@ export default function MercadoriasPanel() {
                     disabled={isParsingRomaneio}
                 >
                     {isParsingRomaneio ? <Loader2 className="h-7 w-7 animate-spin"/> : <Upload className="h-7 w-7"/>}
-                    {isParsingRomaneio ? 'Extraindo Dados...' : 'Escolher Ficheiro'}
+                    {isParsingRomaneio ? 'Analisando...' : 'Escolher Ficheiro'}
                 </Button>
             </div>
 
