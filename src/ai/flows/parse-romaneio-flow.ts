@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Fluxo de extração de dados de romaneios com máxima resiliência regional.
- * Utiliza o identificador estável googleai/gemini-1.5-flash para evitar erros 404.
+ * Utiliza o identificador qualificado estável googleai/gemini-1.5-flash.
  */
 
 import { ai } from '@/ai/genkit';
@@ -68,5 +68,5 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     lastError = error;
   }
 
-  throw new Error(`IA Indisponível: Não foi possível conectar a nenhum modelo na sua região. Tente novamente ou use o teste de conexão. Detalhe: ${lastError?.message || 'Erro desconhecido'}`);
+  throw new Error(`IA Indisponível: O modelo Gemini 1.5 Flash não está a responder corretamente na sua região. Tente novamente. Detalhe: ${lastError?.message || 'Erro desconhecido'}`);
 }
