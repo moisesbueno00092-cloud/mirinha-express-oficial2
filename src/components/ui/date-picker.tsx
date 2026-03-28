@@ -22,7 +22,7 @@ interface DatePickerProps {
 
 /**
  * Componente DatePicker otimizado para funcionar dentro de Dialogs e Modais.
- * Utiliza o estado modal do Popover para garantir prioridade de clique e z-index elevado.
+ * Utiliza o estado modal do Popover e Z-index elevado para garantir prioridade.
  */
 export function DatePicker({ date, setDate, disabled }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);

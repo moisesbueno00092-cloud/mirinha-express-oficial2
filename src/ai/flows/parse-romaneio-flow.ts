@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Fluxo de extração de dados de romaneios utilizando o modelo estável Gemini 1.5 Flash.
+ * @fileOverview Fluxo de extração de dados de romaneios com estratégia de fallback para múltiplos modelos.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,59 +20,61 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Função simples para testar a ligação com a IA.
+ * Testa a conexão com a IA utilizando os modelos disponíveis.
  */
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
-      prompt: 'Responda apenas "OK".',
-    });
-    if (response.text?.includes('OK')) {
-      return { success: true, message: `Conectado via Gemini 1.5 Flash` };
+  const models = ['googleai/gemini-1.5-flash', 'googleai/gemini-1.5-flash-8b', 'googleai/gemini-1.5-pro'];
+  let lastError = '';
+
+  for (const model of models) {
+    try {
+      const response = await ai.generate({
+        model,
+        prompt: 'Responda apenas "OK".',
+      });
+      if (response.text?.includes('OK')) {
+        return { success: true, message: `Conectado com sucesso via ${model}` };
+      }
+    } catch (e: any) {
+      lastError = e.message;
+      console.warn(`Falha no modelo ${model}:`, e.message);
     }
-    return { success: false, message: 'Resposta inesperada da IA.' };
-  } catch (e: any) {
-    console.error('Erro no teste de conexão:', e.message);
-    return { success: false, message: `Falha na conexão: ${e.message}` };
   }
+
+  return { success: false, message: `Falha em todos os modelos. Último erro: ${lastError}` };
 }
 
 /**
- * Analisa a foto de um romaneio e extrai os dados estruturados.
- * Utiliza o identificador qualificado estável para evitar erros 404 na Vercel.
+ * Analisa a foto de um romaneio tentando múltiplos modelos em caso de erro 404.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
-  try {
-    const { output } = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
-      prompt: [
-        { text: `Você é um assistente especializado em romaneios de restaurante. 
-        Extraia os dados da imagem para JSON:
-        1. fornecedorNome: Nome da empresa.
-        2. dataVencimento: Data de pagamento (formato YYYY-MM-DD). Se não encontrar, deixe vazio.
-        3. items: lista com produtoNome, quantidade e valorTotal.
-        Ignore carimbos, assinaturas ou rasuras.` },
-        { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
-      ],
-      output: { schema: ParseRomaneioOutputSchema },
-      config: { temperature: 0.1 }
-    });
+  const models = ['googleai/gemini-1.5-flash', 'googleai/gemini-1.5-flash-8b', 'googleai/gemini-1.5-pro'];
+  let lastError: any = null;
 
-    if (output) return output;
-    throw new Error('A IA não retornou dados estruturados.');
-  } catch (error: any) {
-    console.error('Erro na extração do romaneio:', error.message);
-    
-    let userMessage = "Erro desconhecido.";
-    if (error.message?.includes('404') || error.message?.includes('not found')) {
-      userMessage = "Modelo Gemini 1.5 Flash não encontrado ou desativado na sua região. Tente novamente ou use o teste de conexão.";
-    } else if (error.message?.includes('API_KEY')) {
-      userMessage = "Chave de API inválida ou expirada.";
-    } else {
-      userMessage = error.message;
+  for (const modelName of models) {
+    try {
+      const { output } = await ai.generate({
+        model: modelName,
+        prompt: [
+          { text: `Você é um assistente especializado em romaneios de restaurante. 
+          Extraia os dados da imagem para JSON:
+          1. fornecedorNome: Nome da empresa.
+          2. dataVencimento: Data de pagamento (formato YYYY-MM-DD). Se não encontrar, deixe vazio.
+          3. items: lista com produtoNome, quantidade e valorTotal.
+          Ignore carimbos, assinaturas ou rasuras.` },
+          { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
+        ],
+        output: { schema: ParseRomaneioOutputSchema },
+        config: { temperature: 0.1 }
+      });
+
+      if (output) return output;
+    } catch (error: any) {
+      lastError = error;
+      console.error(`Erro no modelo ${modelName}:`, error.message);
+      // Se não for erro 404 ou 429, talvez nem valha a pena tentar os outros, mas vamos tentar por segurança
     }
-
-    throw new Error(`IA Indisponível: ${userMessage}`);
   }
+
+  throw new Error(`IA Indisponível: Não foi possível conectar a nenhum modelo na sua região. Tente novamente ou use o teste de conexão. Detalhe: ${lastError?.message || 'Erro desconhecido'}`);
 }
