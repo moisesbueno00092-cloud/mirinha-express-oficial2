@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Fluxo de extração de dados de romaneios com resiliência regional.
+ * @fileOverview Fluxo de extração de dados de romaneios com resiliência total.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,11 +20,12 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Testa a conexão com a IA.
+ * Testa a conexão com a IA utilizando o identificador estável.
  */
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
   try {
     const response = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
       prompt: 'Responda apenas "CONECTADO".',
     });
     if (response.text?.includes('CONECTADO')) {
@@ -37,42 +38,31 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
 }
 
 /**
- * Analisa a foto de um romaneio utilizando múltiplos modelos em caso de falha (Resiliência 404).
+ * Analisa a foto de um romaneio utilizando o modelo estável qualificado.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
-  // Lista de modelos para tentar em sequência caso ocorra um erro 404 ou 503
-  const modelsToTry = [
-    'googleai/gemini-1.5-flash',
-    'googleai/gemini-1.5-flash-8b',
-    'googleai/gemini-1.5-pro'
-  ];
-
   let lastError: any = null;
 
-  for (const modelId of modelsToTry) {
-    try {
-      const { output } = await ai.generate({
-        model: modelId,
-        prompt: [
-          { text: `Você é um assistente especializado em romaneios de restaurante. 
-          Extraia os dados da imagem para JSON:
-          1. fornecedorNome: Nome da empresa.
-          2. dataVencimento: Data de pagamento (formato YYYY-MM-DD). Se não encontrar, deixe vazio.
-          3. items: lista com produtoNome, quantidade e valorTotal.
-          Ignore carimbos, assinaturas ou rasuras.` },
-          { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
-        ],
-        output: { schema: ParseRomaneioOutputSchema },
-        config: { temperature: 0.1 }
-      });
+  try {
+    const { output } = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
+      prompt: [
+        { text: `Você é um assistente especializado em romaneios de restaurante. 
+        Extraia os dados da imagem para JSON:
+        1. fornecedorNome: Nome da empresa.
+        2. dataVencimento: Data de pagamento (formato YYYY-MM-DD). Se não encontrar, deixe vazio.
+        3. items: lista com produtoNome, quantidade e valorTotal.
+        Ignore carimbos, assinaturas ou rasuras.` },
+        { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
+      ],
+      output: { schema: ParseRomaneioOutputSchema },
+      config: { temperature: 0.1 }
+    });
 
-      if (output) return output;
-    } catch (error: any) {
-      console.warn(`Falha ao usar modelo ${modelId}:`, error.message);
-      lastError = error;
-      // Se não for erro de modelo não encontrado, pode ser erro de cota ou rede, continuamos tentando
-      continue;
-    }
+    if (output) return output;
+  } catch (error: any) {
+    console.warn(`Falha ao processar romaneio:`, error.message);
+    lastError = error;
   }
 
   throw new Error(`IA Indisponível: Não foi possível conectar a nenhum modelo na sua região. Tente novamente ou use o teste de conexão. Detalhe: ${lastError?.message || 'Erro desconhecido'}`);
